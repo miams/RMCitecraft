@@ -1,0 +1,180 @@
+name: Refactor Documentation
+
+on:
+  # Run before generating docs map on pushes to main
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - '**.md'
+      - '.github/scripts/refactor_docs.py'
+      - '.github/workflows/refactor-docs.yml'
+
+  # Run on pull requests that add/modify markdown files
+  pull_request:
+    paths:
+      - '**.md'
+      - '.github/scripts/refactor_docs.py'
+
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (show changes without applying)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refactor-documentation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Ensure we can push to the branch
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Make script executable
+        run: chmod +x .github/scripts/refactor_docs.py
+
+      - name: Run refactoring (dry-run for PRs)
+        id: refactor
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ] || [ "${{ inputs.dry_run }}" == "true" ]; then
+            echo "Running in dry-run mode..."
+            python3 .github/scripts/refactor_docs.py --dry-run
+            echo "dry_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "Running refactoring..."
+            python3 .github/scripts/refactor_docs.py
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git add -A
+          if git diff --staged --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No documentation reorganization needed"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Documentation has been reorganized"
+          fi
+
+      - name: Determine target branch
+        id: target_branch
+        run: |
+          # Check if dev branch exists
+          if git ls-remote --heads origin dev | grep -q dev; then
+            echo "has_dev=true" >> $GITHUB_OUTPUT
+            echo "Dev branch exists - will use gitflow"
+          else
+            echo "has_dev=false" >> $GITHUB_OUTPUT
+            echo "No dev branch - will commit to main only"
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true' && steps.refactor.outputs.dry_run == 'false' && github.event_name == 'push'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # Determine target branch based on current branch and gitflow setup
+          CURRENT_BRANCH="${{ github.ref_name }}"
+
+          if [ "${{ steps.target_branch.outputs.has_dev }}" == "true" ]; then
+            # Gitflow mode
+            if [ "$CURRENT_BRANCH" == "main" ]; then
+              TARGET_BRANCH="main"
+            else
+              TARGET_BRANCH="dev"
+            fi
+          else
+            # No gitflow - always commit to main
+            TARGET_BRANCH="main"
+          fi
+
+          echo "Committing to branch: $TARGET_BRANCH"
+
+          # Create commit
+          git commit -am "docs: refactor documentation organization [skip ci]
+
+          Automated documentation reorganization:
+          - Moved files to appropriate subdirectories
+          - Updated all internal references
+          - Maintained clean root directory structure"
+
+          git push origin HEAD:$TARGET_BRANCH
+
+      - name: Comment on PR with changes
+        if: steps.check_changes.outputs.changed == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 📁 Documentation Refactoring
+
+            This PR triggers documentation reorganization. The refactoring would:
+
+            - Move files to appropriate subdirectories (\`docs/project\`, \`docs/archive\`, etc.)
+            - Update all internal references automatically
+            - Keep root directory clean (only essential files remain)
+
+            **Note:** This is a dry-run preview. Changes will be applied when merged to main/dev.
+
+            Check the workflow run logs for detailed information about which files would be moved.`
+            });
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Documentation Refactoring" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.refactor.outputs.dry_run }}" == "true" ]; then
+            echo "🔍 **Mode:** Dry-run (preview only)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.check_changes.outputs.changed }}" == "true" ]; then
+            echo "✅ Documentation reorganization completed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check the workflow logs for detailed information about:" >> $GITHUB_STEP_SUMMARY
+            echo "- Files moved to new locations" >> $GITHUB_STEP_SUMMARY
+            echo "- References updated across the codebase" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No documentation reorganization needed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "All documentation files are already properly organized." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Trigger documentation map generation
+        if: steps.check_changes.outputs.changed == 'true' && steps.refactor.outputs.dry_run == 'false' && github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Trigger the docs map workflow
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'generate-docs-map.yml',
+              ref: context.ref
+            });
+            console.log('Triggered documentation map generation workflow');

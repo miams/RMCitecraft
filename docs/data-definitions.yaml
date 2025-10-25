@@ -1,0 +1,1910 @@
+-
+  TableName: AddressLinkTable
+  Fields:
+    -
+      FieldName: LinkID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3..."
+      Comments: "Link Identification Number, sequentially ordered"
+    -
+      FieldName: OwnerType
+      Type: Integer
+      Typical Values: "0,1,3,6"
+      Comments: "0 = Person (Address of Person Fact from Edit Person Window),\n1 = Family (Address of Spouse / Parents from Edit Person Window),\n3 = Source (Repository),\n6 = Task  (Address or Repository)"
+    -
+      FieldName: AddressID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "1,2,3..."
+      Comments: Links to AddressID in AddressTable
+    -
+      FieldName: OwnerID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "1,2,3..."
+      Comments: "Link based on OwnerType:\n0 = PersonTable.PersonID,\n1 = FamilyTable.FamilyID,\n3 = SourceTable.SourceID,\n6 = TaskTable.TaskID"
+    -
+      FieldName: AddressNum
+      Type: Integer
+      Typical Values: 0.0
+    -
+      FieldName: Details
+      Type: Text
+      Typical Values: Blank
+      Comments: Not Implemented
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: AddressTable
+  Fields:
+    -
+      FieldName: AddressID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3..."
+      Comments: Address Identification Number
+    -
+      FieldName: AddressType
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "0 = Person or Family,\n1 = Repository"
+    -
+      FieldName: Name
+      Type: Text Collate RMNOCASE
+      Key/Index: idxAddressName
+      Typical Values: User Defined
+      Comments: "Name, from Edit Address pane or Edit Repository pane. "
+    -
+      FieldName: Street1
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Street address [first line], from Edit Address pane or Edit Repository pane. "
+    -
+      FieldName: Street2
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Street address [second line], from Edit Address pane or Edit Repository pane. "
+    -
+      FieldName: City
+      Type: Text
+      Typical Values: User Defined
+      Comments: "City, from Edit Address pane or Edit Repository pane. "
+    -
+      FieldName: State
+      Type: Text
+      Typical Values: User Defined
+      Comments: "State, from Edit Address pane or Edit Repository pane. "
+    -
+      FieldName: Zip
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Postal Code, from Edit Address pane or Edit Repository pane. "
+    -
+      FieldName: Country
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Country, from Edit Address pane or Edit Repository pane. "
+    -
+      FieldName: Phone1
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Phone, from Edit Address pane or Edit Repository pane. "
+    -
+      FieldName: Phone2
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Cell phone, from Edit Address pane or Edit Repository pane. "
+    -
+      FieldName: Fax
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Fax, from Edit Address pane or Edit Repository pane. "
+    -
+      FieldName: Email
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Email, from Edit Address pane or Edit Repository pane. "
+    -
+      FieldName: URL
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Website, from Edit Address pane or Edit Repository pane. "
+    -
+      FieldName: Latitude
+      Type: Integer
+      Typical Values: User Defined
+      Comments: Not implemented
+    -
+      FieldName: Longitude
+      Type: Integer
+      Typical Values: User Defined
+      Comments: Not implemented
+    -
+      FieldName: Note
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Note, from Edit Address pane or Edit Repository pane. \nUser Interface supports line breaks and formatting tags."
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: AncestryTable
+  Fields:
+    -
+      FieldName: LinkID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3..."
+      Comments: LinkID Identification Number
+    -
+      FieldName: LinkType
+      Type: Integer
+      Typical Values: "0, 4, 11"
+      Comments: "0 = Person, \n4 = Citation, \n11 = Media"
+    -
+      FieldName: rmID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxLinkAncestryRmID"
+      Typical Values: "1,2,3..."
+      Comments: "Link based on LinkType:\n0 = PersonTable.PersonID, \n4 = CitationTable.CitationID, \n11 = MultiMediaTable.MediaID"
+    -
+      FieldName: anID
+      Type: Text
+      Key/Index: idxLinkAncestryanID
+      Typical Values: Formatted string
+      Comments: "Person = [d]{12}:[d]{4}:[d]{9} - e.g.: 121212121212:1030:123456789,\nCitation, origin RM = [d]:9000:[d] (length varies),\nCitation, origin Ancestry = [d]:[d] \nMedia = Ancestry assigned ID (matches filename for media downloaded from Ancestry)"
+    -
+      FieldName: Modified
+      Type: Integer
+      Typical Values: "0, 1"
+      Comments: "For LinkType=0 (Person):\n0 = No modification detected or 'Mark as not changed' button has been selected in Treeshare,\n1 = Change identified in RM db or in Ancestry via Treeshare notification. Person’s status appears as changed in Treeshare."
+    -
+      FieldName: anVersion
+      Type: Text
+      Typical Values: Null or Hex String
+      Comments: "Hex code where LinkType=0 (Person), \nOtherwise NULL"
+    -
+      FieldName: anDate
+      Type: Float
+      Typical Values: 0.0
+    -
+      FieldName: Status
+      Type: Integer
+      Typical Values: 0.0
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+    -
+      FieldName: TreeID
+      Type: Text
+      Typical Values: Blank
+      Comments: Not Implemented
+-
+  TableName: ChildTable
+  Fields:
+    -
+      FieldName: RecID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3..."
+      Comments: Record number in childtable
+    -
+      FieldName: ChildID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxChildID"
+      Typical Values: "1,2,3..."
+      Comments: Link to PersonID in PersonTable
+    -
+      FieldName: FamilyID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxChildFamilyID"
+      Typical Values: "1,2,3..."
+      Comments: Link to FamilyID in FamilyTable
+    -
+      FieldName: RelFather
+      Type: Integer
+      Typical Values: "0,1,2,..."
+      Comments: "Relationship to Father as defined in Parents section of Edit Person: \n0 = Birth,\n1 = Adopted, \n2 = Step,\n3 = Foster,\n4 = Related,\n5 = Guardian,\n6 = Sealed,\n7 = Unknown"
+    -
+      FieldName: RelMother
+      Type: Integer
+      Typical Values: "0,1,2,..."
+      Comments: "Relationship to Mother as defined in Parents section of Edit Person: \n(Values same as RelFather)"
+    -
+      FieldName: ChildOrder
+      Type: Integer
+      Key/Index: idxChildOrder
+      Typical Values: "0,1,2,3,..."
+      Comments: "When number of Children=1:\n0 = Child added to family with Add Father or Add Mother action,\n1000 = Child added to family with Add Child action;\nElse, once number of Children >1 value matches order in Family view."
+    -
+      FieldName: IsPrivate
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not Implemented
+    -
+      FieldName: ProofFather
+      Type: Integer
+      Typical Values: "0,1,2,3"
+      Comments: "Set by Proof listbox in Parents pane of Edit Persons. \n0 - Blank, \n1 - Proven, \n2 - Disproven, \n3 - Disputed"
+    -
+      FieldName: ProofMother
+      Type: Integer
+      Typical Values: "0,1,2,3"
+      Comments: "Set by Proof listbox in Parents pane of Edit Persons. \n0 - Blank, \n1 - Proven, \n2 - Disproven, \n3 - Disputed"
+    -
+      FieldName: Note
+      Type: Text
+      Typical Values: Blank
+      Comments: Not Implemented
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: CitationLinkTable
+  Fields:
+    -
+      FieldName: LinkID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,..."
+      Comments: Link identification number
+    -
+      FieldName: CitationID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "1,2,3,..."
+      Comments: Link to CitationTable.CitationID
+    -
+      FieldName: OwnerType
+      Type: Integer
+      Typical Values: "0,1,2,6,7,19"
+      Comments: " 0 = Person,\n 1 = Family,\n 2 = Event,\n 6 = Task,\n 7 = Name,\n19 = Association"
+    -
+      FieldName: OwnerID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxCitationLinkOwnerID"
+      Comments: "Link to Primary Key of table based on OwnerType:\n 0 = PersonTable.PersonID,\n 1 = FamilyTable.FamilyID,\n 2 = EventTable.EventID,\n 6 = TaskTable.TaskID,\n 7 = NameTable.NameID,\n 19 = FanTable.FanID"
+    -
+      FieldName: SortOrder
+      Type: Integer
+      Typical Values: "Null, or\n0"
+      Comments: "Not Implemented:\nNull = Legacy data,\n0 =  New table entry"
+    -
+      FieldName: Quality
+      Type: Text
+      Typical Values: "[PS~]{DIN~][OX~]"
+      Comments: "3-Character Quality of this information:\n 1st = (Info): P = Primary, S = Secondary,~ = Don't know\n 2nd = (Evidence): D = Direct, I = Indirect, N = Negative, ~ = Don't know\n 3rd = (Source): O = Original, X = Derivative, ~ = Don't know"
+    -
+      FieldName: IsPrivate
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not Implemented
+    -
+      FieldName: Flags
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not Implemented
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: CitationTable
+  Fields:
+    -
+      FieldName: CitationID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3..."
+      Comments: Citation Identification Number
+    -
+      FieldName: SourceID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxCitationSourceID"
+      Typical Values: "1,2,3..."
+      Comments: Link to SourceID of SourceTable
+    -
+      FieldName: Comments
+      Type: Text
+      Typical Values: User Defined
+      Comments: Detail Comment from Edit Citation pane. User Interface supports line breaks and formatting tags.
+    -
+      FieldName: ActualText
+      Type: Text
+      Typical Values: User Defined
+      Comments: Research Note from Edit Citation pane. User Interface supports line breaks and formatting tags.
+    -
+      FieldName: RefNumber
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Detail Ref# from Edit Citation pane."
+    -
+      FieldName: Footnote
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Value from Customize Footnote window, overrides sentence template output. User Interface supports line breaks and formatting tags."
+    -
+      FieldName: ShortFootnote
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Value from Customize Footnote window, overrides sentence template output. User Interface supports line breaks and formatting tags."
+    -
+      FieldName: Bibliography
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Value from Customize Footnote window, overrides sentence template output. User Interface supports line breaks and formatting tags."
+    -
+      FieldName: Fields
+      Type: Blob
+      Typical Values: XML
+      Comments: Citation Detail field “Names” (from Source template) and “Values” (from Edit Citation pane)
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+    -
+      FieldName: CitationName
+      Type: Text Collate RMNOCASE
+      Key/Index: idxCitationName
+      Typical Values: User Defined
+      Comments: "If left blank, field value is auto generated as the concatenation of all Citation Detail fields separated by semi-colons."
+-
+  TableName: ConfigTable
+  Fields:
+    -
+      FieldName: RecID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1, 2, 3..."
+      Comments: Record Identification Number
+    -
+      FieldName: RecType
+      Type: Integer
+      Key/Index: idxRecType
+      Typical Values: "1, 2, 3..."
+      Comments: "Record Type:\n1 = Database Configuration settings\n3 = Custom Report settings, from Publish menu\n4 = \n5 = Standard Report settings, from Publish menu\n6 = HTML Website settings, from Publish menu\n7 = Problem Options, from General Settings menu or Problem Search\n9 = Book settings, from Publish menu"
+    -
+      FieldName: Title
+      Type: Text
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: Title - See Row 5 of ConfigTable Tab
+    -
+      FieldName: DataRec
+      Type: Blob
+      Typical Values: XML code
+      Comments: Data Record - See Row 40 of ConfigTable Tab
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: DNATable
+  Fields:
+    -
+      FieldName: RecID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1, 2, 3…"
+      Comments: Record Identification Number
+    -
+      FieldName: ID1
+      Type: Integer
+      Key/Index: "idxDnaId1,\n Foreign Key"
+      Typical Values: "1, 2, 3…"
+      Comments: "Person 1, from the DNA Match view of Edit Person Window. \nLinks to PersonTable.PersonID."
+    -
+      FieldName: ID2
+      Type: Integer
+      Key/Index: "idxDnaId2,\n Foreign Key"
+      Typical Values: "1, 2, 3…"
+      Comments: "Person 2, from the DNA Match view of Edit Person Window. \nLinks to PersonTable.PersonID."
+    -
+      FieldName: Label1
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Label 1, from the DNA Match view of Edit Person Window. \n"
+    -
+      FieldName: Label2
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Label 2, from the DNA Match view of Edit Person Window. \n"
+    -
+      FieldName: DNAProvider
+      Type: Integer
+      Typical Values: "1-6, 998, 999"
+      Comments: "Provider, from the DNA Match view of Edit Person Window:\n1 = 23andMe,\n2 = Ancestry,\n3 = Family Tree DNA,\n4 = Living DNA,\n5 = My Heritage,\n6 = GEDmatch,\n998 = Unknown,\n999 = Other"
+    -
+      FieldName: SharedCM
+      Type: Float
+      Typical Values: "User Defined,\n0-4000"
+      Comments: "Shared Centimorgans (cM), from the DNA Match view of Edit Person Window."
+    -
+      FieldName: SharedPercent
+      Type: Float
+      Typical Values: "User Defined,\n0-100"
+      Comments: "Shared Percentage, from the DNA Match view of Edit Person Window."
+    -
+      FieldName: LargeSeg
+      Type: Float
+      Typical Values: "User Defined,\n0-500"
+      Comments: "Largest Segment (cM), from the DNA Match view of Edit Person Window."
+    -
+      FieldName: SharedSegs
+      Type: Integer
+      Typical Values: "User Defined,\n0-100"
+      Comments: "Shared Segments, from the DNA Match view of Edit Person Window."
+    -
+      FieldName: Date
+      Type: Text
+      Typical Values: Position coded string or free text
+      Comments: "[See Date sheet for additional details.]"
+    -
+      FieldName: Relate1
+      Type: Integer
+      Typical Values: 0-999
+      Comments: "Relate1, the number of generations between Person 1 (DNATable.ID1) and the Most Recent Common Ancestor (DNATable.CommonAnc). Relate1 and Relate2, taken together with DNATable.CommonAncType, calculate the relationship between the shared DNA Match. "
+    -
+      FieldName: Relate2
+      Type: Integer
+      Typical Values: "0,1,2,..."
+      Comments: "Relate2, the number of generations between Person 2 (DNATable.ID2) and the Most Recent Common Ancestor (DNATable.CommonAnc). Relate1 and Relate2, taken together with DNATable.CommonAncType, calculate the relationship between the shared DNA Match. \n"
+    -
+      FieldName: CommonAnc
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "0,1,2,..."
+      Comments: "Most Recent Common Ancestor (MRCA) of Person1 and Person2 of the DNA Match. Link to Primary Key of table based on DNATable.CommonAncType: \n0 = PersonTable.PersonID,\n1 = FamilyTable.FamilyID\n\nNote: CommonAnc = 0 when both Relate1 and Relate2 = 0 (ie when no RM-defined Tree Relationship has been identified)."
+    -
+      FieldName: CommonAncType
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "Common Ancestor Type. When DNATable.CommonAnc > 0: \n0 = Single MRCA (ie Half Relationship) identified in RM Tree,\n1 = Couple MRCA identified in RM Tree\n\nNote: CommonAncType also = 0 when DNATable.CommonAnc=0 (ie when no RM-defined Tree Relationship has been identified)."
+    -
+      FieldName: Verified
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not Implemented
+    -
+      FieldName: Note
+      Type: Text
+      Typical Values: User Defined
+      Comments: "DNA Note, from the DNA Match view of Edit Person Window. \n User Interface supports line breaks and formatting tags."
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: EventTable
+  Fields:
+    -
+      FieldName: EventID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3..."
+      Comments: Event Identification Number
+    -
+      FieldName: EventType
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxOwnerEvent"
+      Typical Values: "1,2,3..."
+      Comments: Link to FactTypeID in FactTypeTable
+    -
+      FieldName: OwnerType
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "0 = Person,\n1 = Family"
+    -
+      FieldName: OwnerID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxOwnerDate,\nidxOwnerEvent"
+      Typical Values: "1,2,3..."
+      Comments: "Link based on OwnerType:\n0 = PersonID in PersonTable,\n1 =  FamilyID in FamilyTable"
+    -
+      FieldName: FamilyID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "0,1,2,..."
+      Comments: "Link based on OwnerType:\n0 = not applicable or not assigned to event,\nElse = FamilyID in FamilyTable (Set via Parents listbox in Edit Person Fact pane for events such as Adoption or LDS Seal to Parents)"
+    -
+      FieldName: PlaceID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "0,1,2,..."
+      Comments: "0 if no Place has been assigned to event, \nelse PlaceID in PlaceTable"
+    -
+      FieldName: SiteID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "0,1,2,..."
+      Comments: "0 if no Place Details assigned to event, \nelse PlaceID (of Place Details) in PlaceTable"
+    -
+      FieldName: Date
+      Type: Text
+      Typical Values: Position coded string or free text
+      Comments: "[See Date sheet for additional details.]"
+    -
+      FieldName: SortDate
+      Type: BigInt
+      Key/Index: idxOwnerDate
+      Typical Values: 18 digits
+      Comments: Number representing a user entered date that forces an event into a position relative to other events in lists sorted on the Date field.
+    -
+      FieldName: IsPrimary
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "Primary checkbox in Edit Person Fact pane:\n0 = Not checked (default),\n1 = Checked. (Used to suppress from reports other conflicting facts of the same type.)"
+    -
+      FieldName: IsPrivate
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "Private checkbox in Edit Person Fact pane:\n0 = Not checked (default),\n1 = Checked. (Used to optionally suppress from reports events that are considered “private”.)"
+    -
+      FieldName: Proof
+      Type: Integer
+      Typical Values: "0,1,2,3"
+      Comments: "Proof listbox in Edit Person Fact pane:\n0 = Blank, \n1 = Proven, \n2 = Proven False, \n3 = Disputed"
+    -
+      FieldName: Status
+      Type: Integer
+      Typical Values: 0-12
+      Comments: "0 (default),\nElse = status of LDS events: e.g. 1-Submitted, 8-DNS, 12-Cleared"
+    -
+      FieldName: Sentence
+      Type: Text
+      Typical Values: Sentence Template Language
+      Comments: "Customised sentence for this event. \nUser Interface supports line breaks and formatting tags."
+    -
+      FieldName: Details
+      Type: Text
+      Typical Values: User Defined
+      Comments: Content of Description field in Edit Person Fact pane
+    -
+      FieldName: Note
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Content of Note in Edit Person Fact Pane. \nUser Interface supports line breaks and formatting tags."
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: ExclusionTable
+  Fields:
+    -
+      FieldName: RecID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1, 2, 3..."
+      Comments: Record Identification Number
+    -
+      FieldName: ExclusionType
+      Type: Integer
+      Key/Index: idxExclusionIndex
+      Typical Values: "1,2"
+      Comments: "Exclusion Type:\n1 = Person member of \"Not a duplicate list\", from Merge Duplicates tool,\n2 = Person member of \"Not a problem list\", from Problem List tool"
+    -
+      FieldName: ID1
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxExclusionIndex"
+      Typical Values: "1, 2, 3..."
+      Comments: "Identification Number 1, based on ExclusionType:\n1 = PersonTable.PersonID of Person 1 from potential merge,\n2 = PersonTable.PersonID of person marked in \"Not a problem list\""
+    -
+      FieldName: ID2
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxExclusionIndex"
+      Typical Values: Built in
+      Comments: "Identification Number 2, based on ExclusionType:\n1 = PersonTable.PersonID of Person 2 from potential merge, \n2 = Problem filter matched ("
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: FANTable
+  Fields:
+    -
+      FieldName: FanID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,..."
+      Comments: "RecordID for Friends, Associations, Neighbours links in support of the Association fact type. "
+    -
+      FieldName: ID1
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxFanId1"
+      Typical Values: "1,2,3,..."
+      Comments: Link to PersonTable.PersonID for node1 of association
+    -
+      FieldName: ID2
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxFanId2"
+      Typical Values: "1,2,3,..."
+      Comments: Link to PersonTable.PersonID for node2 of association
+    -
+      FieldName: FanTypeID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "1,2,3,..."
+      Comments: Link to FANTypeTable.FanTypeID
+    -
+      FieldName: PlaceID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "0,1,2,3,..."
+      Comments: "0 = Place Blank,\nElse, link to PlaceTable.PlaceID for PlaceType=0"
+    -
+      FieldName: SiteID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "0,1,2,3,..."
+      Comments: "0 = Place Blank,\nElse, link to PlaceTable.PlaceID for PlaceType=2"
+    -
+      FieldName: Date
+      Type: Text
+      Typical Values: Position coded string or free text
+      Comments: "Date, from Associations. [See Date sheet for additional details.]"
+    -
+      FieldName: SortDate
+      Type: BigInT
+      Typical Values: 18 digits
+      Comments: Number representing a user entered date that forces an event into a position relative to other events in lists sorted on the Date field.
+    -
+      FieldName: Description
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Description, from Association pane of Edit Person window. "
+    -
+      FieldName: Note
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Note, from Association pane of Edit Person window. User Interface supports line breaks and formatting tags."
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: FANTypeTable
+  Fields:
+    -
+      FieldName: FANTypeID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1-15, 999"
+      Comments: " Association ID"
+    -
+      FieldName: Name
+      Type: Text Collate RMNOCASE
+      Key/Index: idxFANTypeName
+      Typical Values: "1-15, 999"
+      Comments: "Association Type, based on FANTypeID:\n1 = Friends\n2 = Neighbors \n3 = Employment \n4 = Education \n5 = Enslavement \n6 = Household \n7 = Classmates \n8 = Coworkers \n9 = Apprenticeship \n10 = Godparent \n11 = Relative \n12 = DNA Match \n13 = Medical \n14 = Grave neighbors \n15 = Rental \n999 = Associates"
+    -
+      FieldName: Role1
+      Type: Text
+      Typical Values: "1-15, 999"
+      Comments: "Role 1 and Role2 Names, based on FANTypeID:\n1 = Friend / Friend \n2 = Neighbor / Neighbor \n3 = Employer / Employee \n4 = Teacher / Student \n5 = Enslaver / Enslaved person \n6 = Household member / Household member \n7 = Classmate / Classmate \n8 = Coworker / Coworker \n9 = Master / Apprentice \n10 = Godparent / Godchild \n11 = Relative / Relative \n12 = DNA match / DNA match \n13 = Doctor / Patient \n14 = Burial / Burial \n15 = Landlord / Tenant \n999 = Associate / Associate"
+    -
+      FieldName: Role2
+      Type: Text
+      Typical Values: "1-15, 999"
+      Comments: Role2 name (see FANTableType.Role1 above)
+    -
+      FieldName: Sentence1
+      Type: Text
+      Typical Values: Sentence Template Language
+      Comments: Template for Role1
+    -
+      FieldName: Sentence2
+      Type: Text
+      Typical Values: Sentence Template Language
+      Comments: Template for Role2
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: FactTypeTable
+  Fields:
+    -
+      FieldName: FactTypeID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3..."
+      Comments: "Fact Type Identification Number:\nBuilt-in < 1000, \nUser-defined > = 1000"
+    -
+      FieldName: OwnerType
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "Owner Type:\n0 = Individual,\n1 = Family"
+    -
+      FieldName: Name
+      Type: Text Collate RMNOCASE
+      Key/Index: idxFactTypeName
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: "Name, from Edit Fact Type window"
+    -
+      FieldName: Abbrev
+      Type: Text
+      Key/Index: idxFactTypeAbbrev
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: "Abbreviation, from Edit Fact Type window"
+    -
+      FieldName: GedcomTag
+      Type: Text
+      Key/Index: idxFactType
+      Typical Values: Character string
+      Comments: "GEDCOM Tag = \"EVEN\" for some built-in and all user defined Fact Types "
+    -
+      FieldName: UseValue
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "\"Use description field\" checkbox, from Edit Fact Type window:\n0 = No (unchecked)\n1 = Yes (checked)"
+    -
+      FieldName: UseDate
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "\"Use date field\" checkbox, from Edit Fact Type window:\n0 = No (unchecked)\n1 = Yes (checked)"
+    -
+      FieldName: UsePlace
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "\"Use place field\" checkbox, from Edit Fact Type window:\n0 = No (unchecked)\n1 = Yes (checked)"
+    -
+      FieldName: Sentence
+      Type: Text
+      Typical Values: Sentence Template Language
+      Comments: "Sentence template for this role, from Edit Role Type window for Role name of Principal. User Interface supports line breaks and formatting tags."
+    -
+      FieldName: Flags
+      Type: Integer
+      Typical Values: -1 to -63
+      Comments: 6-bit position-coded number for Include settings for Fact Type.
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: FamilySearchTable
+  Fields:
+    -
+      FieldName: LinkID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3..."
+      Comments: LinkID Identification Number
+    -
+      FieldName: LinkType
+      Type: Integer
+      Typical Values: 0.0
+      Comments: 0 = Person
+    -
+      FieldName: rmID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxLinkRmId"
+      Typical Values: "1,2,3..."
+      Comments: "Link based on LinkType:\n0 = PersonTable.PersonID"
+    -
+      FieldName: fsID
+      Type: Text
+      Key/Index: idxLinkfsID
+      Typical Values: "1,2,3..."
+      Comments: FamilySearch ID from FamilySearch Family Tree connection
+    -
+      FieldName: Modified
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "0 = Default,\n1 = Mismatch exists between FamilySearch and RM record details (Event date, place, etc)\nNote: Modified flag resets to \"0\" after any data for this person is shared via the FS API, even if data mismatches still exist."
+    -
+      FieldName: fsVersion
+      Type: Text
+      Typical Values: "18 digit integer, \n40-45 char hexadecimal + '-GZIP'"
+      Comments: FamilySearch Version
+    -
+      FieldName: fsDate
+      Type: Float
+      Typical Values: 0.0
+    -
+      FieldName: Status
+      Type: Integer
+      Typical Values: "0,4"
+      Comments: "0 = Default, Person Record initially created in RM db\n4 = Person Record initially imported from FamilySearch"
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+    -
+      FieldName: TreeID
+      Type: Text
+      Typical Values: Blank
+      Comments: Not Implemented
+-
+  TableName: FamilyTable
+  Fields:
+    -
+      FieldName: FamilyID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1, 2, 3..."
+      Comments: Family Identification Number
+    -
+      FieldName: FatherID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxFamilyFatherID"
+      Typical Values: "1, 2, 3..."
+      Comments: Links to PersonID in the PersonTable
+    -
+      FieldName: MotherID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxFamilyMotherID"
+      Typical Values: "1, 2, 3..."
+      Comments: Links to PersonID in the PersonTable
+    -
+      FieldName: ChildID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "0, 1, 2,..."
+      Comments: "Links to PersonTable.PersonID of Child last active as the root person in Pedigree view,\n0 = No Children in family or no child displayed as root in Pedigree view."
+    -
+      FieldName: HusbOrder
+      Type: Integer
+      Typical Values: "0, 1, 2,..."
+      Comments: "Husband Order, from People View, Edit Menu, Rearrange Spouses:\n0 if never rearranged"
+    -
+      FieldName: WifeOrder
+      Type: Integer
+      Typical Values: "0, 1, 2,..."
+      Comments: "Wife Order, from People View, Edit Menu, Rearrange Spouses:\n0 if never rearranged"
+    -
+      FieldName: IsPrivate
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not Implemented
+    -
+      FieldName: Proof
+      Type: Integer
+      Typical Values: "0, 1, 2, 3"
+      Comments: "Proof, from Spouse Fact in Edit Person window:\n0 = [blank], \n1 = Proven, \n2 = Disproven, \n3 = Disputed"
+    -
+      FieldName: SpouseLabel
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not Implemented
+    -
+      FieldName: FatherLabel
+      Type: Integer
+      Typical Values: "0, 1, 2, 99"
+      Comments: "Father Label, from Spouse Fact in Edit Person window:\n0 = Father\n1 = Husband\n2 = Partner\n99 = Other"
+    -
+      FieldName: MotherLabel
+      Type: Integer
+      Typical Values: "0, 1, 2, 99"
+      Comments: "Mother Label, from Spouse Fact in Edit Person window:\n0 = Mother\n1 = Wife\n2 = Partner\n99 = Other"
+    -
+      FieldName: SpouseLabelStr
+      Type: Text
+      Comments: Not Implemented
+    -
+      FieldName: FatherLabelStr
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Spouse Fact, from Edit Person window:\nUser defined text when FatherLabel=99"
+    -
+      FieldName: MotherLabelStr
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Spouse Fact, from Edit Person window:\nUser defined text when MotherLabel=99"
+    -
+      FieldName: Note
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Note for Spouse Fact, from Edit Person window:\nUser Interface supports line breaks and formatting tags."
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: GroupTable
+  Fields:
+    -
+      FieldName: RecID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,..."
+      Comments: Record Identification Number
+    -
+      FieldName: GroupID
+      Type: Integer
+      Typical Values: "1,2, 1001,1002,1003,..."
+      Comments: "1 = Results of Person Search from Search menu,\n2 = Results of Person Search - Advanced from Search menu,\n>1000 = Group (Simple or Rules based)\nNote: a temporary group is created whenever the basic or advanced Person Search options are run from the Search Menu. The group is automatically deleted when the search results are cleared or a subsequent search is run."
+    -
+      FieldName: StartID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "1,2,3,..."
+      Comments: "Links to PersonTable.PersonID,\nStarting Number of consecutively-numbered PersonIDs"
+    -
+      FieldName: EndID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "1,2,3,..."
+      Comments: "Links to PersonTable.PersonID,\nEnding Number of consecutively-numbered PersonIDs"
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "Null"
+      Comments: Not implemented
+-
+  TableName: HealthTable
+  Fields:
+    -
+      FieldName: RecID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,…"
+      Comments: Record Identification Number
+    -
+      FieldName: OwnerID
+      Type: Integer
+      Key/Index: "idxHealthOwnerId, \n Foreign Key"
+      Typical Values: "1,2,3,…"
+      Comments: Links to PersonID in the PersonTable
+    -
+      FieldName: Condition
+      Type: Integer
+      Typical Values: "1-20, 999"
+      Comments: "Condition, from the Health Condition view of the Edit Person window:\n1= Infectious and parasitic disease,\n2 = Respiratory diseases,\n3 = Reproductive health and childbirth,\n4 = Nutritional deficiency,\n5 = Cancer,\n6 = Endocrine, blood, and immune disorders,\n7 = Diabetes,\n8 = Mental health,\n9 = Neurological,\n10 = Eye condition,\n11 = Ear condition,\n12 = Cardiovascular,\n13 = Digestive diseases,\n14 = Renal and Urogenital,\n15 = Skin disease,\n16 = Musculoskeletal diseases,\n17 = Congenital anomalies,\n18 = Oral disease,\n19 = Sexual health,\n20 = Injuries and accidents,\n999 = Other"
+    -
+      FieldName: SubCondition
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Details, from the Health Condition view of the Edit Person window."
+    -
+      FieldName: Date
+      Type: Float
+      Typical Values: Position coded string or free text
+      Comments: "[See Date sheet for additional details.]"
+    -
+      FieldName: Note
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Health Note, from the Health Condition view of the Edit Person window.\nUser Interface supports line breaks and formatting tags"
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: MediaLinkTable
+  Fields:
+    -
+      FieldName: LinkID
+      Type: Integer
+      Key/Index: Primary Key
+      Comments: Link Identification Number
+    -
+      FieldName: MediaID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxMediaOwnerID"
+      Typical Values: "1,2,3,…"
+      Comments: "Media Identification Number, links to MediaID of MultimediaTable"
+    -
+      FieldName: OwnerType
+      Type: Integer
+      Typical Values: "0,1,2,3,…"
+      Comments: "Owner Type:\n0 = Person (Person Fact), \n1 = Family (Spouse or Parents Fact)\n2 = Event, \n3 = Source, \n4 = Citation, \n5 = Place,\n6 = Task,\n7 = Name (Primary or Alternate),\n14 = Place Details,\n19 = Association"
+    -
+      FieldName: OwnerID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxMediaOwnerID"
+      Typical Values: "1,2,3,…"
+      Comments: "Link based on OwnerType:\n0 = PersonTable.PersonID, \n1 = FamilyTable.FamilyID,\n2 = EventTable.EventID,\n3 = SourceTable.SourceID,\n4 = CitationTable.CitationID,\n5 = PlaceTable.PlaceID,\n6 = TaskTable.TaskID\n7 =  NameTable.NameID,\n14 = PlaceTable.PlaceID,\n19 = FanTable.FanID"
+    -
+      FieldName: IsPrimary
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "Primary Photo checkbox, from the Edit Media pane:\n0 = Not checked (default),\n1 = Checked. (Determines image displayed in reports, the Pedigree view, and the People Side View pane for the selected person.)"
+    -
+      FieldName: Include1
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "Include in Scrapbook, from the Edit Media pane:\n0 = Do Not Include (unchecked)\n1 = Include (checked)"
+    -
+      FieldName: Include2
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not implemented
+    -
+      FieldName: Include3
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not implemented
+    -
+      FieldName: Include4
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not implemented
+    -
+      FieldName: SortOrder
+      Type: Integer
+      Typical Values: "0,1,2,3,…"
+      Comments: "Sort Order, from Media Album view in Edit Person window:\n0 = (Default) Order by MediaLinkTable.LinkID,\nElse, order set via the Rearrange window of Person's Media Album.\n\nNote:  The default sort order for media links is the order in which the media links are added (MediaLinkTable.LinkiD). Within a fixed MediaLinkTable.OwnerType and MediaLinkTable.OwnerID, the sort order is effectively \"ORDER BY MediaLinkTable.SortOrder, MediaLinkTable.LinkID\". Because when SortOrder defaults to zero, the actual sort order defaults to LinkID."
+    -
+      FieldName: RectLeft
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not implemented
+    -
+      FieldName: RectTop
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not implemented
+    -
+      FieldName: RectRight
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not implemented
+    -
+      FieldName: RectBottom
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not implemented
+    -
+      FieldName: Comments
+      Type: Text
+      Typical Values: "Blank or\nUser Defined"
+      Comments: "Media Tag Comment, from Add Media Tag window. (Select Tags from Edit Media pane of Media window, then add a new tag.)"
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: MultimediaTable
+  Fields:
+    -
+      FieldName: MediaID
+      Type: Integer
+      Key/Index: Primary Key
+      Comments: Media Identification Number
+    -
+      FieldName: MediaType
+      Type: Integer
+      Typical Values: "1,2,3,4"
+      Comments: "Media Type, from Add Media Item screen \n1 = Image, \n2 = File, \n3 = Sound, \n4 = Video"
+    -
+      FieldName: MediaPath
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Relative file path of Media File, extracted from Filename field in Add Media window or Edit Media pane.\nThe first character in the MediaPath may be a symbol:\n? = Media Folder defined in Folder Settings window,\n~ = User's home directory defined by the Operating System\n* = Folder containing the RM Database"
+    -
+      FieldName: MediaFile
+      Type: Text Collate RMNOCASE
+      Key/Index: idxMediaFile
+      Typical Values: User Defined
+      Comments: "File name, extracted from Filename field in Add Media window or Edit Media pane"
+    -
+      FieldName: URL
+      Type: Text
+      Key/Index: idxMediaURL
+      Typical Values: Blank
+      Comments: Not implemented
+    -
+      FieldName: Thumbnail
+      Type: Blob
+      Typical Values: ?PNG
+      Comments: Thumbnail
+    -
+      FieldName: Caption
+      Type: Text Collate RMNOCASE
+      Typical Values: User Defined
+      Comments: "Caption, from Add Media window or Edit Media pane"
+    -
+      FieldName: RefNumber
+      Type: Text Collate RMNOCASE
+      Typical Values: User Defined
+      Comments: "Reference Number, from Add Media window or Edit Media pane"
+    -
+      FieldName: Date
+      Type: Text
+      Typical Values: Position coded string or free text
+      Comments: "Date, from Media Properties screen. "
+    -
+      FieldName: SortDate
+      Type: BigInt
+      Typical Values: "12,15, or 19\ndigit number"
+    -
+      FieldName: Description
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Description, from Add Media window or Edit Media pane. \nUser Interface supports line breaks and formatting tags"
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: NameTable
+  Fields:
+    -
+      FieldName: NameID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1, 2, 3…"
+    -
+      FieldName: OwnerID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxNameOwnerID"
+      Typical Values: "1, 2, 3…"
+      Comments: "Link to PersonTable.PersonID (aka Record Identification Number - RIN).  \nA single OwnerID can have multiple NameID's for Alternate Names."
+    -
+      FieldName: Surname
+      Type: Text Collate RMNOCASE
+      Key/Index: "idxSurname,\nidxSurnameGiven"
+      Typical Values: User Defined
+      Comments: Surname
+    -
+      FieldName: Given
+      Type: Text Collate RMNOCASE
+      Key/Index: "idxGiven,\nidxSurnameGiven"
+      Typical Values: User Defined
+      Comments: Given name
+    -
+      FieldName: Prefix
+      Type: Text Collate RMNOCASE
+      Typical Values: User Defined
+      Comments: "Name prefix, e.g., Dr., Rev., Lord, Lady..."
+    -
+      FieldName: Suffix
+      Type: Text Collate RMNOCASE
+      Typical Values: User Defined
+      Comments: "Name suffix, e.g., Jr., Sr., III, ..."
+    -
+      FieldName: Nickname
+      Type: Text Collate RMNOCASE
+      Typical Values: User Defined
+      Comments: Nickname
+    -
+      FieldName: NameType
+      Type: Integer
+      Typical Values: 0-7
+      Comments: "0 - Null\n1 - AKA\n2 - Birth\n3 - Immigrant\n4 - Maiden\n5 - Married\n6 - Nickname\n7 - Other Spelling"
+    -
+      FieldName: Date
+      Type: Text
+      Typical Values: Position coded string or free text
+      Comments: "Date, from Alternate Name Fact."
+    -
+      FieldName: SortDate
+      Type: BigInt
+      Typical Values: 19 digit number
+      Comments: "Sort Date for Name Fact, from Edit Person window:\nThe Sort Date forces the Name fact into a position relative to other facts in the Edit Person window .\n(Blank Date = 9223372036854775807)"
+    -
+      FieldName: IsPrimary
+      Type: Integer
+      Key/Index: idxNamePrimary
+      Typical Values: "0,1"
+      Comments: "1 = Name is listed in the Primary Name fact,\n0 = Alternate Name,\nEditable by selecting the Primary Checkbox in an Alternate Name fact."
+    -
+      FieldName: IsPrivate
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "Private checkbox in Edit Person Alternate Name Fact edit pane:  \n0 = NOT selected (default), \n1 = Selected. \nUsed to optionally suppress from reports events that are considered “private”."
+    -
+      FieldName: Proof
+      Type: Integer
+      Typical Values: "0,1,2,3"
+      Comments: "Set by Proof listbox in Edit Person Name Fact edit pane. \n0 = Blank (default), \n1 = Proven, \n2 = Disproven,\n3 = Disputed"
+    -
+      FieldName: Sentence
+      Type: Text
+      Typical Values: Sentence Template Language
+      Comments: "Customized sentence template for this Alternate Name, \nentered in Edit Person Alternate Name Customize Sentence window.\n User Interface supports line breaks and formatting tags."
+    -
+      FieldName: Note
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Note for Name Fact, from Edit Person window:\nUser Interface upports line breaks and formatting tags."
+    -
+      FieldName: BirthYear
+      Type: Integer
+      Key/Index: "idxSurnameGiven,\nidxSurnameGivenMP"
+      Typical Values: "Blank or\n4-digits"
+      Comments: Year extracted from EventTable.Date for Birth FactType for Person
+    -
+      FieldName: DeathYear
+      Type: Integer
+      Key/Index: "idxSurnameGiven,\nidxSurnameGivenMP"
+      Typical Values: "Blank or\n4-digits"
+      Comments: Year extracted from EventTable.Date for Death FactType for Person
+    -
+      FieldName: Display
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not implemented
+    -
+      FieldName: Language
+      Type: Text
+      Typical Values: Blank
+      Comments: Not implemented
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+    -
+      FieldName: SurnameMP
+      Type: Text
+      Key/Index: "idxSurnameMP,\nidxSurnameGivenMP"
+      Comments: Version of User Defined NameTable.Surname
+    -
+      FieldName: GivenMP
+      Type: Text
+      Key/Index: "idxGivenMP,\nidxSurnameGivenMP"
+      Comments: Version of User Defined NameTable.Surname
+    -
+      FieldName: NicknameMP
+      Type: Text
+      Comments: Version of User Defined NameTable.Surname
+-
+  TableName: PayloadTable
+  Fields:
+    -
+      FieldName: RecID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,..."
+      Comments: Record Identification Number
+    -
+      FieldName: RecType
+      Type: Integer
+      Key/Index: idxPayloadType
+      Typical Values: "3,4,5"
+      Comments: "3 = Saved Task Filter,\n4 = Saved Search,\n5 = Saved Group"
+    -
+      FieldName: OwnerType
+      Type: Integer
+      Typical Values: "8,20"
+      Comments: "8 = Saved Search,\n20 = Saved Group"
+    -
+      FieldName: OwnerID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "0,1,2,3,..."
+      Comments: "Link based on RecType:\n1 = \"0\" (not used),\n2 = GroupTable.GroupID,\n3 = \"0\" (not used)"
+    -
+      FieldName: Title
+      Type: Text
+      Typical Values: User Defined
+      Comments: Saved Name of Search or Group
+    -
+      FieldName: DataRec
+      Type: Blob
+      Typical Values: XML
+      Comments: Saved Criteria for Search or Group
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: PersonTable
+  Fields:
+    -
+      FieldName: PersonID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,..."
+      Comments: Record Identification Number (RIN)
+    -
+      FieldName: UniqueID
+      Type: Text
+      Typical Values: "36 Character\nHexidecimal"
+      Comments: Unique Identification Number assigned to person
+    -
+      FieldName: Sex
+      Type: Integer
+      Typical Values: "0,1,2"
+      Comments: "0 = Male,\n1 = Female,\n2 = Unknown"
+    -
+      FieldName: ParentID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "0,1,2,3,..."
+      Comments: "0 = No Parents,\nAny other value = FamilyTable.FamilyID\nIf person has more than 1 set of parents, then value changes based on FamilyID of parent couple last displayed in Pedigree, Family, or Descendent View."
+    -
+      FieldName: SpouseID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "0,1,2,3,..."
+      Comments: "0 = No Spouse,\nAny other value = FamilyTable.FamilyID\nIf person has more than 1 spouse, then value changes based on FamilyID of the couple last displayed in Pedigree, Family, or Descendent View."
+    -
+      FieldName: Color
+      Type: Integer
+      Typical Values: 0-27
+      Comments: "Set Color for Color Set 1, from Color Coding window:\n0 = None, \n1 = Red, \n2 = Lime, \n3 = Blue, \n4 = Pink,\n5 = Yellow, \n6 = Aqua, \n7 = Silver, \n8 = Maroon, \n9 = Green, \n10 = Navy, \n11 = Purple, \n12 = Brown, \n13 = Teal, \n14 = Grey,\n15 = Apricot,\n16 = Lemon,\n17 = Chatreuse,\n18 = Mint,\n19 = Azure,\n20 = Mauve,\n21 = Orange,\n22 = Turquoise,\n23 = Khaki,\n24 = Olive,\n25 = Forest,\n26 = Aubergine,\n27 = Slate"
+    -
+      FieldName: Color1
+      Type: Integer
+      Typical Values: 0-27
+      Comments: "Color Set 2, from Color Coding window:\nSee PersonTable.Color for values"
+    -
+      FieldName: Color2
+      Type: Integer
+      Typical Values: 0-27
+      Comments: "Color Set 3, from Color Coding window:\nSee PersonTable.Color for values"
+    -
+      FieldName: Color3
+      Type: Integer
+      Typical Values: 0-27
+      Comments: "Color Set 4, from Color Coding window:\nSee PersonTable.Color for values"
+    -
+      FieldName: Color4
+      Type: Integer
+      Typical Values: 0-27
+      Comments: "Color Set 5, from Color Coding window:\nSee PersonTable.Color for values"
+    -
+      FieldName: Color5
+      Type: Integer
+      Typical Values: 0-27
+      Comments: "Color Set 6, from Color Coding window:\nSee PersonTable.Color for values"
+    -
+      FieldName: Color6
+      Type: Integer
+      Typical Values: 0-27
+      Comments: "Color Set 7, from Color Coding window:\nSee PersonTable.Color for values"
+    -
+      FieldName: Color7
+      Type: Integer
+      Typical Values: 0-27
+      Comments: "Color Set 8, from Color Coding window:\nSee PersonTable.Color for values"
+    -
+      FieldName: Color8
+      Type: Integer
+      Typical Values: 0-27
+      Comments: "Color Set 9, from Color Coding window:\nSee PersonTable.Color for values"
+    -
+      FieldName: Color9
+      Type: Integer
+      Typical Values: 0-27
+      Comments: "Color Set 10, from Color Coding window:\nSee PersonTable.Color for values"
+    -
+      FieldName: Relate1
+      Type: Integer
+      Typical Values: 0-999
+      Comments: "Relate1, number of generations from this person to Most Recent Common Ancestor with the person chosen via Tools > Set Relationships. Relate1&2 work in combinaton with PersonTable.Flags to describe the relationship between this person and the person defined in Tools>Set Relationships."
+    -
+      FieldName: Relate2
+      Type: Integer
+      Typical Values: "0,1,2,3,..."
+      Comments: "Relate2, number of generations from the person chosen via Tools > Set Relationships to the Most Recent Common Ancestor with this person. "
+    -
+      FieldName: Flags
+      Type: Integer
+      Typical Values: 0-10
+      Comments: "Prefix description added to Set Relationship display as defined by Relate1/Relate2 calculation:\n0 = No prefix descriptor,\n1 = \"Half\",\n2 = \"Spouse of\" male blood relation (ie display uses \"Father, Uncle, Cousin\"),\n3 = \"Spouse of half\" male blood relation (ie display uses \"Father, Uncle, Cousin\"),\n6 = \"Spouse of\" female blood relation (ie display uses  \"Mother, Aunt, Cousin\"),\n7 = \"Spouse of half\" female blood relation (ie display uses  \"Mother, Aunt, Cousin\"),\n10 = \"Spouse of\" blood relation where sex is unknown (ie display uses \"Mother/Father, Aunt/Uncle, Cousin\")"
+    -
+      FieldName: Living
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "Living, from Edit Person window:\n0 = Deceased, \n1 = Living"
+    -
+      FieldName: IsPrivate
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not Implementd
+    -
+      FieldName: Proof
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not implemented
+    -
+      FieldName: Bookmark
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "Bookmark, from Sidebar Bookmarks view:\n0 = Not Bookmarked,\n1 = Bookmarked"
+    -
+      FieldName: Note
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Note field from Edit Person screen, Person Fact.\nUser Interface supports line breaks and formatting tags."
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: PlaceTable
+  Fields:
+    -
+      FieldName: PlaceID
+      Type: Integer
+      Key/Index: Primary Key
+      Comments: Place Identification Number
+    -
+      FieldName: PlaceType
+      Type: Integer
+      Typical Values: "0,1,2"
+      Comments: "0 = Place, from Edit Person screen for a fact, \n1 = LDS Temples, Built-In, \n2 = Place details, from Edit Person screen for a fact"
+    -
+      FieldName: Name
+      Type: Text Collate RMNOCASE
+      Key/Index: idxPlaceName
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: "Place Name from Edit Place pane of Places window or the Fact Edit pane of Edit Person window (PlaceType = 0),\nPlace Name, pre-defined (PlaceType = 1), \nPlace Detail Name from Edit Place Detail pane of Places window or the Fact Edit pane of Edit Person window (PlaceType = 2)\n\nNote: Place names (or Place details) can only be modified from the Places Menu window. Edits made from the Edit Person window add new Places or Place Details."
+    -
+      FieldName: Abbrev
+      Type: Text
+      Key/Index: idxPlaceAbbrev
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: "Abbreviated place name, from Edit Place pane of Places window (PlaceType = 0 and 2), \nPre-defined (PlaceType = 1)"
+    -
+      FieldName: Normalized
+      Type: Text
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: "Standardized place name from Edit Place pane of Places window (PlaceType = 0 and 2), \nPre-defined (PlaceType = 1)"
+    -
+      FieldName: Latitude
+      Type: Integer
+      Typical Values: "0,\n8-9 Digit Integer"
+      Comments: "Latitude in decimal degrees stored as an integer (ie multiplied by 1e7).\nPre-defined for LDS Temples (PlaceType=1),\nElse User Defined via Edit Place or Edit Place Details pane of Places window."
+    -
+      FieldName: Longitude
+      Type: Integer
+      Typical Values: "0,\n8-9 Digit Integer"
+      Comments: "Longitude in decimal degrees stored as an integer (ie multiplied by 1e7).\nPre-defined for LDS Temples (PlaceType=1),\nElse User Defined via Edit Place or Edit Place Details pane of Places window."
+    -
+      FieldName: LatLongExact
+      Type: Integer
+      Typical Values: "0,1"
+    -
+      FieldName: MasterID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "0,1,2,3,..."
+      Comments: "0 for PlaceType = 0,1\nPlaceID of Place, for PlaceType = 2 (Place Detail)"
+    -
+      FieldName: Note
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Place note, from Edit screen for PlaceType = 0 and 2. \nUser Interface supports line breaks and formatting tags."
+    -
+      FieldName: Reverse
+      Type: Text Collate RMNOCASE
+      Key/Index: idxReversePlaceName
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: "Calculated field containing the reverse order of the comma-delimeted fields in the PlaceTable.Name column\n\nNote: This field is automatically updated whenever the Place Name (or Place Details) value is modified from the Places Menu window. Edits made from the Edit Person window add new Places or Place Details."
+    -
+      FieldName: fsID
+      Type: Integer
+    -
+      FieldName: anID
+      Type: Integer
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: RoleTable
+  Fields:
+    -
+      FieldName: RoleID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,…"
+      Comments: RoleIDs = 1 – 58  are pre-defined in built-in Fact Types
+    -
+      FieldName: RoleName
+      Type: Text Collate RMNOCASE
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: "Role name, from Edit Role Type window.\nDisplays with fact in Edit Person window when a fact is shared.  "
+    -
+      FieldName: EventType
+      Type: Integer
+      Key/Index: "Foreign Key\nidxRoleEventType"
+      Typical Values: "1,2,3,…"
+      Comments: "Event Type, links to FactTypeID in FactTypeTable"
+    -
+      FieldName: RoleType
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not Implemented
+    -
+      FieldName: Sentence
+      Type: Text
+      Typical Values: Sentence Template Language
+      Comments: "Sentence template for this role, from Edit Fact Type/Edit Role Type screen. User Interface supports line breaks and formatting tags."
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: SourceTable
+  Fields:
+    -
+      FieldName: SourceID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,..."
+      Comments: Source Identification Number
+    -
+      FieldName: Name
+      Type: Text Collate RMNOCASE
+      Key/Index: idxSourceName
+      Typical Values: User Defined
+      Comments: "Source Name, from Edit Source pane or Edit Citation pane"
+    -
+      FieldName: RefNumber
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Source Ref#, from Edit Source pane or Edit Citation pane"
+    -
+      FieldName: ActualText
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Source Text, from Edit Source pane or Edit Citation pane"
+    -
+      FieldName: Comments
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Source Comment,  from Edit Source pane or Edit Citation pane"
+    -
+      FieldName: IsPrivate
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not Implemented
+    -
+      FieldName: TemplateID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "0,1,2,3,..."
+      Comments: "Template Identification Number:\n0 = Free-Form, \nElse, links to TemplateID in SourceTemplateTable"
+    -
+      FieldName: Fields
+      Type: Blob
+      Typical Values: XML
+      Comments: "Master Source Field \"Names\"  (from Source template) and \"Values\" (from Edit Source pane). \nFor Free-Form sources, XML contains  Footnote, Short Footnote, and Bibliography plus associated values."
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: SourceTemplateTable
+  Fields:
+    -
+      FieldName: TemplateID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,…"
+      Comments: "Template Identification Number:\n1 - 439 = Built-In (See Source Template window), \n10,000+ = User-Defined"
+    -
+      FieldName: Name
+      Type: Text Collate RMNOCASE
+      Key/Index: idxSourceTemplateName
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: "Template Name, from Source Template window.\nOnly user-defined templates are editable."
+    -
+      FieldName: Description
+      Type: Text
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: "Description Details, from Source Template Description window.\nOnly user-defined templates are editable."
+    -
+      FieldName: Favorite
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "0 = Not a Favorite (Default),\n1 = Template starred as Favorite from Select Source Type screen of Add Source window"
+    -
+      FieldName: Category
+      Type: Text
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: "Category Details, from Source Template Description window.\nOnly user-defined templates are editable."
+    -
+      FieldName: Footnote
+      Type: Text
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: "Footnote Template, from Source Templates window.\nUser Interface supports line breaks and formatting tags but only user-defined templates are editable."
+    -
+      FieldName: ShortFootnote
+      Type: Text
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: "Short Footnote Template, from Source Template window.\nUser Interface supports line breaks and formatting tags but only user-defined templates are editable."
+    -
+      FieldName: Bibliography
+      Type: Text
+      Typical Values: "Built-in or\nUser Defined"
+      Comments: "Bibliography Template, from Source Template window.\nUser Interface supports line breaks and formatting tags but only user-defined templates are editable."
+    -
+      FieldName: FieldDefs
+      Type: Blob
+      Typical Values: XML
+      Comments: "From Source Template Field window:\nField Name, Display Name, Field Type, Brief hint, Long hint, and True/False flag to identify whether the field is located in the source or citation."
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: TagTable
+  Fields:
+    -
+      FieldName: TagID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,..."
+      Comments: Tag Identification Number
+    -
+      FieldName: TagType
+      Type: Integer
+      Key/Index: idxTagType
+      Typical Values: "0,1"
+      Comments: "0 = Group,\n1 = Folder"
+    -
+      FieldName: TagValue
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "1,2,3,..."
+      Comments: "If TagValue >1000, links to GroupTable.GroupID\nElse, incremental placeholder for Task Folders."
+    -
+      FieldName: TagName
+      Type: Text Collate RMNOCASE
+      Typical Values: User Defined
+      Comments: Name of Group or Task Folder
+    -
+      FieldName: Description
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Description of Task Folder,\nBlank for Groups."
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: TaskLinkTable
+  Fields:
+    -
+      FieldName: LinkID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,..."
+      Comments: Link Identification Number
+    -
+      FieldName: TaskID
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "1,2,3,..."
+      Comments: Links to TaskID in TaskTable
+    -
+      FieldName: OwnerType
+      Type: Integer
+      Typical Values: "0,1,2,5,7,14,18,19"
+      Comments: "0 = Person,\n1 = Family,\n2 = Event,\n5 = Place, \n7 = Name, \n14 = Place Detail, \n18 = Folder, \n19 = Association "
+    -
+      FieldName: OwnerID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxTaskOwnerID"
+      Typical Values: "1,2,3,..."
+      Comments: "Link based on OwnerType:\n0 = PersonTable.PersonID,\n1 = FamilyTable.FamilyID,\n2 = EventTable.Eventid,\n5 = PlaceTable.PlaceID,\n7 = NameTable.NameID,\n14 = PlaceTable.PlaceID,\n18 = TagTable.TagID,\n19 = FanTable.FanID"
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: TaskTable
+  Fields:
+    -
+      FieldName: TaskID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,..."
+      Comments: Task Identification Number
+    -
+      FieldName: TaskType
+      Type: Integer
+      Typical Values: "0,1,2,3"
+      Comments: "From Add Task window or Edit Task pane:\n0 = Blank,\n1 = Research, \n2 = ToDo, \n3 = Correspondence"
+    -
+      FieldName: RefNumber
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Reference #, from Add Task window or Edit Task pane."
+    -
+      FieldName: Name
+      Type: Text Collate RMNOCASE
+      Key/Index: idxTaskName
+      Typical Values: User Defined
+      Comments: "Name, from Add Task window or Edit Task pane. "
+    -
+      FieldName: Status
+      Type: Integer
+      Typical Values: "0,1,2,3,4,5"
+      Comments: "Status, From Add Task window or Edit Task pane:\n0 = New,\n1 = In Progress,\n2 = Completed,\n3 = On hold,\n4 = Problem,\n5 = Cancelled"
+    -
+      FieldName: Priority
+      Type: Integer
+      Typical Values: "0,1,2,3,4,5,6,7"
+      Comments: "From Add Task window or Edit Task pane:\n0 = Priority 1 (Highest),\n1 = Priority 2 (Very High),\n2 = Priority 3 (High),\n3 = Priority 4 (Med high),\n4 = Priority 5 (Medium),\n5 = Priority 6 (Med low),\n6 = Priority 7 (Low),\n7= Priority 8 (Very Low)"
+    -
+      FieldName: Date1
+      Type: Text
+      Typical Values: Position coded string or free text
+      Comments: "Start Date, from Edit Task screen.\n[See Date sheet for additional details.] "
+    -
+      FieldName: Date2
+      Type: Text
+      Typical Values: Position coded string or free text
+      Comments: "Last Edit Date, from Edit Task screen.\n[See Date sheet for additional details.] "
+    -
+      FieldName: Date3
+      Type: Text
+      Typical Values: Position coded string or free text
+      Comments: "End Date, from Edit Task screen.\n[See Date sheet for additional details.] "
+    -
+      FieldName: SortDate1
+      Type: BigInt
+      Typical Values: "0 or\n19 digit number"
+    -
+      FieldName: SortDate2
+      Type: BigInt
+      Typical Values: "0 or\n19 digit number"
+    -
+      FieldName: SortDate3
+      Type: BigInt
+      Typical Values: "0 or\n19 digit number"
+    -
+      FieldName: Filename
+      Type: Text
+      Typical Values: User Defined
+      Comments: "File name and path, from Add Task window or Edit Task pane. "
+    -
+      FieldName: Details
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Details, from Add Task window or Edit Task pane. \nUser Interface supports line breaks and formatting tags."
+    -
+      FieldName: Results
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Results, from Add Task window or Edit Task pane. \nUser Interface supports line breaks and formatting tags."
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+    -
+      FieldName: Exclude
+      Type: Integer
+      Typical Values: "0,1"
+      Comments: "From Filter Tasks window:\n0 = Display Task in list (default),\n1= Filter from Task list"
+-
+  TableName: URLTable
+  Fields:
+    -
+      FieldName: LinkID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,..."
+      Comments: Link or WebTag Identification Number
+    -
+      FieldName: OwnerType
+      Type: Integer
+      Typical Values: "3,4,5,6,14"
+      Comments: "Owner Type:\n3 = Source,\n4 = Citation,\n5 = Place,\n6 = Task,\n14 = Place Details"
+    -
+      FieldName: OwnerID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxURLOwnerID"
+      Typical Values: "1,2,3,..."
+      Comments: "Owner Identification, link based on OwnerType:\n3 = SourceTable.SourceID,\n4 = CitationTable.CitationID, \n5 = PlaceTable.PlaceID,\n6 = Tasktable.TaskID,\n14 = PlaceTable.PlaceID"
+    -
+      FieldName: LinkType
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not Implemented
+    -
+      FieldName: Name
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Name, from Edit Web Tag window"
+    -
+      FieldName: URL
+      Type: Text
+      Typical Values: User Defined
+      Comments: "URL, from Edit Web Tag window"
+    -
+      FieldName: Note
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Note, from Edit Web Tag window. \nUser Interface supports line breaks and formatting tags"
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"
+-
+  TableName: WitnessTable
+  Fields:
+    -
+      FieldName: WitnessID
+      Type: Integer
+      Key/Index: Primary Key
+      Typical Values: "1,2,3,..."
+      Comments: Witness Identification Number
+    -
+      FieldName: EventID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxWitnessEventID"
+      Typical Values: "1,2,3,..."
+      Comments: "Event Identification Number, linking to EventID of EventTable"
+    -
+      FieldName: PersonID
+      Type: Integer
+      Key/Index: "Foreign Key,\nidxWitnessPersonID"
+      Typical Values: "0,1,2,3,..."
+      Comments: "Person that the fact has been shared with:\n0 = This person is NOT in RM database,\nElse, PersonTable.PersonID"
+    -
+      FieldName: WitnessOrder
+      Type: Integer
+      Typical Values: 0.0
+      Comments: Not Implemented
+    -
+      FieldName: Role
+      Type: Integer
+      Key/Index: Foreign Key
+      Typical Values: "1,2,3,..."
+      Comments: "Role, from Edit shared event screen,\nLinks to RoleID in RoleTable"
+    -
+      FieldName: Sentence
+      Type: Text
+      Typical Values: Sentence Template Language
+      Comments: "From Edit Person window of person that the fact has been shared with:\nBlank (Default) = Role Sentence not customized,\nElse, customized sentence"
+    -
+      FieldName: Note
+      Type: Text
+      Typical Values: User Defined
+      Comments: "Note, from Edit Witness pane of Edit Person window for person that the fact has been shared with. \nUser Interface supports line breaks and formatting tags."
+    -
+      FieldName: Given
+      Type: Text Collate RMNOCASE
+      Typical Values: User Defined
+      Comments: "From Edit Witness pane of Edit Person window for person that the fact has been shared with:\nBlank (Default) = Person is in RM database,\nElse, First name of person"
+    -
+      FieldName: Surname
+      Type: Text Collate RMNOCASE
+      Typical Values: User Defined
+      Comments: "From Edit Witness pane of Edit Person window for person that the fact has been shared with:\nBlank (Default) = Person is in RM database,\nElse, Last name of person"
+    -
+      FieldName: Prefix
+      Type: Text Collate RMNOCASE
+      Comments: Not Implemented
+    -
+      FieldName: Suffix
+      Type: Text Collate RMNOCASE
+      Comments: Not Implemented
+    -
+      FieldName: UTCModDate
+      Type: Float
+      Typical Values: "[d]{5}.[d]{10}\ne.g.: 44993.9143704283"
+      Comments: "Coordinated Universal Time from system, modified: \nSELECT julianday('now') - 2415018.5"

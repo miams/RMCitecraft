@@ -1,0 +1,3501 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RootsMagic 11 Database Schema",
+  "description": "SQLite database schema for RootsMagic 11 genealogy software",
+  "version": "11.0.0",
+  "type": "object",
+  "properties": {},
+  "definitions": {
+    "AddressLinkTable": {
+      "type": "object",
+      "description": "AddressLinkTable table",
+      "properties": {
+        "LinkID": {
+          "type": "integer",
+          "description": "Link Identification Number, sequentially ordered",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "primary": true
+        },
+        "OwnerType": {
+          "type": "integer",
+          "description": "0 = Person (Address of Person Fact from Edit Person Window), 1 = Family (Address of Spouse / Parents from Edit Person Window), 3 = Source (Repository), 6 = Task  (Address or Repository)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,3,6"
+          ]
+        },
+        "AddressID": {
+          "type": "integer",
+          "description": "Links to AddressID in AddressTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "foreignKey": true
+        },
+        "OwnerID": {
+          "type": "integer",
+          "description": "Link based on OwnerType: 0 = PersonTable.PersonID, 1 = FamilyTable.FamilyID, 3 = SourceTable.SourceID, 6 = TaskTable.TaskID",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "foreignKey": true
+        },
+        "AddressNum": {
+          "type": "integer",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Details": {
+          "type": "string",
+          "description": "Not Implemented",
+          "sqliteType": "Text",
+          "examples": [
+            "Blank"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "LinkID"
+      ]
+    },
+    "AddressTable": {
+      "type": "object",
+      "description": "AddressTable table",
+      "properties": {
+        "AddressID": {
+          "type": "integer",
+          "description": "Address Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "primary": true
+        },
+        "AddressType": {
+          "type": "integer",
+          "description": "0 = Person or Family, 1 = Repository",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "Name": {
+          "type": "string",
+          "description": "Name, from Edit Address pane or Edit Repository pane. ",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Street1": {
+          "type": "string",
+          "description": "Street address [first line], from Edit Address pane or Edit Repository pane. ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Street2": {
+          "type": "string",
+          "description": "Street address [second line], from Edit Address pane or Edit Repository pane. ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "City": {
+          "type": "string",
+          "description": "City, from Edit Address pane or Edit Repository pane. ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "State": {
+          "type": "string",
+          "description": "State, from Edit Address pane or Edit Repository pane. ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Zip": {
+          "type": "string",
+          "description": "Postal Code, from Edit Address pane or Edit Repository pane. ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Country": {
+          "type": "string",
+          "description": "Country, from Edit Address pane or Edit Repository pane. ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Phone1": {
+          "type": "string",
+          "description": "Phone, from Edit Address pane or Edit Repository pane. ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Phone2": {
+          "type": "string",
+          "description": "Cell phone, from Edit Address pane or Edit Repository pane. ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Fax": {
+          "type": "string",
+          "description": "Fax, from Edit Address pane or Edit Repository pane. ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Email": {
+          "type": "string",
+          "description": "Email, from Edit Address pane or Edit Repository pane. ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "URL": {
+          "type": "string",
+          "description": "Website, from Edit Address pane or Edit Repository pane. ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Latitude": {
+          "type": "integer",
+          "description": "Not implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Longitude": {
+          "type": "integer",
+          "description": "Not implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Note": {
+          "type": "string",
+          "description": "Note, from Edit Address pane or Edit Repository pane.  User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "AddressID"
+      ],
+      "indexes": [
+        {
+          "name": "idxAddressName",
+          "columns": [
+            "Name"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "AncestryTable": {
+      "type": "object",
+      "description": "AncestryTable table",
+      "properties": {
+        "LinkID": {
+          "type": "integer",
+          "description": "LinkID Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "primary": true
+        },
+        "LinkType": {
+          "type": "integer",
+          "description": "0 = Person,  4 = Citation,  11 = Media",
+          "sqliteType": "Integer",
+          "examples": [
+            "0, 4, 11"
+          ]
+        },
+        "rmID": {
+          "type": "integer",
+          "description": "Link based on LinkType: 0 = PersonTable.PersonID,  4 = CitationTable.CitationID,  11 = MultiMediaTable.MediaID",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "foreignKey": true
+        },
+        "anID": {
+          "type": "string",
+          "description": "Person = [d]{12}:[d]{4}:[d]{9} - e.g.: 121212121212:1030:123456789, Citation, origin RM = [d]:9000:[d] (length varies), Citation, origin Ancestry = [d]:[d]  Media = Ancestry assigned ID (matches filename for media downloaded from Ancestry)",
+          "sqliteType": "Text",
+          "examples": [
+            "Formatted string"
+          ]
+        },
+        "Modified": {
+          "type": "integer",
+          "description": "For LinkType=0 (Person): 0 = No modification detected or 'Mark as not changed' button has been selected in Treeshare, 1 = Change identified in RM db or in Ancestry via Treeshare notification. Person’s status appears as changed in Treeshare.",
+          "sqliteType": "Integer",
+          "examples": [
+            "0, 1"
+          ]
+        },
+        "anVersion": {
+          "type": "string",
+          "description": "Hex code where LinkType=0 (Person),  Otherwise NULL",
+          "sqliteType": "Text",
+          "examples": [
+            "Null or Hex String"
+          ]
+        },
+        "anDate": {
+          "type": "number",
+          "sqliteType": "Float",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Status": {
+          "type": "integer",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        },
+        "TreeID": {
+          "type": "string",
+          "description": "Not Implemented",
+          "sqliteType": "Text",
+          "examples": [
+            "Blank"
+          ]
+        }
+      },
+      "required": [
+        "LinkID"
+      ],
+      "indexes": [
+        {
+          "name": "idxLinkAncestryRmId",
+          "columns": [
+            "rmID"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxLinkAncestryanID",
+          "columns": [
+            "anID"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "ChildTable": {
+      "type": "object",
+      "description": "ChildTable table",
+      "properties": {
+        "RecID": {
+          "type": "integer",
+          "description": "Record number in childtable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "primary": true
+        },
+        "ChildID": {
+          "type": "integer",
+          "description": "Link to PersonID in PersonTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "foreignKey": true
+        },
+        "FamilyID": {
+          "type": "integer",
+          "description": "Link to FamilyID in FamilyTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "foreignKey": true
+        },
+        "RelFather": {
+          "type": "integer",
+          "description": "Relationship to Father as defined in Parents section of Edit Person:  0 = Birth, 1 = Adopted,  2 = Step, 3 = Foster, 4 = Related, 5 = Guardian, 6 = Sealed, 7 = Unknown",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,..."
+          ]
+        },
+        "RelMother": {
+          "type": "integer",
+          "description": "Relationship to Mother as defined in Parents section of Edit Person:  (Values same as RelFather)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,..."
+          ]
+        },
+        "ChildOrder": {
+          "type": "integer",
+          "description": "When number of Children=1: 0 = Child added to family with Add Father or Add Mother action, 1000 = Child added to family with Add Child action; Else, once number of Children >1 value matches order in Family view.",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,..."
+          ]
+        },
+        "IsPrivate": {
+          "type": "integer",
+          "description": "Not Implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "ProofFather": {
+          "type": "integer",
+          "description": "Set by Proof listbox in Parents pane of Edit Persons.  0 - Blank,  1 - Proven,  2 - Disproven,  3 - Disputed",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3"
+          ]
+        },
+        "ProofMother": {
+          "type": "integer",
+          "description": "Set by Proof listbox in Parents pane of Edit Persons.  0 - Blank,  1 - Proven,  2 - Disproven,  3 - Disputed",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3"
+          ]
+        },
+        "Note": {
+          "type": "string",
+          "description": "Not Implemented",
+          "sqliteType": "Text",
+          "examples": [
+            "Blank"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "RecID"
+      ],
+      "indexes": [
+        {
+          "name": "idxChildID",
+          "columns": [
+            "ChildID"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxChildFamilyID",
+          "columns": [
+            "FamilyID"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxChildOrder",
+          "columns": [
+            "ChildOrder"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "CitationLinkTable": {
+      "type": "object",
+      "description": "CitationLinkTable table",
+      "properties": {
+        "LinkID": {
+          "type": "integer",
+          "description": "Link identification number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "primary": true
+        },
+        "CitationID": {
+          "type": "integer",
+          "description": "Link to CitationTable.CitationID",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "OwnerType": {
+          "type": "integer",
+          "description": " 0 = Person,  1 = Family,  2 = Event,  6 = Task,  7 = Name, 19 = Association",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,6,7,19"
+          ]
+        },
+        "OwnerID": {
+          "type": "integer",
+          "description": "Link to Primary Key of table based on OwnerType:  0 = PersonTable.PersonID,  1 = FamilyTable.FamilyID,  2 = EventTable.EventID,  6 = TaskTable.TaskID,  7 = NameTable.NameID,  19 = FanTable.FanID",
+          "sqliteType": "Integer",
+          "foreignKey": true
+        },
+        "SortOrder": {
+          "type": "integer",
+          "description": "Not Implemented: Null = Legacy data, 0 =  New table entry",
+          "sqliteType": "Integer",
+          "examples": [
+            "Null, or\\n0"
+          ]
+        },
+        "Quality": {
+          "type": "string",
+          "description": "3-Character Quality of this information:  1st = (Info): P = Primary, S = Secondary,~ = Don't know  2nd = (Evidence): D = Direct, I = Indirect, N = Negative, ~ = Don't know  3rd = (Source): O = Original, X = Derivative, ~ = Don't know",
+          "sqliteType": "Text",
+          "examples": [
+            "[PS~]{DIN~][OX~]"
+          ]
+        },
+        "IsPrivate": {
+          "type": "integer",
+          "description": "Not Implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Flags": {
+          "type": "integer",
+          "description": "Not Implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "LinkID"
+      ],
+      "indexes": [
+        {
+          "name": "idxCitationLinkOwnerID",
+          "columns": [
+            "OwnerID"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "ConfigTable": {
+      "type": "object",
+      "description": "ConfigTable table",
+      "properties": {
+        "RecID": {
+          "type": "integer",
+          "description": "Record Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1, 2, 3..."
+          ],
+          "primary": true
+        },
+        "RecType": {
+          "type": "integer",
+          "description": "Record Type: 1 = Database Configuration settings 3 = Custom Report settings, from Publish menu 4 =  5 = Standard Report settings, from Publish menu 6 = HTML Website settings, from Publish menu 7 = Problem Options, from General Settings menu or Problem Search 9 = Book settings, from Publish menu",
+          "sqliteType": "Integer",
+          "examples": [
+            "1, 2, 3..."
+          ]
+        },
+        "Title": {
+          "type": "string",
+          "description": "Title - See Row 5 of ConfigTable Tab",
+          "sqliteType": "Text",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ]
+        },
+        "DataRec": {
+          "type": "string",
+          "description": "Data Record - See Row 40 of ConfigTable Tab",
+          "sqliteType": "Blob",
+          "examples": [
+            "XML code"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "RecID"
+      ],
+      "indexes": [
+        {
+          "name": "idxRecType",
+          "columns": [
+            "RecType"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "EventTable": {
+      "type": "object",
+      "description": "EventTable table",
+      "properties": {
+        "EventID": {
+          "type": "integer",
+          "description": "Event Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "primary": true
+        },
+        "EventType": {
+          "type": "integer",
+          "description": "Link to FactTypeID in FactTypeTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "foreignKey": true
+        },
+        "OwnerType": {
+          "type": "integer",
+          "description": "0 = Person, 1 = Family",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "OwnerID": {
+          "type": "integer",
+          "description": "Link based on OwnerType: 0 = PersonID in PersonTable, 1 =  FamilyID in FamilyTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "foreignKey": true
+        },
+        "FamilyID": {
+          "type": "integer",
+          "description": "Link based on OwnerType: 0 = not applicable or not assigned to event, Else = FamilyID in FamilyTable (Set via Parents listbox in Edit Person Fact pane for events such as Adoption or LDS Seal to Parents)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,..."
+          ],
+          "foreignKey": true
+        },
+        "PlaceID": {
+          "type": "integer",
+          "description": "0 if no Place has been assigned to event,  else PlaceID in PlaceTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,..."
+          ],
+          "foreignKey": true
+        },
+        "SiteID": {
+          "type": "integer",
+          "description": "0 if no Place Details assigned to event,  else PlaceID (of Place Details) in PlaceTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,..."
+          ],
+          "foreignKey": true
+        },
+        "Date": {
+          "type": "string",
+          "description": "[See Date sheet for additional details.]",
+          "sqliteType": "Text",
+          "examples": [
+            "Position coded string or free text"
+          ]
+        },
+        "SortDate": {
+          "type": "integer",
+          "description": "Number representing a user entered date that forces an event into a position relative to other events in lists sorted on the Date field.",
+          "sqliteType": "BigInt",
+          "examples": [
+            "18 digits"
+          ]
+        },
+        "IsPrimary": {
+          "type": "integer",
+          "description": "Primary checkbox in Edit Person Fact pane: 0 = Not checked (default), 1 = Checked. (Used to suppress from reports other conflicting facts of the same type.)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "IsPrivate": {
+          "type": "integer",
+          "description": "Private checkbox in Edit Person Fact pane: 0 = Not checked (default), 1 = Checked. (Used to optionally suppress from reports events that are considered “private”.)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "Proof": {
+          "type": "integer",
+          "description": "Proof listbox in Edit Person Fact pane: 0 = Blank,  1 = Proven,  2 = Proven False,  3 = Disputed",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3"
+          ]
+        },
+        "Status": {
+          "type": "integer",
+          "description": "0 (default), Else = status of LDS events: e.g. 1-Submitted, 8-DNS, 12-Cleared",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-12"
+          ]
+        },
+        "Sentence": {
+          "type": "string",
+          "description": "Customised sentence for this event.  User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "Sentence Template Language"
+          ]
+        },
+        "Details": {
+          "type": "string",
+          "description": "Content of Description field in Edit Person Fact pane",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Note": {
+          "type": "string",
+          "description": "Content of Note in Edit Person Fact Pane.  User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "EventID"
+      ],
+      "indexes": [
+        {
+          "name": "idxOwnerEvent",
+          "columns": [
+            "OwnerID",
+            "EventType"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxOwnerDate",
+          "columns": [
+            "OwnerID",
+            "SortDate"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "ExclusionTable": {
+      "type": "object",
+      "description": "ExclusionTable table",
+      "properties": {
+        "RecID": {
+          "type": "integer",
+          "description": "Record Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1, 2, 3..."
+          ],
+          "primary": true
+        },
+        "ExclusionType": {
+          "type": "integer",
+          "description": "Exclusion Type: 1 = Person member of \\Not a duplicate list\\, from Merge Duplicates tool, 2 = Person member of \\Not a problem list\\, from Problem List tool",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2"
+          ]
+        },
+        "ID1": {
+          "type": "integer",
+          "description": "Identification Number 1, based on ExclusionType: 1 = PersonTable.PersonID of Person 1 from potential merge, 2 = PersonTable.PersonID of person marked in \\Not a problem list\\",
+          "sqliteType": "Integer",
+          "examples": [
+            "1, 2, 3..."
+          ],
+          "foreignKey": true
+        },
+        "ID2": {
+          "type": "integer",
+          "description": "Identification Number 2, based on ExclusionType: 1 = PersonTable.PersonID of Person 2 from potential merge,  2 = Problem filter matched (",
+          "sqliteType": "Integer",
+          "examples": [
+            "Built in"
+          ],
+          "foreignKey": true
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "RecID"
+      ]
+    },
+    "FactTypeTable": {
+      "type": "object",
+      "description": "FactTypeTable table",
+      "properties": {
+        "FactTypeID": {
+          "type": "integer",
+          "description": "Fact Type Identification Number: Built-in < 1000,  User-defined > = 1000",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "primary": true
+        },
+        "OwnerType": {
+          "type": "integer",
+          "description": "Owner Type: 0 = Individual, 1 = Family",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "Name": {
+          "type": "string",
+          "description": "Name, from Edit Fact Type window",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Abbrev": {
+          "type": "string",
+          "description": "Abbreviation, from Edit Fact Type window",
+          "sqliteType": "Text",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ]
+        },
+        "GedcomTag": {
+          "type": "string",
+          "description": "GEDCOM Tag = \\EVEN\\ for some built-in and all user defined Fact Types ",
+          "sqliteType": "Text",
+          "examples": [
+            "Character string"
+          ]
+        },
+        "UseValue": {
+          "type": "integer",
+          "description": "\\Use description field\\ checkbox, from Edit Fact Type window: 0 = No (unchecked) 1 = Yes (checked)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "UseDate": {
+          "type": "integer",
+          "description": "\\Use date field\\ checkbox, from Edit Fact Type window: 0 = No (unchecked) 1 = Yes (checked)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "UsePlace": {
+          "type": "integer",
+          "description": "\\Use place field\\ checkbox, from Edit Fact Type window: 0 = No (unchecked) 1 = Yes (checked)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "Sentence": {
+          "type": "string",
+          "description": "Sentence template for this role, from Edit Role Type window for Role name of Principal. User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "Sentence Template Language"
+          ]
+        },
+        "Flags": {
+          "type": "integer",
+          "description": "6-bit position-coded number for Include settings for Fact Type.",
+          "sqliteType": "Integer",
+          "examples": [
+            "-1 to -63"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "FactTypeID"
+      ],
+      "indexes": [
+        {
+          "name": "idxFactTypeName",
+          "columns": [
+            "Name"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxFactTypeAbbrev",
+          "columns": [
+            "Abbrev"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxFactTypeGedcomTag",
+          "columns": [
+            "GedcomTag"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "FamilySearchTable": {
+      "type": "object",
+      "description": "FamilySearchTable table",
+      "properties": {
+        "LinkID": {
+          "type": "integer",
+          "description": "LinkID Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "primary": true
+        },
+        "LinkType": {
+          "type": "integer",
+          "description": "0 = Person",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "rmID": {
+          "type": "integer",
+          "description": "Link based on LinkType: 0 = PersonTable.PersonID",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "foreignKey": true
+        },
+        "fsID": {
+          "type": "string",
+          "description": "FamilySearch ID from FamilySearch Family Tree connection",
+          "sqliteType": "Text",
+          "examples": [
+            "1,2,3..."
+          ]
+        },
+        "Modified": {
+          "type": "integer",
+          "description": "0 = Default, 1 = Mismatch exists between FamilySearch and RM record details (Event date, place, etc) Note: Modified flag resets to \\0\\ after any data for this person is shared via the FS API, even if data mismatches still exist.",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "fsVersion": {
+          "type": "string",
+          "description": "FamilySearch Version",
+          "sqliteType": "Text",
+          "examples": [
+            "18 digit integer, \\n40-45 char hexadecimal + '-GZIP'"
+          ]
+        },
+        "fsDate": {
+          "type": "number",
+          "sqliteType": "Float",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Status": {
+          "type": "integer",
+          "description": "0 = Default, Person Record initially created in RM db 4 = Person Record initially imported from FamilySearch",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,4"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        },
+        "TreeID": {
+          "type": "string",
+          "description": "Not Implemented",
+          "sqliteType": "Text",
+          "examples": [
+            "Blank"
+          ]
+        }
+      },
+      "required": [
+        "LinkID"
+      ],
+      "indexes": [
+        {
+          "name": "idxLinkRmId",
+          "columns": [
+            "rmID"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxLinkfsID",
+          "columns": [
+            "fsID"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "FamilyTable": {
+      "type": "object",
+      "description": "FamilyTable table",
+      "properties": {
+        "FamilyID": {
+          "type": "integer",
+          "description": "Family Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1, 2, 3..."
+          ],
+          "primary": true
+        },
+        "FatherID": {
+          "type": "integer",
+          "description": "Links to PersonID in the PersonTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1, 2, 3..."
+          ],
+          "foreignKey": true
+        },
+        "MotherID": {
+          "type": "integer",
+          "description": "Links to PersonID in the PersonTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1, 2, 3..."
+          ],
+          "foreignKey": true
+        },
+        "ChildID": {
+          "type": "integer",
+          "description": "Links to PersonTable.PersonID of Child last active as the root person in Pedigree view, 0 = No Children in family or no child displayed as root in Pedigree view.",
+          "sqliteType": "Integer",
+          "examples": [
+            "0, 1, 2,..."
+          ],
+          "foreignKey": true
+        },
+        "HusbOrder": {
+          "type": "integer",
+          "description": "Husband Order, from People View, Edit Menu, Rearrange Spouses: 0 if never rearranged",
+          "sqliteType": "Integer",
+          "examples": [
+            "0, 1, 2,..."
+          ]
+        },
+        "WifeOrder": {
+          "type": "integer",
+          "description": "Wife Order, from People View, Edit Menu, Rearrange Spouses: 0 if never rearranged",
+          "sqliteType": "Integer",
+          "examples": [
+            "0, 1, 2,..."
+          ]
+        },
+        "IsPrivate": {
+          "type": "integer",
+          "description": "Not Implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Proof": {
+          "type": "integer",
+          "description": "Proof, from Spouse Fact in Edit Person window: 0 = [blank],  1 = Proven,  2 = Disproven,  3 = Disputed",
+          "sqliteType": "Integer",
+          "examples": [
+            "0, 1, 2, 3"
+          ]
+        },
+        "SpouseLabel": {
+          "type": "integer",
+          "description": "Not Implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "FatherLabel": {
+          "type": "integer",
+          "description": "Father Label, from Spouse Fact in Edit Person window: 0 = Father 1 = Husband 2 = Partner 99 = Other",
+          "sqliteType": "Integer",
+          "examples": [
+            "0, 1, 2, 99"
+          ]
+        },
+        "MotherLabel": {
+          "type": "integer",
+          "description": "Mother Label, from Spouse Fact in Edit Person window: 0 = Mother 1 = Wife 2 = Partner 99 = Other",
+          "sqliteType": "Integer",
+          "examples": [
+            "0, 1, 2, 99"
+          ]
+        },
+        "SpouseLabelStr": {
+          "type": "string",
+          "description": "Not Implemented",
+          "sqliteType": "Text"
+        },
+        "FatherLabelStr": {
+          "type": "string",
+          "description": "Spouse Fact, from Edit Person window: User defined text when FatherLabel=99",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "MotherLabelStr": {
+          "type": "string",
+          "description": "Spouse Fact, from Edit Person window: User defined text when MotherLabel=99",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Note": {
+          "type": "string",
+          "description": "Note for Spouse Fact, from Edit Person window: User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "FamilyID"
+      ],
+      "indexes": [
+        {
+          "name": "idxFamilyFatherID",
+          "columns": [
+            "FatherID"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxFamilyMotherID",
+          "columns": [
+            "MotherID"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "GroupTable": {
+      "type": "object",
+      "description": "GroupTable table",
+      "properties": {
+        "RecID": {
+          "type": "integer",
+          "description": "Record Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "primary": true
+        },
+        "GroupID": {
+          "type": "integer",
+          "description": "1 = Results of Person Search from Search menu, 2 = Results of Person Search - Advanced from Search menu, >1000 = Group (Simple or Rules based) Note: a temporary group is created whenever the basic or advanced Person Search options are run from the Search Menu. The group is automatically deleted when the search results are cleared or a subsequent search is run.",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2, 1001,1002,1003,..."
+          ]
+        },
+        "StartID": {
+          "type": "integer",
+          "description": "Links to PersonTable.PersonID, Starting Number of consecutively-numbered PersonIDs",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "EndID": {
+          "type": "integer",
+          "description": "Links to PersonTable.PersonID, Ending Number of consecutively-numbered PersonIDs",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Not implemented",
+          "sqliteType": "Float",
+          "examples": [
+            "Null"
+          ]
+        }
+      },
+      "required": [
+        "RecID"
+      ]
+    },
+    "MediaLinkTable": {
+      "type": "object",
+      "description": "MediaLinkTable table",
+      "properties": {
+        "LinkID": {
+          "type": "integer",
+          "description": "Link Identification Number",
+          "sqliteType": "Integer",
+          "primary": true
+        },
+        "MediaID": {
+          "type": "integer",
+          "description": "Media Identification Number, links to MediaID of MultimediaTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,…"
+          ],
+          "foreignKey": true
+        },
+        "OwnerType": {
+          "type": "integer",
+          "description": "Owner Type: 0 = Person (Person Fact),  1 = Family (Spouse or Parents Fact) 2 = Event,  3 = Source,  4 = Citation,  5 = Place, 6 = Task, 7 = Name (Primary or Alternate), 14 = Place Details, 19 = Association",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,…"
+          ]
+        },
+        "OwnerID": {
+          "type": "integer",
+          "description": "Link based on OwnerType: 0 = PersonTable.PersonID,  1 = FamilyTable.FamilyID, 2 = EventTable.EventID, 3 = SourceTable.SourceID, 4 = CitationTable.CitationID, 5 = PlaceTable.PlaceID, 6 = TaskTable.TaskID 7 =  NameTable.NameID, 14 = PlaceTable.PlaceID, 19 = FanTable.FanID",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,…"
+          ],
+          "foreignKey": true
+        },
+        "IsPrimary": {
+          "type": "integer",
+          "description": "Primary Photo checkbox, from the Edit Media pane: 0 = Not checked (default), 1 = Checked. (Determines image displayed in reports, the Pedigree view, and the People Side View pane for the selected person.)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "Include1": {
+          "type": "integer",
+          "description": "Include in Scrapbook, from the Edit Media pane: 0 = Do Not Include (unchecked) 1 = Include (checked)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "Include2": {
+          "type": "integer",
+          "description": "Not implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Include3": {
+          "type": "integer",
+          "description": "Not implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Include4": {
+          "type": "integer",
+          "description": "Not implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "SortOrder": {
+          "type": "integer",
+          "description": "Sort Order, from Media Album view in Edit Person window: 0 = (Default) Order by MediaLinkTable.LinkID, Else, order set via the Rearrange window of Person's Media Album.  Note:  The default sort order for media links is the order in which the media links are added (MediaLinkTable.LinkiD). Within a fixed MediaLinkTable.OwnerType and MediaLinkTable.OwnerID, the sort order is effectively \\ORDER BY MediaLinkTable.SortOrder, MediaLinkTable.LinkID\\. Because when SortOrder defaults to zero, the actual sort order defaults to LinkID.",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,…"
+          ]
+        },
+        "RectLeft": {
+          "type": "integer",
+          "description": "Not implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "RectTop": {
+          "type": "integer",
+          "description": "Not implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "RectRight": {
+          "type": "integer",
+          "description": "Not implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "RectBottom": {
+          "type": "integer",
+          "description": "Not implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Comments": {
+          "type": "string",
+          "description": "Media Tag Comment, from Add Media Tag window. (Select Tags from Edit Media pane of Media window, then add a new tag.)",
+          "sqliteType": "Text",
+          "examples": [
+            "Blank or\\nUser Defined"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "LinkID"
+      ],
+      "indexes": [
+        {
+          "name": "idxMediaOwnerID",
+          "columns": [
+            "OwnerID"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "MultimediaTable": {
+      "type": "object",
+      "description": "MultimediaTable table",
+      "properties": {
+        "MediaID": {
+          "type": "integer",
+          "description": "Media Identification Number",
+          "sqliteType": "Integer",
+          "primary": true
+        },
+        "MediaType": {
+          "type": "integer",
+          "description": "Media Type, from Add Media Item screen  1 = Image,  2 = File,  3 = Sound,  4 = Video",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,4"
+          ]
+        },
+        "MediaPath": {
+          "type": "string",
+          "description": "Relative file path of Media File, extracted from Filename field in Add Media window or Edit Media pane. The first character in the MediaPath may be a symbol: ? = Media Folder defined in Folder Settings window, ~ = User's home directory defined by the Operating System * = Folder containing the RM Database",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "MediaFile": {
+          "type": "string",
+          "description": "File name, extracted from Filename field in Add Media window or Edit Media pane",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "URL": {
+          "type": "string",
+          "description": "Not implemented",
+          "sqliteType": "Text",
+          "examples": [
+            "Blank"
+          ]
+        },
+        "Thumbnail": {
+          "type": "string",
+          "description": "Thumbnail",
+          "sqliteType": "Blob",
+          "examples": [
+            "?PNG"
+          ]
+        },
+        "Caption": {
+          "type": "string",
+          "description": "Caption, from Add Media window or Edit Media pane",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "RefNumber": {
+          "type": "string",
+          "description": "Reference Number, from Add Media window or Edit Media pane",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Date": {
+          "type": "string",
+          "description": "Date, from Media Properties screen. ",
+          "sqliteType": "Text",
+          "examples": [
+            "Position coded string or free text"
+          ]
+        },
+        "SortDate": {
+          "type": "integer",
+          "sqliteType": "BigInt",
+          "examples": [
+            "12,15, or 19\\ndigit number"
+          ]
+        },
+        "Description": {
+          "type": "string",
+          "description": "Description, from Add Media window or Edit Media pane.  User Interface supports line breaks and formatting tags",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "MediaID"
+      ],
+      "indexes": [
+        {
+          "name": "idxMediaFile",
+          "columns": [
+            "MediaFile"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxMediaURL",
+          "columns": [
+            "URL"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "NameTable": {
+      "type": "object",
+      "description": "NameTable table",
+      "properties": {
+        "NameID": {
+          "type": "integer",
+          "sqliteType": "Integer",
+          "examples": [
+            "1, 2, 3…"
+          ],
+          "primary": true
+        },
+        "OwnerID": {
+          "type": "integer",
+          "description": "Link to PersonTable.PersonID (aka Record Identification Number - RIN).   A single OwnerID can have multiple NameID's for Alternate Names.",
+          "sqliteType": "Integer",
+          "examples": [
+            "1, 2, 3…"
+          ],
+          "foreignKey": true
+        },
+        "Surname": {
+          "type": "string",
+          "description": "Surname",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Given": {
+          "type": "string",
+          "description": "Given name",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Prefix": {
+          "type": "string",
+          "description": "Name prefix, e.g., Dr., Rev., Lord, Lady...",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Suffix": {
+          "type": "string",
+          "description": "Name suffix, e.g., Jr., Sr., III, ...",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Nickname": {
+          "type": "string",
+          "description": "Nickname",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "NameType": {
+          "type": "integer",
+          "description": "0 - Null 1 - AKA 2 - Birth 3 - Immigrant 4 - Maiden 5 - Married 6 - Nickname 7 - Other Spelling",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-7"
+          ]
+        },
+        "Date": {
+          "type": "string",
+          "description": "Date, from Alternate Name Fact.",
+          "sqliteType": "Text",
+          "examples": [
+            "Position coded string or free text"
+          ]
+        },
+        "SortDate": {
+          "type": "integer",
+          "description": "Sort Date for Name Fact, from Edit Person window: The Sort Date forces the Name fact into a position relative to other facts in the Edit Person window . (Blank Date = 9223372036854775807)",
+          "sqliteType": "BigInt",
+          "examples": [
+            "19 digit number"
+          ]
+        },
+        "IsPrimary": {
+          "type": "integer",
+          "description": "1 = Name is listed in the Primary Name fact, 0 = Alternate Name, Editable by selecting the Primary Checkbox in an Alternate Name fact.",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "IsPrivate": {
+          "type": "integer",
+          "description": "Private checkbox in Edit Person Alternate Name Fact edit pane:   0 = NOT selected (default),  1 = Selected.  Used to optionally suppress from reports events that are considered “private”.",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "Proof": {
+          "type": "integer",
+          "description": "Set by Proof listbox in Edit Person Name Fact edit pane.  0 = Blank (default),  1 = Proven,  2 = Disproven, 3 = Disputed",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3"
+          ]
+        },
+        "Sentence": {
+          "type": "string",
+          "description": "Customized sentence template for this Alternate Name,  entered in Edit Person Alternate Name Customize Sentence window.  User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "Sentence Template Language"
+          ]
+        },
+        "Note": {
+          "type": "string",
+          "description": "Note for Name Fact, from Edit Person window: User Interface upports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "BirthYear": {
+          "type": "integer",
+          "description": "Year extracted from EventTable.Date for Birth FactType for Person",
+          "sqliteType": "Integer",
+          "examples": [
+            "Blank or\\n4-digits"
+          ]
+        },
+        "DeathYear": {
+          "type": "integer",
+          "description": "Year extracted from EventTable.Date for Death FactType for Person",
+          "sqliteType": "Integer",
+          "examples": [
+            "Blank or\\n4-digits"
+          ]
+        },
+        "Display": {
+          "type": "integer",
+          "description": "Not implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Language": {
+          "type": "string",
+          "description": "Not implemented",
+          "sqliteType": "Text",
+          "examples": [
+            "Blank"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        },
+        "SurnameMP": {
+          "type": "string",
+          "description": "Version of User Defined NameTable.Surname",
+          "sqliteType": "Text"
+        },
+        "GivenMP": {
+          "type": "string",
+          "description": "Version of User Defined NameTable.Surname",
+          "sqliteType": "Text"
+        },
+        "NicknameMP": {
+          "type": "string",
+          "description": "Version of User Defined NameTable.Surname",
+          "sqliteType": "Text"
+        }
+      },
+      "required": [
+        "NameID"
+      ],
+      "indexes": [
+        {
+          "name": "idxNameOwnerID",
+          "columns": [
+            "OwnerID"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxSurname",
+          "columns": [
+            "Surname"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxGiven",
+          "columns": [
+            "Given"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxNamePrimary",
+          "columns": [
+            "IsPrimary"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxSurnameMP",
+          "columns": [
+            "SurnameMP"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxGivenMP",
+          "columns": [
+            "GivenMP"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "PlaceTable": {
+      "type": "object",
+      "description": "PlaceTable table",
+      "properties": {
+        "PlaceID": {
+          "type": "integer",
+          "description": "Place Identification Number",
+          "sqliteType": "Integer",
+          "primary": true
+        },
+        "PlaceType": {
+          "type": "integer",
+          "description": "0 = Place, from Edit Person screen for a fact,  1 = LDS Temples, Built-In,  2 = Place details, from Edit Person screen for a fact",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2"
+          ]
+        },
+        "Name": {
+          "type": "string",
+          "description": "Place Name from Edit Place pane of Places window or the Fact Edit pane of Edit Person window (PlaceType = 0), Place Name, pre-defined (PlaceType = 1),  Place Detail Name from Edit Place Detail pane of Places window or the Fact Edit pane of Edit Person window (PlaceType = 2)  Note: Place names (or Place details) can only be modified from the Places Menu window. Edits made from the Edit Person window add new Places or Place Details.",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Abbrev": {
+          "type": "string",
+          "description": "Abbreviated place name, from Edit Place pane of Places window (PlaceType = 0 and 2),  Pre-defined (PlaceType = 1)",
+          "sqliteType": "Text",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ]
+        },
+        "Normalized": {
+          "type": "string",
+          "description": "Standardized place name from Edit Place pane of Places window (PlaceType = 0 and 2),  Pre-defined (PlaceType = 1)",
+          "sqliteType": "Text",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ]
+        },
+        "Latitude": {
+          "type": "integer",
+          "description": "Latitude in decimal degrees stored as an integer (ie multiplied by 1e7). Pre-defined for LDS Temples (PlaceType=1), Else User Defined via Edit Place or Edit Place Details pane of Places window.",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,\\n8-9 Digit Integer"
+          ]
+        },
+        "Longitude": {
+          "type": "integer",
+          "description": "Longitude in decimal degrees stored as an integer (ie multiplied by 1e7). Pre-defined for LDS Temples (PlaceType=1), Else User Defined via Edit Place or Edit Place Details pane of Places window.",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,\\n8-9 Digit Integer"
+          ]
+        },
+        "LatLongExact": {
+          "type": "integer",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "MasterID": {
+          "type": "integer",
+          "description": "0 for PlaceType = 0,1 PlaceID of Place, for PlaceType = 2 (Place Detail)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "Note": {
+          "type": "string",
+          "description": "Place note, from Edit screen for PlaceType = 0 and 2.  User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Reverse": {
+          "type": "string",
+          "description": "Calculated field containing the reverse order of the comma-delimeted fields in the PlaceTable.Name column  Note: This field is automatically updated whenever the Place Name (or Place Details) value is modified from the Places Menu window. Edits made from the Edit Person window add new Places or Place Details.",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "fsID": {
+          "type": "integer",
+          "sqliteType": "Integer"
+        },
+        "anID": {
+          "type": "integer",
+          "sqliteType": "Integer"
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "PlaceID"
+      ],
+      "indexes": [
+        {
+          "name": "idxPlaceName",
+          "columns": [
+            "Name"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxReversePlaceName",
+          "columns": [
+            "Reverse"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxPlaceAbbrev",
+          "columns": [
+            "Abbrev"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "RoleTable": {
+      "type": "object",
+      "description": "RoleTable table",
+      "properties": {
+        "RoleID": {
+          "type": "integer",
+          "description": "RoleIDs = 1 – 58  are pre-defined in built-in Fact Types",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,…"
+          ],
+          "primary": true
+        },
+        "RoleName": {
+          "type": "string",
+          "description": "Role name, from Edit Role Type window. Displays with fact in Edit Person window when a fact is shared.  ",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "EventType": {
+          "type": "integer",
+          "description": "Event Type, links to FactTypeID in FactTypeTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,…"
+          ],
+          "foreignKey": true
+        },
+        "RoleType": {
+          "type": "integer",
+          "description": "Not Implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Sentence": {
+          "type": "string",
+          "description": "Sentence template for this role, from Edit Fact Type/Edit Role Type screen. User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "Sentence Template Language"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "RoleID"
+      ],
+      "indexes": [
+        {
+          "name": "idxRoleEventType",
+          "columns": [
+            "EventType"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "SourceTable": {
+      "type": "object",
+      "description": "SourceTable table",
+      "properties": {
+        "SourceID": {
+          "type": "integer",
+          "description": "Source Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "primary": true
+        },
+        "Name": {
+          "type": "string",
+          "description": "Source Name, from Edit Source pane or Edit Citation pane",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "RefNumber": {
+          "type": "string",
+          "description": "Source Ref#, from Edit Source pane or Edit Citation pane",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "ActualText": {
+          "type": "string",
+          "description": "Source Text, from Edit Source pane or Edit Citation pane",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Comments": {
+          "type": "string",
+          "description": "Source Comment,  from Edit Source pane or Edit Citation pane",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "IsPrivate": {
+          "type": "integer",
+          "description": "Not Implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "TemplateID": {
+          "type": "integer",
+          "description": "Template Identification Number: 0 = Free-Form,  Else, links to TemplateID in SourceTemplateTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "Fields": {
+          "type": "string",
+          "description": "Master Source Field \\Names\\  (from Source template) and \\Values\\ (from Edit Source pane).  For Free-Form sources, XML contains  Footnote, Short Footnote, and Bibliography plus associated values.",
+          "sqliteType": "Blob",
+          "examples": [
+            "XML"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "SourceID"
+      ],
+      "indexes": [
+        {
+          "name": "idxSourceName",
+          "columns": [
+            "Name"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "SourceTemplateTable": {
+      "type": "object",
+      "description": "SourceTemplateTable table",
+      "properties": {
+        "TemplateID": {
+          "type": "integer",
+          "description": "Template Identification Number: 1 - 439 = Built-In (See Source Template window),  10,000+ = User-Defined",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,…"
+          ],
+          "primary": true
+        },
+        "Name": {
+          "type": "string",
+          "description": "Template Name, from Source Template window. Only user-defined templates are editable.",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Description": {
+          "type": "string",
+          "description": "Description Details, from Source Template Description window. Only user-defined templates are editable.",
+          "sqliteType": "Text",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ]
+        },
+        "Favorite": {
+          "type": "integer",
+          "description": "0 = Not a Favorite (Default), 1 = Template starred as Favorite from Select Source Type screen of Add Source window",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "Category": {
+          "type": "string",
+          "description": "Category Details, from Source Template Description window. Only user-defined templates are editable.",
+          "sqliteType": "Text",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ]
+        },
+        "Footnote": {
+          "type": "string",
+          "description": "Footnote Template, from Source Templates window. User Interface supports line breaks and formatting tags but only user-defined templates are editable.",
+          "sqliteType": "Text",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ]
+        },
+        "ShortFootnote": {
+          "type": "string",
+          "description": "Short Footnote Template, from Source Template window. User Interface supports line breaks and formatting tags but only user-defined templates are editable.",
+          "sqliteType": "Text",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ]
+        },
+        "Bibliography": {
+          "type": "string",
+          "description": "Bibliography Template, from Source Template window. User Interface supports line breaks and formatting tags but only user-defined templates are editable.",
+          "sqliteType": "Text",
+          "examples": [
+            "Built-in or\\nUser Defined"
+          ]
+        },
+        "FieldDefs": {
+          "type": "string",
+          "description": "From Source Template Field window: Field Name, Display Name, Field Type, Brief hint, Long hint, and True/False flag to identify whether the field is located in the source or citation.",
+          "sqliteType": "Blob",
+          "examples": [
+            "XML"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "TemplateID"
+      ],
+      "indexes": [
+        {
+          "name": "idxSourceTemplateName",
+          "columns": [
+            "Name"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "TagTable": {
+      "type": "object",
+      "description": "TagTable table",
+      "properties": {
+        "TagID": {
+          "type": "integer",
+          "description": "Tag Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "primary": true
+        },
+        "TagType": {
+          "type": "integer",
+          "description": "0 = Group, 1 = Folder",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "TagValue": {
+          "type": "integer",
+          "description": "If TagValue >1000, links to GroupTable.GroupID Else, incremental placeholder for Task Folders.",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "TagName": {
+          "type": "string",
+          "description": "Name of Group or Task Folder",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Description": {
+          "type": "string",
+          "description": "Description of Task Folder, Blank for Groups.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "TagID"
+      ],
+      "indexes": [
+        {
+          "name": "idxTagType",
+          "columns": [
+            "TagType"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "TaskLinkTable": {
+      "type": "object",
+      "description": "TaskLinkTable table",
+      "properties": {
+        "LinkID": {
+          "type": "integer",
+          "description": "Link Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "primary": true
+        },
+        "TaskID": {
+          "type": "integer",
+          "description": "Links to TaskID in TaskTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "OwnerType": {
+          "type": "integer",
+          "description": "0 = Person, 1 = Family, 2 = Event, 5 = Place,  7 = Name,  14 = Place Detail,  18 = Folder,  19 = Association ",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,5,7,14,18,19"
+          ]
+        },
+        "OwnerID": {
+          "type": "integer",
+          "description": "Link based on OwnerType: 0 = PersonTable.PersonID, 1 = FamilyTable.FamilyID, 2 = EventTable.Eventid, 5 = PlaceTable.PlaceID, 7 = NameTable.NameID, 14 = PlaceTable.PlaceID, 18 = TagTable.TagID, 19 = FanTable.FanID",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "LinkID"
+      ],
+      "indexes": [
+        {
+          "name": "idxTaskOwnerID",
+          "columns": [
+            "OwnerID"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "TaskTable": {
+      "type": "object",
+      "description": "TaskTable table",
+      "properties": {
+        "TaskID": {
+          "type": "integer",
+          "description": "Task Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "primary": true
+        },
+        "TaskType": {
+          "type": "integer",
+          "description": "From Add Task window or Edit Task pane: 0 = Blank, 1 = Research,  2 = ToDo,  3 = Correspondence",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3"
+          ]
+        },
+        "RefNumber": {
+          "type": "string",
+          "description": "Reference #, from Add Task window or Edit Task pane.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Name": {
+          "type": "string",
+          "description": "Name, from Add Task window or Edit Task pane. ",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Status": {
+          "type": "integer",
+          "description": "Status, From Add Task window or Edit Task pane: 0 = New, 1 = In Progress, 2 = Completed, 3 = On hold, 4 = Problem, 5 = Cancelled",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,4,5"
+          ]
+        },
+        "Priority": {
+          "type": "integer",
+          "description": "From Add Task window or Edit Task pane: 0 = Priority 1 (Highest), 1 = Priority 2 (Very High), 2 = Priority 3 (High), 3 = Priority 4 (Med high), 4 = Priority 5 (Medium), 5 = Priority 6 (Med low), 6 = Priority 7 (Low), 7= Priority 8 (Very Low)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,4,5,6,7"
+          ]
+        },
+        "Date1": {
+          "type": "string",
+          "description": "Start Date, from Edit Task screen. [See Date sheet for additional details.] ",
+          "sqliteType": "Text",
+          "examples": [
+            "Position coded string or free text"
+          ]
+        },
+        "Date2": {
+          "type": "string",
+          "description": "Last Edit Date, from Edit Task screen. [See Date sheet for additional details.] ",
+          "sqliteType": "Text",
+          "examples": [
+            "Position coded string or free text"
+          ]
+        },
+        "Date3": {
+          "type": "string",
+          "description": "End Date, from Edit Task screen. [See Date sheet for additional details.] ",
+          "sqliteType": "Text",
+          "examples": [
+            "Position coded string or free text"
+          ]
+        },
+        "SortDate1": {
+          "type": "integer",
+          "sqliteType": "BigInt",
+          "examples": [
+            "0 or\\n19 digit number"
+          ]
+        },
+        "SortDate2": {
+          "type": "integer",
+          "sqliteType": "BigInt",
+          "examples": [
+            "0 or\\n19 digit number"
+          ]
+        },
+        "SortDate3": {
+          "type": "integer",
+          "sqliteType": "BigInt",
+          "examples": [
+            "0 or\\n19 digit number"
+          ]
+        },
+        "Filename": {
+          "type": "string",
+          "description": "File name and path, from Add Task window or Edit Task pane. ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Details": {
+          "type": "string",
+          "description": "Details, from Add Task window or Edit Task pane.  User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Results": {
+          "type": "string",
+          "description": "Results, from Add Task window or Edit Task pane.  User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        },
+        "Exclude": {
+          "type": "integer",
+          "description": "From Filter Tasks window: 0 = Display Task in list (default), 1= Filter from Task list",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        }
+      },
+      "required": [
+        "TaskID"
+      ],
+      "indexes": [
+        {
+          "name": "idxTaskName",
+          "columns": [
+            "Name"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "URLTable": {
+      "type": "object",
+      "description": "URLTable table",
+      "properties": {
+        "LinkID": {
+          "type": "integer",
+          "description": "Link or WebTag Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "primary": true
+        },
+        "OwnerType": {
+          "type": "integer",
+          "description": "Owner Type: 3 = Source, 4 = Citation, 5 = Place, 6 = Task, 14 = Place Details",
+          "sqliteType": "Integer",
+          "examples": [
+            "3,4,5,6,14"
+          ]
+        },
+        "OwnerID": {
+          "type": "integer",
+          "description": "Owner Identification, link based on OwnerType: 3 = SourceTable.SourceID, 4 = CitationTable.CitationID,  5 = PlaceTable.PlaceID, 6 = Tasktable.TaskID, 14 = PlaceTable.PlaceID",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "LinkType": {
+          "type": "integer",
+          "description": "Not Implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Name": {
+          "type": "string",
+          "description": "Name, from Edit Web Tag window",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "URL": {
+          "type": "string",
+          "description": "URL, from Edit Web Tag window",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Note": {
+          "type": "string",
+          "description": "Note, from Edit Web Tag window.  User Interface supports line breaks and formatting tags",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "LinkID"
+      ]
+    },
+    "WitnessTable": {
+      "type": "object",
+      "description": "WitnessTable table",
+      "properties": {
+        "WitnessID": {
+          "type": "integer",
+          "description": "Witness Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "primary": true
+        },
+        "EventID": {
+          "type": "integer",
+          "description": "Event Identification Number, linking to EventID of EventTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "PersonID": {
+          "type": "integer",
+          "description": "Person that the fact has been shared with: 0 = This person is NOT in RM database, Else, PersonTable.PersonID",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "WitnessOrder": {
+          "type": "integer",
+          "description": "Not Implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Role": {
+          "type": "integer",
+          "description": "Role, from Edit shared event screen, Links to RoleID in RoleTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "Sentence": {
+          "type": "string",
+          "description": "From Edit Person window of person that the fact has been shared with: Blank (Default) = Role Sentence not customized, Else, customized sentence",
+          "sqliteType": "Text",
+          "examples": [
+            "Sentence Template Language"
+          ]
+        },
+        "Note": {
+          "type": "string",
+          "description": "Note, from Edit Witness pane of Edit Person window for person that the fact has been shared with.  User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Given": {
+          "type": "string",
+          "description": "From Edit Witness pane of Edit Person window for person that the fact has been shared with: Blank (Default) = Person is in RM database, Else, First name of person",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Surname": {
+          "type": "string",
+          "description": "From Edit Witness pane of Edit Person window for person that the fact has been shared with: Blank (Default) = Person is in RM database, Else, Last name of person",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Prefix": {
+          "type": "string",
+          "description": "Not Implemented",
+          "sqliteType": "Text Collate RMNOCASE",
+          "collation": "RMNOCASE"
+        },
+        "Suffix": {
+          "type": "string",
+          "description": "Not Implemented",
+          "sqliteType": "Text Collate RMNOCASE",
+          "collation": "RMNOCASE"
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "WitnessID"
+      ],
+      "indexes": [
+        {
+          "name": "idxWitnessEventID",
+          "columns": [
+            "EventID"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxWitnessPersonID",
+          "columns": [
+            "PersonID"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "FANTypeTable": {
+      "type": "object",
+      "description": "FANTypeTable table",
+      "properties": {
+        "FANTypeID": {
+          "type": "integer",
+          "description": " Association ID",
+          "sqliteType": "Integer",
+          "examples": [
+            "1-15, 999"
+          ],
+          "primary": true
+        },
+        "Name": {
+          "type": "string",
+          "description": "Association Type, based on FANTypeID: 1 = Friends 2 = Neighbors  3 = Employment  4 = Education  5 = Enslavement  6 = Household  7 = Classmates  8 = Coworkers  9 = Apprenticeship  10 = Godparent  11 = Relative  12 = DNA Match  13 = Medical  14 = Grave neighbors  15 = Rental  999 = Associates",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "1-15, 999"
+          ],
+          "collation": "RMNOCASE"
+        },
+        "Role1": {
+          "type": "string",
+          "description": "Role 1 and Role2 Names, based on FANTypeID: 1 = Friend / Friend  2 = Neighbor / Neighbor  3 = Employer / Employee  4 = Teacher / Student  5 = Enslaver / Enslaved person  6 = Household member / Household member  7 = Classmate / Classmate  8 = Coworker / Coworker  9 = Master / Apprentice  10 = Godparent / Godchild  11 = Relative / Relative  12 = DNA match / DNA match  13 = Doctor / Patient  14 = Burial / Burial  15 = Landlord / Tenant  999 = Associate / Associate",
+          "sqliteType": "Text",
+          "examples": [
+            "1-15, 999"
+          ]
+        },
+        "Role2": {
+          "type": "string",
+          "description": "Role2 name (see FANTableType.Role1 above)",
+          "sqliteType": "Text",
+          "examples": [
+            "1-15, 999"
+          ]
+        },
+        "Sentence1": {
+          "type": "string",
+          "description": "Template for Role1",
+          "sqliteType": "Text",
+          "examples": [
+            "Sentence Template Language"
+          ]
+        },
+        "Sentence2": {
+          "type": "string",
+          "description": "Template for Role2",
+          "sqliteType": "Text",
+          "examples": [
+            "Sentence Template Language"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "FANTypeID"
+      ],
+      "indexes": [
+        {
+          "name": "idxFANTypeName",
+          "columns": [
+            "Name"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "FANTable": {
+      "type": "object",
+      "description": "FANTable table",
+      "properties": {
+        "FanID": {
+          "type": "integer",
+          "description": "RecordID for Friends, Associations, Neighbours links in support of the Association fact type. ",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "primary": true
+        },
+        "ID1": {
+          "type": "integer",
+          "description": "Link to PersonTable.PersonID for node1 of association",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "ID2": {
+          "type": "integer",
+          "description": "Link to PersonTable.PersonID for node2 of association",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "FanTypeID": {
+          "type": "integer",
+          "description": "Link to FANTypeTable.FanTypeID",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "PlaceID": {
+          "type": "integer",
+          "description": "0 = Place Blank, Else, link to PlaceTable.PlaceID for PlaceType=0",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "SiteID": {
+          "type": "integer",
+          "description": "0 = Place Blank, Else, link to PlaceTable.PlaceID for PlaceType=2",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "Date": {
+          "type": "string",
+          "description": "Date, from Associations. [See Date sheet for additional details.]",
+          "sqliteType": "Text",
+          "examples": [
+            "Position coded string or free text"
+          ]
+        },
+        "SortDate": {
+          "type": "integer",
+          "description": "Number representing a user entered date that forces an event into a position relative to other events in lists sorted on the Date field.",
+          "sqliteType": "BigInT",
+          "examples": [
+            "18 digits"
+          ]
+        },
+        "Description": {
+          "type": "string",
+          "description": "Description, from Association pane of Edit Person window. ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Note": {
+          "type": "string",
+          "description": "Note, from Association pane of Edit Person window. User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "FanID"
+      ],
+      "indexes": [
+        {
+          "name": "idxFanId1",
+          "columns": [
+            "ID1"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxFanId2",
+          "columns": [
+            "ID2"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "PayloadTable": {
+      "type": "object",
+      "description": "PayloadTable table",
+      "properties": {
+        "RecID": {
+          "type": "integer",
+          "description": "Record Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "primary": true
+        },
+        "RecType": {
+          "type": "integer",
+          "description": "3 = Saved Task Filter, 4 = Saved Search, 5 = Saved Group",
+          "sqliteType": "Integer",
+          "examples": [
+            "3,4,5"
+          ]
+        },
+        "OwnerType": {
+          "type": "integer",
+          "description": "8 = Saved Search, 20 = Saved Group",
+          "sqliteType": "Integer",
+          "examples": [
+            "8,20"
+          ]
+        },
+        "OwnerID": {
+          "type": "integer",
+          "description": "Link based on RecType: 1 = \\0\\ (not used), 2 = GroupTable.GroupID, 3 = \\0\\ (not used)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "Title": {
+          "type": "string",
+          "description": "Saved Name of Search or Group",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "DataRec": {
+          "type": "string",
+          "description": "Saved Criteria for Search or Group",
+          "sqliteType": "Blob",
+          "examples": [
+            "XML"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "RecID"
+      ],
+      "indexes": [
+        {
+          "name": "idxPayloadType",
+          "columns": [
+            "RecType"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "CitationTable": {
+      "type": "object",
+      "description": "CitationTable table",
+      "properties": {
+        "CitationID": {
+          "type": "integer",
+          "description": "Citation Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "primary": true
+        },
+        "SourceID": {
+          "type": "integer",
+          "description": "Link to SourceID of SourceTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3..."
+          ],
+          "foreignKey": true
+        },
+        "Comments": {
+          "type": "string",
+          "description": "Detail Comment from Edit Citation pane. User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "ActualText": {
+          "type": "string",
+          "description": "Research Note from Edit Citation pane. User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "RefNumber": {
+          "type": "string",
+          "description": "Detail Ref# from Edit Citation pane.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Footnote": {
+          "type": "string",
+          "description": "Value from Customize Footnote window, overrides sentence template output. User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "ShortFootnote": {
+          "type": "string",
+          "description": "Value from Customize Footnote window, overrides sentence template output. User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Bibliography": {
+          "type": "string",
+          "description": "Value from Customize Footnote window, overrides sentence template output. User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Fields": {
+          "type": "string",
+          "description": "Citation Detail field “Names” (from Source template) and “Values” (from Edit Citation pane)",
+          "sqliteType": "Blob",
+          "examples": [
+            "XML"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        },
+        "CitationName": {
+          "type": "string",
+          "description": "If left blank, field value is auto generated as the concatenation of all Citation Detail fields separated by semi-colons.",
+          "sqliteType": "Text Collate RMNOCASE",
+          "examples": [
+            "User Defined"
+          ],
+          "collation": "RMNOCASE"
+        }
+      },
+      "required": [
+        "CitationID"
+      ],
+      "indexes": [
+        {
+          "name": "idxCitationSourceID",
+          "columns": [
+            "SourceID"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxCitationName",
+          "columns": [
+            "CitationName"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "PersonTable": {
+      "type": "object",
+      "description": "PersonTable table",
+      "properties": {
+        "PersonID": {
+          "type": "integer",
+          "description": "Record Identification Number (RIN)",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,..."
+          ],
+          "primary": true
+        },
+        "UniqueID": {
+          "type": "string",
+          "description": "Unique Identification Number assigned to person",
+          "sqliteType": "Text",
+          "examples": [
+            "36 Character\\nHexidecimal"
+          ]
+        },
+        "Sex": {
+          "type": "integer",
+          "description": "0 = Male, 1 = Female, 2 = Unknown",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2"
+          ]
+        },
+        "ParentID": {
+          "type": "integer",
+          "description": "0 = No Parents, Any other value = FamilyTable.FamilyID If person has more than 1 set of parents, then value changes based on FamilyID of parent couple last displayed in Pedigree, Family, or Descendent View.",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "SpouseID": {
+          "type": "integer",
+          "description": "0 = No Spouse, Any other value = FamilyTable.FamilyID If person has more than 1 spouse, then value changes based on FamilyID of the couple last displayed in Pedigree, Family, or Descendent View.",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,..."
+          ],
+          "foreignKey": true
+        },
+        "Color": {
+          "type": "integer",
+          "description": "Set Color for Color Set 1, from Color Coding window: 0 = None,  1 = Red,  2 = Lime,  3 = Blue,  4 = Pink, 5 = Yellow,  6 = Aqua,  7 = Silver,  8 = Maroon,  9 = Green,  10 = Navy,  11 = Purple,  12 = Brown,  13 = Teal,  14 = Grey, 15 = Apricot, 16 = Lemon, 17 = Chatreuse, 18 = Mint, 19 = Azure, 20 = Mauve, 21 = Orange, 22 = Turquoise, 23 = Khaki, 24 = Olive, 25 = Forest, 26 = Aubergine, 27 = Slate",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-27"
+          ]
+        },
+        "Color1": {
+          "type": "integer",
+          "description": "Color Set 2, from Color Coding window: See PersonTable.Color for values",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-27"
+          ]
+        },
+        "Color2": {
+          "type": "integer",
+          "description": "Color Set 3, from Color Coding window: See PersonTable.Color for values",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-27"
+          ]
+        },
+        "Color3": {
+          "type": "integer",
+          "description": "Color Set 4, from Color Coding window: See PersonTable.Color for values",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-27"
+          ]
+        },
+        "Color4": {
+          "type": "integer",
+          "description": "Color Set 5, from Color Coding window: See PersonTable.Color for values",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-27"
+          ]
+        },
+        "Color5": {
+          "type": "integer",
+          "description": "Color Set 6, from Color Coding window: See PersonTable.Color for values",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-27"
+          ]
+        },
+        "Color6": {
+          "type": "integer",
+          "description": "Color Set 7, from Color Coding window: See PersonTable.Color for values",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-27"
+          ]
+        },
+        "Color7": {
+          "type": "integer",
+          "description": "Color Set 8, from Color Coding window: See PersonTable.Color for values",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-27"
+          ]
+        },
+        "Color8": {
+          "type": "integer",
+          "description": "Color Set 9, from Color Coding window: See PersonTable.Color for values",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-27"
+          ]
+        },
+        "Color9": {
+          "type": "integer",
+          "description": "Color Set 10, from Color Coding window: See PersonTable.Color for values",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-27"
+          ]
+        },
+        "Relate1": {
+          "type": "integer",
+          "description": "Relate1, number of generations from this person to Most Recent Common Ancestor with the person chosen via Tools > Set Relationships. Relate1&2 work in combinaton with PersonTable.Flags to describe the relationship between this person and the person defined in Tools>Set Relationships.",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-999"
+          ]
+        },
+        "Relate2": {
+          "type": "integer",
+          "description": "Relate2, number of generations from the person chosen via Tools > Set Relationships to the Most Recent Common Ancestor with this person. ",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,3,..."
+          ]
+        },
+        "Flags": {
+          "type": "integer",
+          "description": "Prefix description added to Set Relationship display as defined by Relate1/Relate2 calculation: 0 = No prefix descriptor, 1 = \\Half\\, 2 = \\Spouse of\\ male blood relation (ie display uses \\Father, Uncle, Cousin\\), 3 = \\Spouse of half\\ male blood relation (ie display uses \\Father, Uncle, Cousin\\), 6 = \\Spouse of\\ female blood relation (ie display uses  \\Mother, Aunt, Cousin\\), 7 = \\Spouse of half\\ female blood relation (ie display uses  \\Mother, Aunt, Cousin\\), 10 = \\Spouse of\\ blood relation where sex is unknown (ie display uses \\Mother/Father, Aunt/Uncle, Cousin\\)",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-10"
+          ]
+        },
+        "Living": {
+          "type": "integer",
+          "description": "Living, from Edit Person window: 0 = Deceased,  1 = Living",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "IsPrivate": {
+          "type": "integer",
+          "description": "Not Implementd",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Proof": {
+          "type": "integer",
+          "description": "Not implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Bookmark": {
+          "type": "integer",
+          "description": "Bookmark, from Sidebar Bookmarks view: 0 = Not Bookmarked, 1 = Bookmarked",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "Note": {
+          "type": "string",
+          "description": "Note field from Edit Person screen, Person Fact. User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "PersonID"
+      ]
+    },
+    "DNATable": {
+      "type": "object",
+      "description": "DNATable table",
+      "properties": {
+        "RecID": {
+          "type": "integer",
+          "description": "Record Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1, 2, 3…"
+          ],
+          "primary": true
+        },
+        "ID1": {
+          "type": "integer",
+          "description": "Person 1, from the DNA Match view of Edit Person Window.  Links to PersonTable.PersonID.",
+          "sqliteType": "Integer",
+          "examples": [
+            "1, 2, 3…"
+          ],
+          "foreignKey": true
+        },
+        "ID2": {
+          "type": "integer",
+          "description": "Person 2, from the DNA Match view of Edit Person Window.  Links to PersonTable.PersonID.",
+          "sqliteType": "Integer",
+          "examples": [
+            "1, 2, 3…"
+          ],
+          "foreignKey": true
+        },
+        "Label1": {
+          "type": "string",
+          "description": "Label 1, from the DNA Match view of Edit Person Window.  ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Label2": {
+          "type": "string",
+          "description": "Label 2, from the DNA Match view of Edit Person Window.  ",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "DNAProvider": {
+          "type": "integer",
+          "description": "Provider, from the DNA Match view of Edit Person Window: 1 = 23andMe, 2 = Ancestry, 3 = Family Tree DNA, 4 = Living DNA, 5 = My Heritage, 6 = GEDmatch, 998 = Unknown, 999 = Other",
+          "sqliteType": "Integer",
+          "examples": [
+            "1-6, 998, 999"
+          ]
+        },
+        "SharedCM": {
+          "type": "number",
+          "description": "Shared Centimorgans (cM), from the DNA Match view of Edit Person Window.",
+          "sqliteType": "Float",
+          "examples": [
+            "User Defined,\\n0-4000"
+          ]
+        },
+        "SharedPercent": {
+          "type": "number",
+          "description": "Shared Percentage, from the DNA Match view of Edit Person Window.",
+          "sqliteType": "Float",
+          "examples": [
+            "User Defined,\\n0-100"
+          ]
+        },
+        "LargeSeg": {
+          "type": "number",
+          "description": "Largest Segment (cM), from the DNA Match view of Edit Person Window.",
+          "sqliteType": "Float",
+          "examples": [
+            "User Defined,\\n0-500"
+          ]
+        },
+        "SharedSegs": {
+          "type": "integer",
+          "description": "Shared Segments, from the DNA Match view of Edit Person Window.",
+          "sqliteType": "Integer",
+          "examples": [
+            "User Defined,\\n0-100"
+          ]
+        },
+        "Date": {
+          "type": "string",
+          "description": "[See Date sheet for additional details.]",
+          "sqliteType": "Text",
+          "examples": [
+            "Position coded string or free text"
+          ]
+        },
+        "Relate1": {
+          "type": "integer",
+          "description": "Relate1, the number of generations between Person 1 (DNATable.ID1) and the Most Recent Common Ancestor (DNATable.CommonAnc). Relate1 and Relate2, taken together with DNATable.CommonAncType, calculate the relationship between the shared DNA Match. ",
+          "sqliteType": "Integer",
+          "examples": [
+            "0-999"
+          ]
+        },
+        "Relate2": {
+          "type": "integer",
+          "description": "Relate2, the number of generations between Person 2 (DNATable.ID2) and the Most Recent Common Ancestor (DNATable.CommonAnc). Relate1 and Relate2, taken together with DNATable.CommonAncType, calculate the relationship between the shared DNA Match.  ",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,..."
+          ]
+        },
+        "CommonAnc": {
+          "type": "integer",
+          "description": "Most Recent Common Ancestor (MRCA) of Person1 and Person2 of the DNA Match. Link to Primary Key of table based on DNATable.CommonAncType:  0 = PersonTable.PersonID, 1 = FamilyTable.FamilyID  Note: CommonAnc = 0 when both Relate1 and Relate2 = 0 (ie when no RM-defined Tree Relationship has been identified).",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1,2,..."
+          ],
+          "foreignKey": true
+        },
+        "CommonAncType": {
+          "type": "integer",
+          "description": "Common Ancestor Type. When DNATable.CommonAnc > 0:  0 = Single MRCA (ie Half Relationship) identified in RM Tree, 1 = Couple MRCA identified in RM Tree  Note: CommonAncType also = 0 when DNATable.CommonAnc=0 (ie when no RM-defined Tree Relationship has been identified).",
+          "sqliteType": "Integer",
+          "examples": [
+            "0,1"
+          ]
+        },
+        "Verified": {
+          "type": "integer",
+          "description": "Not Implemented",
+          "sqliteType": "Integer",
+          "examples": [
+            "0.0"
+          ]
+        },
+        "Note": {
+          "type": "string",
+          "description": "DNA Note, from the DNA Match view of Edit Person Window.   User Interface supports line breaks and formatting tags.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "RecID"
+      ],
+      "indexes": [
+        {
+          "name": "idxDnaId1",
+          "columns": [
+            "ID1"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idxDnaId2",
+          "columns": [
+            "ID2"
+          ],
+          "unique": false
+        }
+      ]
+    },
+    "HealthTable": {
+      "type": "object",
+      "description": "HealthTable table",
+      "properties": {
+        "RecID": {
+          "type": "integer",
+          "description": "Record Identification Number",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,…"
+          ],
+          "primary": true
+        },
+        "OwnerID": {
+          "type": "integer",
+          "description": "Links to PersonID in the PersonTable",
+          "sqliteType": "Integer",
+          "examples": [
+            "1,2,3,…"
+          ],
+          "foreignKey": true
+        },
+        "Condition": {
+          "type": "integer",
+          "description": "Condition, from the Health Condition view of the Edit Person window: 1= Infectious and parasitic disease, 2 = Respiratory diseases, 3 = Reproductive health and childbirth, 4 = Nutritional deficiency, 5 = Cancer, 6 = Endocrine, blood, and immune disorders, 7 = Diabetes, 8 = Mental health, 9 = Neurological, 10 = Eye condition, 11 = Ear condition, 12 = Cardiovascular, 13 = Digestive diseases, 14 = Renal and Urogenital, 15 = Skin disease, 16 = Musculoskeletal diseases, 17 = Congenital anomalies, 18 = Oral disease, 19 = Sexual health, 20 = Injuries and accidents, 999 = Other",
+          "sqliteType": "Integer",
+          "examples": [
+            "1-20, 999"
+          ]
+        },
+        "SubCondition": {
+          "type": "string",
+          "description": "Details, from the Health Condition view of the Edit Person window.",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "Date": {
+          "type": "number",
+          "description": "[See Date sheet for additional details.]",
+          "sqliteType": "Float",
+          "examples": [
+            "Position coded string or free text"
+          ]
+        },
+        "Note": {
+          "type": "string",
+          "description": "Health Note, from the Health Condition view of the Edit Person window. User Interface supports line breaks and formatting tags",
+          "sqliteType": "Text",
+          "examples": [
+            "User Defined"
+          ]
+        },
+        "UTCModDate": {
+          "type": "number",
+          "description": "Coordinated Universal Time from system, modified:  SELECT julianday('now') - 2415018.5",
+          "sqliteType": "Float",
+          "examples": [
+            "[d]{5}.[d]{10}\\ne.g.: 44993.9143704283"
+          ]
+        }
+      },
+      "required": [
+        "RecID"
+      ],
+      "indexes": [
+        {
+          "name": "idxHealthOwnerId",
+          "columns": [
+            "OwnerID"
+          ],
+          "unique": false
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "source": "RootsMagic 11 Data Definition",
+    "sourceFile": "RM11DataDef-V11_0_0-20250914.xlsx",
+    "version": "11.0.0",
+    "date": "2025-09-14",
+    "databaseType": "SQLite",
+    "tableCount": 31
+  }
+}

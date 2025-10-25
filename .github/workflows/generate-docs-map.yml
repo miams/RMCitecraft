@@ -1,0 +1,121 @@
+name: Generate Documentation Map
+
+on:
+  # Triggered by refactor-docs workflow after reorganization
+  workflow_dispatch:
+
+  # Run on pull requests that modify markdown files
+  pull_request:
+    paths:
+      - '**.md'
+      - '.github/scripts/generate_docs_map.py'
+
+  # Run weekly to catch any missed updates
+  schedule:
+    - cron: '0 0 * * 0'  # Every Sunday at midnight UTC
+
+  # Manual trigger for testing
+  workflow_call:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-docs-map:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history for accurate commit information
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Make script executable
+        run: chmod +x .github/scripts/generate_docs_map.py
+
+      - name: Generate documentation map
+        run: python .github/scripts/generate_docs_map.py
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet claude_code_docs_map.md; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes to documentation map"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Documentation map has been updated"
+          fi
+
+      - name: Commit and push changes (main branch only)
+        if: steps.check_changes.outputs.changed == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add claude_code_docs_map.md
+          git commit -m "docs: auto-update documentation map [skip ci]"
+          git push
+
+      - name: Upload documentation map as artifact
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-map
+          path: claude_code_docs_map.md
+          retention-days: 30
+
+      - name: Comment on PR with changes
+        if: steps.check_changes.outputs.changed == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const docsMap = fs.readFileSync('claude_code_docs_map.md', 'utf8');
+
+            // Create a truncated preview (first 2000 characters)
+            const preview = docsMap.length > 2000
+              ? docsMap.substring(0, 2000) + '\n\n... (truncated)'
+              : docsMap;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 📚 Documentation Map Updated
+
+            The documentation map has been automatically regenerated based on your changes.
+
+            <details>
+            <summary>Preview of claude_code_docs_map.md</summary>
+
+            \`\`\`markdown
+            ${preview}
+            \`\`\`
+
+            </details>
+
+            The full documentation map is available as a workflow artifact.`
+            });
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Documentation Map Generation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check_changes.outputs.changed }}" == "true" ]; then
+            echo "✅ Documentation map was updated successfully" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Changes Detected" >> $GITHUB_STEP_SUMMARY
+            echo "The claude_code_docs_map.md file has been regenerated with the latest documentation structure." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No changes to documentation map" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The documentation structure has not changed." >> $GITHUB_STEP_SUMMARY
+          fi

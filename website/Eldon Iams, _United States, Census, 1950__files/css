@@ -1,0 +1,182 @@
+@font-face{/*Basic Latin*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+9-a,u+d,u+20-7e;
+	src:url('p00.woff2') format('woff2'),url('p00.woff') format('woff');
+}
+@font-face{/*Latin-1 Supplement*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+a0-ff;
+	src:url('p01.woff2') format('woff2'),url('p01.woff') format('woff');
+}
+@font-face{/*Latin Extended-A*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+100-137,u+139-17f;
+	src:url('p02.woff2') format('woff2'),url('p02.woff') format('woff');
+}
+@font-face{/*Latin Extended-B*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+180-181,u+186-18a,u+18e-194,u+196-19a,u+19d-1a1,u+1a4-1a5,u+1a9-1aa,u+1ac-1b7,u+1c0-1f5,u+1f8-21b,u+21e-220,u+226-233,u+237,u+23a-24f;
+	src:url('p03.woff2') format('woff2'),url('p03.woff') format('woff');
+}
+@font-face{/*IPA Extensions*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+250-254,u+256-257,u+259,u+25b,u+260,u+263,u+266,u+268-269,u+26b,u+271-272,u+275,u+27d-27e,u+283,u+288-28c,u+292,u+294-295;
+	src:url('p04.woff2') format('woff2'),url('p04.woff') format('woff');
+}
+@font-face{/*Spacing Modifier Letters*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+2b9,u+2bb-2be,u+2c0,u+2c6-2c7,u+2c9-2cb,u+2d8-2dd;
+	src:url('p05.woff2') format('woff2'),url('p05.woff') format('woff');
+}
+@font-face{/*Combining Diacritical Marks*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+300-304,u+306-30f,u+311,u+31b,u+323-329,u+32d-32e,u+330-331,u+338,u+355,u+361;
+	src:url('p06.woff2') format('woff2'),url('p06.woff') format('woff');
+}
+@font-face{/*Greek and Coptic*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+374-375,u+37e,u+384-38a,u+38c,u+38e-3a1,u+3a3-3ce,u+3d7;
+	src:url('p07.woff2') format('woff2'),url('p07.woff') format('woff');
+}
+@font-face{/*Cyrillic*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+400-45f,u+462-463,u+472-477,u+490-4c2,u+4cf-4f9;
+	src:url('p08.woff2') format('woff2'),url('p08.woff') format('woff');
+}
+@font-face{/*Cyrillic Supplement*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+500-51f,u+524-525;
+	src:url('p09.woff2') format('woff2'),url('p09.woff') format('woff');
+}
+@font-face{/*Armenian*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+58f;
+	src:url('p0a.woff2') format('woff2'),url('p0a.woff') format('woff');
+}
+@font-face{/*Phonetic Extensions*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+1d7d;
+	src:url('p22.woff2') format('woff2'),url('p22.woff') format('woff');
+}
+@font-face{/*Combining Diacritical Marks Supplement*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+1dc4-1dc7;
+	src:url('p24.woff2') format('woff2'),url('p24.woff') format('woff');
+}
+@font-face{/*Latin Extended Additional*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+1e00-1e9b,u+1ea0-1ef9;
+	src:url('p25.woff2') format('woff2'),url('p25.woff') format('woff');
+}
+@font-face{/*General Punctuation*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+2002-2015,u+2017-2033,u+2039-203a,u+203c,u+203e,u+2042,u+2044,u+206a-206f;
+	src:url('p27.woff2') format('woff2'),url('p27.woff') format('woff');
+}
+@font-face{/*Superscripts and Subscripts*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+2070,u+2074-2079,u+207f-2089;
+	src:url('p28.woff2') format('woff2'),url('p28.woff') format('woff');
+}
+@font-face{/*Currency Symbols*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+20a1,u+20a3-20a4,u+20a6-20a8,u+20ab-20ac,u+20ae,u+20b1-20b2,u+20b4-20b5,u+20b8,u+20ba,u+20bc-20be;
+	src:url('p29.woff2') format('woff2'),url('p29.woff') format('woff');
+}
+@font-face{/*Letterlike Symbols*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+2100,u+2103,u+2105,u+2109,u+2113,u+2116-2117,u+211e,u+2120,u+2122,u+2126,u+212e,u+2139;
+	src:url('p2b.woff2') format('woff2'),url('p2b.woff') format('woff');
+}
+@font-face{/*Number Forms*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+2150-215f;
+	src:url('p2c.woff2') format('woff2'),url('p2c.woff') format('woff');
+}
+@font-face{/*Mathematical Operators*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+2202,u+2206,u+220f,u+2211-2212,u+2215,u+2219-221a,u+221e,u+222b,u+2248,u+2260,u+2264-2265;
+	src:url('p2e.woff2') format('woff2'),url('p2e.woff') format('woff');
+}
+@font-face{/*Geometric Shapes*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+25a0-25a1,u+25aa-25ac,u+25b2-25b3,u+25b6-25b7,u+25ba,u+25bc-25bd,u+25c0-25c1,u+25c4,u+25c6,u+25ca-25cc,u+25cf,u+25d7-25d9,u+25e6,u+25ef,u+25fc;
+	src:url('p2l.woff2') format('woff2'),url('p2l.woff') format('woff');
+}
+@font-face{/*Miscellaneous Symbols and Arrows*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+2bd1;
+	src:url('p2u.woff2') format('woff2'),url('p2u.woff') format('woff');
+}
+@font-face{/*Latin Extended-C*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+2c60-2c70,u+2c72-2c73,u+2c7e-2c7f;
+	src:url('p30.woff2') format('woff2'),url('p30.woff') format('woff');
+}
+@font-face{/*Latin Extended-D*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+a78b-a78c,u+a7aa;
+	src:url('p3v.woff2') format('woff2'),url('p3v.woff') format('woff');
+}
+@font-face{/*Alphabetic Presentation Forms*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+fb00-fb04;
+	src:url('p4p.woff2') format('woff2'),url('p4p.woff') format('woff');
+}
+@font-face{/*Specials*/
+	font-family:'HeritageHeadings:Sans';
+	font-style:Normal;
+	font-weight:500;
+	unicode-range:u+fffd;
+	src:url('p52.woff2') format('woff2'),url('p52.woff') format('woff');
+}

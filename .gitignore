@@ -1,0 +1,88 @@
+# Environment and Configuration
+.env
+config/.env
+*.key
+.envrc.local  # User-specific direnv overrides
+
+# API Keys and Secrets
+*_API_KEY*
+*_api_key*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+
+# UV Package Manager
+.uv/
+uv.lock
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/*.log
+logs/*.jsonl
+rmtool.log
+rmcitecraft.log
+
+# Output
+output/
+exports/
+*.output
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Application-specific
+# Cache files
+.langchain.db
+*.cache
+
+# Compiled SQLite extensions (keep source, ignore compiled for other platforms)
+*.so
+*.dll
+
+# Database backups
+*.rmtree.backup
+*.db.backup

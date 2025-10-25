@@ -1,0 +1,252 @@
+@font-face{/*Basic Latin*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+0,u+9-a,u+d,u+20-7e;
+	src:url('u00.woff2') format('woff2'),url('u00.woff') format('woff');
+}
+@font-face{/*Latin-1 Supplement*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+a0-ff;
+	src:url('u01.woff2') format('woff2'),url('u01.woff') format('woff');
+}
+@font-face{/*Latin Extended-A*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+100-17f;
+	src:url('u02.woff2') format('woff2'),url('u02.woff') format('woff');
+}
+@font-face{/*Latin Extended-B*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+180-24f;
+	src:url('u03.woff2') format('woff2'),url('u03.woff') format('woff');
+}
+@font-face{/*IPA Extensions*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+250-2af;
+	src:url('u04.woff2') format('woff2'),url('u04.woff') format('woff');
+}
+@font-face{/*Spacing Modifier Letters*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+2b0-2ff;
+	src:url('u05.woff2') format('woff2'),url('u05.woff') format('woff');
+}
+@font-face{/*Combining Diacritical Marks*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+300-36f;
+	src:url('u06.woff2') format('woff2'),url('u06.woff') format('woff');
+}
+@font-face{/*Greek and Coptic*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+370-377,u+37a-37f,u+384-38a,u+38c,u+38e-3a1,u+3a3-3e1,u+3f0-3ff;
+	src:url('u07.woff2') format('woff2'),url('u07.woff') format('woff');
+}
+@font-face{/*Cyrillic*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+400-4ff;
+	src:url('u08.woff2') format('woff2'),url('u08.woff') format('woff');
+}
+@font-face{/*Cyrillic Supplement*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+500-52f;
+	src:url('u09.woff2') format('woff2'),url('u09.woff') format('woff');
+}
+@font-face{/*Combining Diacritical Marks Extended*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+1ab0-1abe;
+	src:url('u1o.woff2') format('woff2'),url('u1o.woff') format('woff');
+}
+@font-face{/*Cyrillic Extended-C*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+1c80-1c88;
+	src:url('u1u.woff2') format('woff2'),url('u1u.woff') format('woff');
+}
+@font-face{/*Phonetic Extensions*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+1d00-1d7f;
+	src:url('u22.woff2') format('woff2'),url('u22.woff') format('woff');
+}
+@font-face{/*Phonetic Extensions Supplement*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+1d80-1dbf;
+	src:url('u23.woff2') format('woff2'),url('u23.woff') format('woff');
+}
+@font-face{/*Combining Diacritical Marks Supplement*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+1dc0-1df5,u+1dfb-1dff;
+	src:url('u24.woff2') format('woff2'),url('u24.woff') format('woff');
+}
+@font-face{/*Latin Extended Additional*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+1e00-1eff;
+	src:url('u25.woff2') format('woff2'),url('u25.woff') format('woff');
+}
+@font-face{/*Greek Extended*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+1f00-1f15,u+1f18-1f1d,u+1f20-1f45,u+1f48-1f4d,u+1f50-1f57,u+1f59,u+1f5b,u+1f5d,u+1f5f-1f7d,u+1f80-1fb4,u+1fb6-1fc4,u+1fc6-1fd3,u+1fd6-1fdb,u+1fdd-1fef,u+1ff2-1ff4,u+1ff6-1ffe;
+	src:url('u26.woff2') format('woff2'),url('u26.woff') format('woff');
+}
+@font-face{/*General Punctuation*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+2000-2064,u+2066-206f;
+	src:url('u27.woff2') format('woff2'),url('u27.woff') format('woff');
+}
+@font-face{/*Superscripts and Subscripts*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+2070-2071,u+2074-208e,u+2090-209c;
+	src:url('u28.woff2') format('woff2'),url('u28.woff') format('woff');
+}
+@font-face{/*Currency Symbols*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+20a0-20bf;
+	src:url('u29.woff2') format('woff2'),url('u29.woff') format('woff');
+}
+@font-face{/*Combining Diacritical Marks for Symbols*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+20f0;
+	src:url('u2a.woff2') format('woff2'),url('u2a.woff') format('woff');
+}
+@font-face{/*Letterlike Symbols*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+2100-214f;
+	src:url('u2b.woff2') format('woff2'),url('u2b.woff') format('woff');
+}
+@font-face{/*Number Forms*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+2150-215f,u+2184,u+2189;
+	src:url('u2c.woff2') format('woff2'),url('u2c.woff') format('woff');
+}
+@font-face{/*Latin Extended-C*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+2c60-2c7f;
+	src:url('u30.woff2') format('woff2'),url('u30.woff') format('woff');
+}
+@font-face{/*Cyrillic Extended-A*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+2de0-2dff;
+	src:url('u35.woff2') format('woff2'),url('u35.woff') format('woff');
+}
+@font-face{/*Supplemental Punctuation*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+2e00-2e44;
+	src:url('u36.woff2') format('woff2'),url('u36.woff') format('woff');
+}
+@font-face{/*Cyrillic Extended-B*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+a640-a69f;
+	src:url('u3s.woff2') format('woff2'),url('u3s.woff') format('woff');
+}
+@font-face{/*Modifier Tone Letters*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+a700-a71f;
+	src:url('u3u.woff2') format('woff2'),url('u3u.woff') format('woff');
+}
+@font-face{/*Latin Extended-D*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+a720-a7ae,u+a7b0-a7b7,u+a7f7-a7ff;
+	src:url('u3v.woff2') format('woff2'),url('u3v.woff') format('woff');
+}
+@font-face{/*Kayah Li*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+a92e;
+	src:url('u45.woff2') format('woff2'),url('u45.woff') format('woff');
+}
+@font-face{/*Latin Extended-E*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+ab30-ab65;
+	src:url('u4f.woff2') format('woff2'),url('u4f.woff') format('woff');
+}
+@font-face{/*Alphabetic Presentation Forms*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+fb00-fb06;
+	src:url('u4p.woff2') format('woff2'),url('u4p.woff') format('woff');
+}
+@font-face{/*Variation Selectors*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+fe00;
+	src:url('u4r.woff2') format('woff2'),url('u4r.woff') format('woff');
+}
+@font-face{/*Combining Half Marks*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+fe20-fe2f;
+	src:url('u4t.woff2') format('woff2'),url('u4t.woff') format('woff');
+}
+@font-face{/*Arabic Presentation Forms-B*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+feff;
+	src:url('u50.woff2') format('woff2'),url('u50.woff') format('woff');
+}
+@font-face{/*Specials*/
+	font-family:'HeritageBody:Sans';
+	font-style:Normal;
+	font-weight:600;
+	unicode-range:u+fffc-fffd;
+	src:url('u52.woff2') format('woff2'),url('u52.woff') format('woff');
+}
