@@ -34,14 +34,10 @@ class CensusImageViewer:
         self.max_zoom = max_zoom
         self.min_zoom = min_zoom
 
-        # Pan offsets (percentage of image size)
-        self.pan_x = 0.0
-        self.pan_y = 0.0
-
         # UI elements (set during render)
         self.image_element: Optional[ui.image] = None
         self.container: Optional[ui.element] = None
-        self.scroll_area: Optional[ui.scroll_area] = None
+        self.scroll_container: Optional[ui.element] = None  # Plain div with overflow
         self.scroll_area_id: Optional[str] = None  # Unique ID for targeting
 
     def render(self) -> None:
@@ -97,13 +93,7 @@ class CensusImageViewer:
                 ui.separator().props("vertical")
 
                 # Position display
-                self.position_label = ui.label("Position: Loading...").classes("text-xs text-gray-600")
-
-                # Manual refresh button for debugging
-                ui.button(
-                    icon="refresh",
-                    on_click=lambda: self._update_scroll_position(),
-                ).props("flat dense").tooltip("Refresh Position")
+                self.position_label = ui.label("").classes("text-xs text-gray-600")
 
             ui.separator()
 
@@ -111,14 +101,19 @@ class CensusImageViewer:
             # Generate unique ID for this scroll area
             import random
             self.scroll_area_id = f"census-scroll-{random.randint(1000, 9999)}"
-            # Add unique class to identify this specific scroll area
-            self.scroll_area = ui.scroll_area().classes(f"w-full h-96 bg-gray-100 {self.scroll_area_id}")
-            with self.scroll_area:
+
+            # Use a plain div with overflow instead of ui.scroll_area for better control
+            self.scroll_container = ui.element('div').classes(f'w-full bg-gray-100 {self.scroll_area_id}').style(
+                'height: 24rem; overflow: auto;'
+            )
+            with self.scroll_container:
                 if self.image_path and self.image_path.exists():
+                    # Set initial zoom by changing image width (not CSS transform)
+                    # This makes the container actually scrollable
+                    zoom_pct = int(self.zoom_level * 100)
                     self.image_element = ui.image(str(self.image_path)).classes(
                         "cursor-move"
-                    )
-                    self._update_image_style()
+                    ).style(f'width: {zoom_pct}%; height: auto; display: block; max-width: none; max-height: none;')
                 else:
                     with ui.column().classes("w-full h-full items-center justify-center"):
                         ui.icon("image_not_supported", size="4rem").classes(
@@ -168,12 +163,10 @@ class CensusImageViewer:
         """
         self.image_path = image_path
         self.zoom_level = 1.0
-        self.pan_x = 0.0
-        self.pan_y = 0.0
 
         if self.image_element:
             self.image_element.set_source(str(image_path))
-            self._update_image_style()
+            self._set_zoom(1.0)
 
     def _zoom_in(self) -> None:
         """Increase zoom level by 25%."""
@@ -194,44 +187,30 @@ class CensusImageViewer:
             level: Zoom level (1.0 = 100%, 1.5 = 150%, etc.)
         """
         self.zoom_level = max(self.min_zoom, min(level, self.max_zoom))
-        self._update_image_style()
+
+        # Update image size (not CSS transform) to make scroll area work
+        if self.image_element:
+            zoom_pct = int(self.zoom_level * 100)
+            self.image_element.style(f'width: {zoom_pct}%; height: auto; display: block; max-width: none; max-height: none;')
 
         # Update zoom label
         zoom_pct = int(self.zoom_level * 100)
         self.zoom_label.set_text(f"{zoom_pct}%")
 
-        logger.debug(f"Zoom set to {zoom_pct}%")
-
     def _pan(self, dx: float, dy: float) -> None:
-        """Pan image by given offset.
+        """Pan image by scrolling the container.
 
         Args:
             dx: Horizontal offset in pixels
             dy: Vertical offset in pixels
         """
-        self.pan_x += dx
-        self.pan_y += dy
-        self._update_image_style()
-
-        logger.debug(f"Pan offset: ({self.pan_x}, {self.pan_y})")
+        if self.scroll_container:
+            self.scroll_container.run_method('scrollBy', dx, dy)
 
     def _reset_pan(self) -> None:
-        """Reset pan to center."""
-        self.pan_x = 0.0
-        self.pan_y = 0.0
-        self._update_image_style()
-
-    def _update_image_style(self) -> None:
-        """Update image CSS for zoom and pan."""
-        if not self.image_element:
-            return
-
-        # Apply transform: scale for zoom, translate for pan
-        transform = f"scale({self.zoom_level}) translate({self.pan_x}px, {self.pan_y}px)"
-
-        self.image_element.style(
-            f"transform: {transform}; transform-origin: top left; transition: transform 0.2s;"
-        )
+        """Reset pan to top-left."""
+        if self.scroll_container:
+            self.scroll_container.run_method('scrollTo', 0, 0)
 
     async def _update_scroll_position(self) -> None:
         """Poll and update scroll position display."""
@@ -239,103 +218,42 @@ class CensusImageViewer:
             return
 
         try:
-            # Get scroll position via JavaScript - target our specific scroll area by class
+            # Get scroll position via JavaScript
             viewer_id = self.scroll_area_id or "unknown"
             result = await ui.run_javascript(f'''
                 (() => {{
-                    // Find our specific scroll area by unique class name
-                    const scrollArea = document.querySelector('.{viewer_id}');
-                    console.log('Looking for class:', '.{viewer_id}');
-                    console.log('Found scroll area:', scrollArea);
-
-                    if (scrollArea) {{
-                        // Find the actual scrollable content within it
-                        const scrollContent = scrollArea.querySelector('.q-scrollarea__content');
-                        console.log('Found scroll content:', scrollContent);
-
-                        if (scrollContent) {{
-                            const info = {{
-                                scrollLeft: Math.round(scrollContent.scrollLeft),
-                                scrollTop: Math.round(scrollContent.scrollTop),
-                                scrollWidth: scrollContent.scrollWidth,
-                                scrollHeight: scrollContent.scrollHeight,
-                                clientWidth: scrollContent.clientWidth,
-                                clientHeight: scrollContent.clientHeight,
-                                canScrollX: scrollContent.scrollWidth > scrollContent.clientWidth,
-                                canScrollY: scrollContent.scrollHeight > scrollContent.clientHeight
-                            }};
-                            console.log('Scroll info:', info);
-                            return {{
-                                found: true,
-                                id: '{viewer_id}',
-                                ...info
-                            }};
-                        }}
-                    }}
-
-                    // Fallback: find all and use last (old behavior)
-                    const allScrollAreas = document.querySelectorAll('.q-scrollarea__content');
-                    console.log('Fallback: Found', allScrollAreas.length, 'scroll areas');
-                    if (allScrollAreas.length > 0) {{
-                        const el = allScrollAreas[allScrollAreas.length - 1];
+                    const scrollContainer = document.querySelector('.{viewer_id}');
+                    if (scrollContainer) {{
                         return {{
                             found: true,
-                            fallback: true,
-                            count: allScrollAreas.length,
-                            scrollLeft: Math.round(el.scrollLeft),
-                            scrollTop: Math.round(el.scrollTop)
+                            scrollLeft: Math.round(scrollContainer.scrollLeft),
+                            scrollTop: Math.round(scrollContainer.scrollTop)
                         }};
                     }}
-
                     return {{found: false, scrollLeft: 0, scrollTop: 0}};
                 }})()
             ''', timeout=2.0)
 
-            logger.debug(f"JavaScript scroll result: {result}")
-
             if result and result.get('found'):
                 scroll_x = result.get('scrollLeft', 0)
                 scroll_y = result.get('scrollTop', 0)
-
-                # Update label
                 zoom_pct = int(self.zoom_level * 100)
-
-                # Show if using fallback or specific targeting
-                if result.get('fallback'):
-                    count = result.get('count', 0)
-                    self.position_label.set_text(
-                        f"Zoom: {zoom_pct}% | Scroll: X={scroll_x}px, Y={scroll_y}px [fallback #{count}]"
-                    )
-                elif result.get('id'):
-                    viewer_id = result.get('id', '')
-                    can_scroll_x = result.get('canScrollX', False)
-                    can_scroll_y = result.get('canScrollY', False)
-                    scroll_status = f"{'✓X' if can_scroll_x else '✗X'} {'✓Y' if can_scroll_y else '✗Y'}"
-                    self.position_label.set_text(
-                        f"Zoom: {zoom_pct}% | X={scroll_x}px, Y={scroll_y}px [{scroll_status}] ID:{viewer_id[-4:]}"
-                    )
-                else:
-                    self.position_label.set_text(
-                        f"Zoom: {zoom_pct}% | Scroll: X={scroll_x}px, Y={scroll_y}px"
-                    )
+                self.position_label.set_text(f"Zoom: {zoom_pct}% | X={scroll_x}px, Y={scroll_y}px")
             else:
-                self.position_label.set_text(f"Zoom: {int(self.zoom_level * 100)}% | No scroll area found")
+                self.position_label.set_text(f"Zoom: {int(self.zoom_level * 100)}%")
 
         except Exception as e:
-            logger.error(f"Error updating scroll position: {e}")
-            self.position_label.set_text(f"Error: {str(e)[:50]}")
+            logger.warning(f"Could not update scroll position: {e}")
 
     def get_position(self) -> dict:
-        """Get current zoom and pan position.
+        """Get current zoom level.
 
         Returns:
-            Dictionary with zoom_level, pan_x, pan_y values
+            Dictionary with zoom_level and zoom_percent values
         """
         return {
             "zoom_level": self.zoom_level,
             "zoom_percent": int(self.zoom_level * 100),
-            "pan_x": self.pan_x,
-            "pan_y": self.pan_y,
         }
 
     def position_to_area(
@@ -361,20 +279,11 @@ class CensusImageViewer:
         """
         self._set_zoom(zoom)
 
-        # If scroll positions are provided, use them directly
+        # Scroll to position if provided
         if scroll_x > 0 or scroll_y > 0:
-            if self.scroll_area:
-                # Use NiceGUI's scroll_to method with pixel coordinates
-                self.scroll_area.scroll_to(pixels_x=scroll_x, pixels_y=scroll_y)
+            if self.scroll_container:
+                self.scroll_container.run_method('scrollTo', scroll_x, scroll_y)
                 logger.info(f"Scrolled to ({scroll_x}px, {scroll_y}px) at {zoom*100:.0f}% zoom")
-        else:
-            # Legacy percentage-based positioning
-            self.pan_x = -x_percent * 100
-            self.pan_y = -y_percent * 100
-            self._update_image_style()
-            logger.info(
-                f"Positioned to ({x_percent*100:.0f}%, {y_percent*100:.0f}%) at {zoom*100:.0f}% zoom"
-            )
 
 
 def create_census_image_viewer(
