@@ -110,10 +110,9 @@ class CensusImageViewer:
             # Image container with scrolling
             # Generate unique ID for this scroll area
             import random
-            self.scroll_area_id = f"census-image-scroll-{random.randint(1000, 9999)}"
-            self.scroll_area = ui.scroll_area().classes("w-full h-96 bg-gray-100")
-            # Add the ID as a data attribute for targeting
-            self.scroll_area._props['data-viewer-id'] = self.scroll_area_id
+            self.scroll_area_id = f"census-scroll-{random.randint(1000, 9999)}"
+            # Add unique class to identify this specific scroll area
+            self.scroll_area = ui.scroll_area().classes(f"w-full h-96 bg-gray-100 {self.scroll_area_id}")
             with self.scroll_area:
                 if self.image_path and self.image_path.exists():
                     self.image_element = ui.image(str(self.image_path)).classes(
@@ -240,13 +239,13 @@ class CensusImageViewer:
             return
 
         try:
-            # Get scroll position via JavaScript - target our specific scroll area
+            # Get scroll position via JavaScript - target our specific scroll area by class
             viewer_id = self.scroll_area_id or "unknown"
             result = await ui.run_javascript(f'''
                 (() => {{
-                    // Find our specific scroll area by data attribute
-                    const scrollArea = document.querySelector('[data-viewer-id="{viewer_id}"]');
-                    console.log('Looking for viewer ID:', "{viewer_id}");
+                    // Find our specific scroll area by unique class name
+                    const scrollArea = document.querySelector('.{viewer_id}');
+                    console.log('Looking for class:', '.{viewer_id}');
                     console.log('Found scroll area:', scrollArea);
 
                     if (scrollArea) {{
@@ -258,6 +257,7 @@ class CensusImageViewer:
                             console.log('Scroll values:', scrollContent.scrollLeft, scrollContent.scrollTop);
                             return {{
                                 found: true,
+                                id: '{viewer_id}',
                                 scrollLeft: Math.round(scrollContent.scrollLeft),
                                 scrollTop: Math.round(scrollContent.scrollTop)
                             }};
@@ -271,6 +271,7 @@ class CensusImageViewer:
                         const el = allScrollAreas[allScrollAreas.length - 1];
                         return {{
                             found: true,
+                            fallback: true,
                             count: allScrollAreas.length,
                             scrollLeft: Math.round(el.scrollLeft),
                             scrollTop: Math.round(el.scrollTop)
@@ -286,13 +287,25 @@ class CensusImageViewer:
             if result and result.get('found'):
                 scroll_x = result.get('scrollLeft', 0)
                 scroll_y = result.get('scrollTop', 0)
-                count = result.get('count', 0)
 
                 # Update label
                 zoom_pct = int(self.zoom_level * 100)
-                self.position_label.set_text(
-                    f"Zoom: {zoom_pct}% | Scroll: X={scroll_x}px, Y={scroll_y}px (#{count})"
-                )
+
+                # Show if using fallback or specific targeting
+                if result.get('fallback'):
+                    count = result.get('count', 0)
+                    self.position_label.set_text(
+                        f"Zoom: {zoom_pct}% | Scroll: X={scroll_x}px, Y={scroll_y}px [fallback #{count}]"
+                    )
+                elif result.get('id'):
+                    viewer_id = result.get('id', '')
+                    self.position_label.set_text(
+                        f"Zoom: {zoom_pct}% | Scroll: X={scroll_x}px, Y={scroll_y}px [ID: {viewer_id[-4:]}]"
+                    )
+                else:
+                    self.position_label.set_text(
+                        f"Zoom: {zoom_pct}% | Scroll: X={scroll_x}px, Y={scroll_y}px"
+                    )
             else:
                 self.position_label.set_text(f"Zoom: {int(self.zoom_level * 100)}% | No scroll area found")
 
