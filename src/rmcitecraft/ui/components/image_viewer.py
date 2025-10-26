@@ -98,6 +98,12 @@ class CensusImageViewer:
                 # Position display
                 self.position_label = ui.label("Position: Loading...").classes("text-xs text-gray-600")
 
+                # Manual refresh button for debugging
+                ui.button(
+                    icon="refresh",
+                    on_click=lambda: self._update_scroll_position(),
+                ).props("flat dense").tooltip("Refresh Position")
+
             ui.separator()
 
             # Image container with scrolling
@@ -228,32 +234,47 @@ class CensusImageViewer:
             return
 
         try:
-            # Get scroll position via JavaScript
+            # Get scroll position via JavaScript - try multiple strategies
             result = await ui.run_javascript('''
                 (() => {
-                    const el = document.querySelector('.q-scrollarea__content');
-                    if (el) {
+                    // Strategy 1: Find all scroll areas and use the last one (most likely ours)
+                    const scrollAreas = document.querySelectorAll('.q-scrollarea__content');
+                    console.log('Found', scrollAreas.length, 'scroll areas');
+
+                    if (scrollAreas.length > 0) {
+                        // Use the last one (most recently created, likely the image viewer)
+                        const el = scrollAreas[scrollAreas.length - 1];
+                        console.log('Using scroll area:', el, 'scrollLeft:', el.scrollLeft, 'scrollTop:', el.scrollTop);
                         return {
+                            found: true,
+                            count: scrollAreas.length,
                             scrollLeft: Math.round(el.scrollLeft),
                             scrollTop: Math.round(el.scrollTop)
                         };
                     }
-                    return {scrollLeft: 0, scrollTop: 0};
-                })()
-            ''', timeout=1.0)
 
-            if result:
+                    return {found: false, count: 0, scrollLeft: 0, scrollTop: 0};
+                })()
+            ''', timeout=2.0)
+
+            logger.debug(f"JavaScript scroll result: {result}")
+
+            if result and result.get('found'):
                 scroll_x = result.get('scrollLeft', 0)
                 scroll_y = result.get('scrollTop', 0)
+                count = result.get('count', 0)
 
                 # Update label
                 zoom_pct = int(self.zoom_level * 100)
                 self.position_label.set_text(
-                    f"Zoom: {zoom_pct}% | Scroll: X={scroll_x}px, Y={scroll_y}px"
+                    f"Zoom: {zoom_pct}% | Scroll: X={scroll_x}px, Y={scroll_y}px (#{count})"
                 )
+            else:
+                self.position_label.set_text(f"Zoom: {int(self.zoom_level * 100)}% | No scroll area found")
+
         except Exception as e:
-            # Silently fail - don't spam logs
-            pass
+            logger.error(f"Error updating scroll position: {e}")
+            self.position_label.set_text(f"Error: {str(e)[:50]}")
 
     def get_position(self) -> dict:
         """Get current zoom and pan position.
