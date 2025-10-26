@@ -8,6 +8,9 @@ config/.env
 *_API_KEY*
 *_api_key*
 
+# RootsMagic Database
+*.rmtree
+
 # Python
 __pycache__/
 *.py[cod]

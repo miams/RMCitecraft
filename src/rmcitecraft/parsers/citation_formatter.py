@@ -40,7 +40,14 @@ class CitationFormatter:
         self,
         c: ParsedCitation,
     ) -> tuple[str, str, str]:
-        """Format citations for 1900-1950 federal census."""
+        """Format citations for 1900-1950 federal census.
+
+        Reference: Mills, Elizabeth Shown. Evidence Explained: Citing History Sources
+        from Artifacts to Cyberspace: 4th Edition (p. 253).
+
+        Note: For 1910-1940, only population schedules survived, so "population schedule"
+        is omitted as redundant. Line number is included when available.
+        """
         import re
 
         # Footnote
@@ -48,8 +55,12 @@ class CitationFormatter:
             f"{c.census_year} U.S. census,",
             f"{c.county} County,",
             f"{c.state},",
-            "population schedule,",
         ]
+
+        # 1910-1940: Omit "population schedule" (only schedules that survived)
+        # 1900 and 1950: Include "population schedule" if multiple schedule types exist
+        if c.census_year in [1900, 1950]:
+            footnote_parts.append("population schedule,")
 
         if c.town_ward:
             footnote_parts.append(f"{c.town_ward},")
@@ -60,35 +71,56 @@ class CitationFormatter:
         if c.sheet:
             footnote_parts.append(f"sheet {c.sheet},")
 
-        if c.family_number:
-            footnote_parts.append(f"family {c.family_number},")
+        # Line number (not family number) per Evidence Explained
+        if c.line:
+            footnote_parts.append(f"line {c.line},")
 
         footnote_parts.append(f"{c.person_name};")
 
-        # Add FamilySearch citation
+        # Add FamilySearch citation - correct format per Evidence Explained
+        # Collection title format: "United States Census, YYYY" (not "YYYY United States Federal Census")
         footnote_parts.append(
-            f'imaged, "{c.census_year} United States Federal Census," '
-            f"<i>FamilySearch</i> ({c.familysearch_url} : accessed {c.access_date})."
+            f'imaged, "United States Census, {c.census_year}," '
+            f"<i>FamilySearch</i>, ({c.familysearch_url} : accessed {c.access_date})."
         )
 
         footnote = " ".join(footnote_parts)
 
         # Short Footnote
+        # Note: "pop. sch." omitted for 1910-1940 (only population schedules survived)
+        from rmcitecraft.config.constants import LOCALITY_TYPE_ABBREVIATIONS
+
         state_abbrev = STATE_ABBREVIATIONS.get(c.state, c.state[:2].upper())
         short_parts = [
             f"{c.census_year} U.S. census,",
             f"{c.county} Co.,",
-            f"{state_abbrev}.,",
-            "pop. sch.,",
+            f"{state_abbrev},",
         ]
 
+        # For 1900 and 1950: Include "pop. sch." (multiple schedule types)
+        # For 1910-1940: Omit "pop. sch." (only population schedules survived)
+        if c.census_year in [1900, 1950]:
+            short_parts.append("pop. sch.,")
+
         if c.town_ward:
-            # Simplify town name for short form
-            town_short = c.town_ward.split(",")[0]  # Take first part if multiple
-            short_parts.append(f"{town_short},")
+            # Parse locality and type, then abbreviate the type
+            # town_ward may be "Jefferson Township" or just "Jefferson"
+            town_parts = c.town_ward.rsplit(" ", 1)  # Split from right
+            if len(town_parts) == 2:
+                locality, locality_type = town_parts
+                # Check if second part is a known type
+                if locality_type in LOCALITY_TYPE_ABBREVIATIONS:
+                    type_abbrev = LOCALITY_TYPE_ABBREVIATIONS[locality_type]
+                    short_parts.append(f"{locality} {type_abbrev},")
+                else:
+                    # Not a known type, use as-is
+                    short_parts.append(f"{c.town_ward},")
+            else:
+                # No type, just locality name
+                short_parts.append(f"{c.town_ward},")
 
         if c.enumeration_district:
-            short_parts.append(f"E.D. {c.enumeration_district},")
+            short_parts.append(f"ED {c.enumeration_district},")
 
         if c.sheet:
             short_parts.append(f"sheet {c.sheet},")
@@ -108,12 +140,18 @@ class CitationFormatter:
             f"{c.state}.",
             f"{c.county} County.",
             f"{c.census_year} U.S Census.",
-            "Population Schedule.",
+        ]
+
+        # 1910-1940: Omit "Population Schedule." (only schedules that survived)
+        if c.census_year in [1900, 1950]:
+            bib_parts.append("Population Schedule.")
+
+        bib_parts.extend([
             "Imaged.",
-            f'"{c.census_year} United States Federal Census".',
+            f'"{c.census_year} United States Federal Census."',
             "<i>FamilySearch</i>",
             f"{c.familysearch_url} : {year_match.group(1) if year_match else ''}.",
-        ]
+        ])
 
         bibliography = " ".join(bib_parts)
 
@@ -161,7 +199,7 @@ class CitationFormatter:
         short_parts = [
             f"{c.census_year} U.S. census,",
             f"{c.county} Co.,",
-            f"{state_abbrev}.,",
+            f"{state_abbrev},",
             "pop. sch.,",
         ]
 

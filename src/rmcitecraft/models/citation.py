@@ -21,6 +21,7 @@ class ParsedCitation(BaseModel):
     town_ward: Optional[str] = None
     enumeration_district: Optional[str] = None
     sheet: Optional[str] = None
+    line: Optional[str] = None
     family_number: Optional[str] = None
     dwelling_number: Optional[str] = None
 
@@ -54,6 +55,14 @@ class ParsedCitation(BaseModel):
             raise ValueError(f"Invalid census year: {v}")
         return v
 
+    @field_validator("familysearch_url")
+    @classmethod
+    def strip_query_params(cls, v: str) -> str:
+        """Remove query parameters from URL (e.g., ?lang=en)."""
+        if v and "?" in v:
+            return v.split("?")[0]
+        return v
+
 
 class CitationExtraction(BaseModel):
     """LLM extraction result with missing field detection."""
@@ -65,6 +74,7 @@ class CitationExtraction(BaseModel):
     town_ward: Optional[str] = None
     enumeration_district: Optional[str] = None
     sheet: Optional[str] = None
+    line: Optional[str] = None
     family_number: Optional[str] = None
     dwelling_number: Optional[str] = None
     familysearch_url: str

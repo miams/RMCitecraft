@@ -6,6 +6,8 @@ This tab provides the main citation management interface:
 """
 
 import webbrowser
+from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from loguru import logger
@@ -18,6 +20,8 @@ from rmcitecraft.parsers.familysearch_parser import FamilySearchParser
 from rmcitecraft.repositories import CitationRepository, DatabaseConnection
 from rmcitecraft.services.citation_import import get_citation_import_service
 from rmcitecraft.services.command_queue import get_command_queue
+from rmcitecraft.ui.components.image_viewer import create_census_image_viewer
+from rmcitecraft.utils.media_resolver import MediaPathResolver
 
 
 class CitationManagerTab:
@@ -30,6 +34,12 @@ class CitationManagerTab:
         self.repo = CitationRepository(self.db)
         self.parser = FamilySearchParser()
         self.formatter = CitationFormatter()
+
+        # Media resolver for census images
+        self.media_resolver = MediaPathResolver(
+            media_root=str(self.config.rm_media_root_directory),
+            database_path=str(self.config.rm_database_path)
+        )
 
         # State
         self.selected_year: Optional[int] = None
@@ -963,25 +973,90 @@ class CitationManagerTab:
                                 if value:
                                     ui.label(f"{key}: {value}").classes("text-xs break-all")
 
-                # RIGHT COLUMN - Citation preview
+                # RIGHT COLUMN - Census image and citation preview
                 with ui.column().classes("w-1/2 gap-2"):
+                    # Census image viewer (top half of right column)
+                    person_name = data.get('name', '')
+                    census_year_val = data.get('censusYear')
+
+                    # Debug output
+                    debug_messages = []
+
+                    if person_name and census_year_val:
+                        try:
+                            census_year_int = int(census_year_val)
+                            debug_messages.append(f"Looking for: {person_name} ({census_year_int})")
+
+                            image_path = self._find_census_image_for_person(person_name, census_year_int)
+
+                            debug_messages.append(f"Image path result: {image_path}")
+
+                            if image_path:
+                                debug_messages.append(f"Image exists: {image_path.exists()}")
+                                try:
+                                    # Create image viewer at 275% zoom, positioned to top-right
+                                    viewer = create_census_image_viewer(
+                                        image_path=image_path,
+                                        initial_zoom=2.75
+                                    )
+                                    # Position to top-right area of image
+                                    viewer.position_to_area(x_percent=1.0, y_percent=0.0, zoom=2.75)
+                                except Exception as e:
+                                    logger.error(f"Failed to create image viewer: {e}", exc_info=True)
+                                    with ui.card().classes("w-full p-4 bg-red-50"):
+                                        with ui.column().classes("items-center justify-center gap-2"):
+                                            ui.icon("error", size="3rem").classes("text-red-400")
+                                            ui.label("Failed to load census image").classes("text-red-700")
+                                            ui.label(f"Error: {str(e)}").classes("text-xs text-red-600")
+                            else:
+                                with ui.card().classes("w-full p-4 bg-gray-50"):
+                                    with ui.column().classes("items-center justify-center gap-2"):
+                                        ui.icon("image_not_supported", size="3rem").classes("text-gray-400")
+                                        ui.label("No census image available").classes("text-gray-500")
+                                        ui.label(f"Looking for: {person_name} ({census_year_int})").classes("text-xs text-gray-400")
+                                        # Show debug info
+                                        with ui.expansion("Debug Info", icon="bug_report").classes("w-full mt-2"):
+                                            for msg in debug_messages:
+                                                ui.label(msg).classes("text-xs font-mono")
+                        except (ValueError, TypeError) as e:
+                            logger.warning(f"Invalid census year: {census_year_val}")
+                            debug_messages.append(f"Error: {e}")
+
+                    # Citation preview (bottom half of right column)
                     with ui.card().classes("w-full p-2 bg-green-50"):
                         ui.label("Generated Citations").classes("text-sm font-bold mb-2")
 
                         # Full Footnote
                         ui.label("Full Footnote:").classes("text-xs font-semibold text-gray-700 mt-1")
                         preview_footnote = self._generate_citation_preview(data)
-                        ui.markdown(f"_{preview_footnote}_").classes("text-xs bg-white p-2 rounded")
+                        footnote_preview = ui.markdown(f"_{preview_footnote}_").classes("text-xs bg-white p-2 rounded")
 
                         # Short Footnote
                         ui.label("Short Footnote:").classes("text-xs font-semibold text-gray-700 mt-2")
                         preview_short = self._generate_short_citation_preview(data)
-                        ui.markdown(f"_{preview_short}_").classes("text-xs bg-white p-2 rounded")
+                        short_preview = ui.markdown(f"_{preview_short}_").classes("text-xs bg-white p-2 rounded")
 
                         # Bibliography
                         ui.label("Bibliography:").classes("text-xs font-semibold text-gray-700 mt-2")
                         preview_bib = self._generate_bibliography_preview(data)
-                        ui.markdown(f"_{preview_bib}_").classes("text-xs bg-white p-2 rounded")
+                        bib_preview = ui.markdown(f"_{preview_bib}_").classes("text-xs bg-white p-2 rounded")
+
+                        # Function to update all previews when data changes
+                        def update_previews():
+                            """Regenerate and update all citation previews."""
+                            try:
+                                new_footnote = self._generate_citation_preview(data)
+                                new_short = self._generate_short_citation_preview(data)
+                                new_bib = self._generate_bibliography_preview(data)
+
+                                footnote_preview.set_content(f"_{new_footnote}_")
+                                short_preview.set_content(f"_{new_short}_")
+                                bib_preview.set_content(f"_{new_bib}_")
+                            except Exception as e:
+                                logger.error(f"Error updating previews: {e}")
+
+                        # Store update function for use by input fields
+                        data['_update_previews'] = update_previews
 
                     # Citation format info
                     cite_format = normalized_data.get('citationFormat', 'Unknown')
@@ -1092,7 +1167,7 @@ class CitationManagerTab:
         return missing
 
     def _render_missing_fields_form(self, missing_fields: list[str], data: dict) -> None:
-        """Render form inputs for missing required fields.
+        """Render form inputs for missing required fields with real-time preview updates.
 
         Args:
             missing_fields: List of missing field names
@@ -1108,17 +1183,24 @@ class CitationManagerTab:
             'pageNumber': 'Page Number'
         }
 
+        def on_field_change(field_name: str, value: str):
+            """Handle field change and update previews in real-time."""
+            data[field_name] = value
+            # Trigger preview update if function is available
+            if '_update_previews' in data:
+                data['_update_previews']()
+
         for field in missing_fields:
             label = field_labels.get(field, field.replace('_', ' ').title())
             with ui.row().classes("w-full items-center gap-2 mb-2"):
                 ui.label(f"{label}:").classes("w-48")
                 ui.input(
                     value=data.get(field, ''),
-                    on_change=lambda e, f=field: data.update({f: e.value})
+                    on_change=lambda e, f=field: on_field_change(f, e.value)
                 ).classes("flex-grow").props("outlined dense")
 
     def _generate_citation_preview(self, data: dict) -> str:
-        """Generate a preview of the formatted citation.
+        """Generate a preview of the formatted citation using the actual formatter.
 
         Args:
             data: Citation data dictionary
@@ -1126,35 +1208,68 @@ class CitationManagerTab:
         Returns:
             Preview text string
         """
-        # Simplified preview for now
-        # In a full implementation, this would call the citation formatter
+        try:
+            # Convert extension data to ParsedCitation model
+            from rmcitecraft.models.citation import ParsedCitation
 
-        name = data.get('name', 'Unknown Person')
-        year = data.get('censusYear', '????')
-        place = data.get('eventPlace', 'Unknown Place')
-        ed = data.get('enumerationDistrict', '')
-        sheet = data.get('sheetNumber', '')
-        family = data.get('familyNumber', '')
-        url = data.get('familySearchUrl', '')
+            # Parse place to get components
+            place = data.get('eventPlace', '')
+            place_parts = [p.strip() for p in place.split(',')]
 
-        preview = f"{year} U.S. census, {place}"
+            # Determine components based on place string length
+            if len(place_parts) >= 4:
+                # Format: "Township, County, State, Country"
+                town_ward = place_parts[0]
+                county = place_parts[1]
+                state = place_parts[2]
+            elif len(place_parts) >= 3:
+                # Format: "County, State, Country"
+                town_ward = None
+                county = place_parts[0]
+                state = place_parts[1]
+            else:
+                # Fallback
+                town_ward = None
+                county = place
+                state = ""
 
-        if ed:
-            preview += f", enumeration district (ED) {ed}"
-        if sheet:
-            preview += f", sheet {sheet}"
-        if family:
-            preview += f", family {family}"
+            # Create ParsedCitation from extension data
+            parsed = ParsedCitation(
+                citation_id=0,  # Temporary ID
+                source_name=f"Fed Census: {data.get('censusYear', '????')}",
+                familysearch_entry="",
+                census_year=int(data.get('censusYear', 1930)),
+                state=state,
+                county=county,
+                town_ward=town_ward,
+                enumeration_district=data.get('enumerationDistrict'),
+                sheet=data.get('sheetNumber'),
+                line=data.get('lineNumber'),
+                family_number=data.get('familyNumber'),
+                dwelling_number=data.get('dwellingNumber'),
+                person_name=data.get('name', 'Unknown Person'),
+                given_name=data.get('name', '').split()[0] if data.get('name') else '',
+                surname=data.get('name', '').split()[-1] if data.get('name') else '',
+                familysearch_url=data.get('familySearchUrl', ''),
+                access_date=self._format_access_date(data.get('extractedAt', '')),
+                nara_publication=data.get('affiliatePublicationNumber'),
+                is_complete=True,  # Assume complete for preview
+            )
 
-        preview += f", {name}"
+            # Use the actual formatter
+            footnote, _, _ = self.formatter.format(parsed)
+            return footnote
 
-        if url:
-            preview += f"; imaged, FamilySearch ({url})"
-
-        return preview
+        except Exception as e:
+            logger.error(f"Error generating citation preview: {e}")
+            # Fallback to simple preview
+            name = data.get('name', 'Unknown Person')
+            year = data.get('censusYear', '????')
+            place = data.get('eventPlace', 'Unknown Place')
+            return f"{year} U.S. census, {place}, {name}"
 
     def _generate_short_citation_preview(self, data: dict) -> str:
-        """Generate a preview of the short footnote citation format.
+        """Generate a preview of the short footnote using actual formatter.
 
         Args:
             data: Citation data dictionary
@@ -1162,25 +1277,60 @@ class CitationManagerTab:
         Returns:
             Short footnote preview text string
         """
-        # Short footnote format: Census Year, State County, person name
-        name = data.get('name', 'Unknown Person')
-        year = data.get('censusYear', '????')
-        place = data.get('eventPlace', 'Unknown Place')
+        try:
+            # Reuse the same parsing logic as full footnote
+            from rmcitecraft.models.citation import ParsedCitation
 
-        # Parse place into state and county
-        place_parts = [p.strip() for p in place.split(',')]
-        if len(place_parts) >= 2:
-            # Assume format: "Township/City, County, State, Country"
-            county = place_parts[-3] if len(place_parts) >= 3 else place_parts[-2]
-            state = place_parts[-2] if len(place_parts) >= 3 else place_parts[-1]
-            short_place = f"{state}, {county}"
-        else:
-            short_place = place
+            place = data.get('eventPlace', '')
+            place_parts = [p.strip() for p in place.split(',')]
 
-        return f"{year} U.S. census, {short_place}, {name}"
+            if len(place_parts) >= 4:
+                town_ward = place_parts[0]
+                county = place_parts[1]
+                state = place_parts[2]
+            elif len(place_parts) >= 3:
+                town_ward = None
+                county = place_parts[0]
+                state = place_parts[1]
+            else:
+                town_ward = None
+                county = place
+                state = ""
+
+            parsed = ParsedCitation(
+                citation_id=0,
+                source_name=f"Fed Census: {data.get('censusYear', '????')}",
+                familysearch_entry="",
+                census_year=int(data.get('censusYear', 1930)),
+                state=state,
+                county=county,
+                town_ward=town_ward,
+                enumeration_district=data.get('enumerationDistrict'),
+                sheet=data.get('sheetNumber'),
+                line=data.get('lineNumber'),
+                family_number=data.get('familyNumber'),
+                dwelling_number=data.get('dwellingNumber'),
+                person_name=data.get('name', 'Unknown Person'),
+                given_name=data.get('name', '').split()[0] if data.get('name') else '',
+                surname=data.get('name', '').split()[-1] if data.get('name') else '',
+                familysearch_url=data.get('familySearchUrl', ''),
+                access_date=self._format_access_date(data.get('extractedAt', '')),
+                nara_publication=data.get('affiliatePublicationNumber'),
+                is_complete=True,
+            )
+
+            _, short_footnote, _ = self.formatter.format(parsed)
+            return short_footnote
+
+        except Exception as e:
+            logger.error(f"Error generating short citation preview: {e}")
+            name = data.get('name', 'Unknown Person')
+            year = data.get('censusYear', '????')
+            place = data.get('eventPlace', 'Unknown Place')
+            return f"{year} U.S. census, {place}, {name}"
 
     def _generate_bibliography_preview(self, data: dict) -> str:
-        """Generate a preview of the bibliography citation format.
+        """Generate a preview of the bibliography using actual formatter.
 
         Args:
             data: Citation data dictionary
@@ -1188,30 +1338,56 @@ class CitationManagerTab:
         Returns:
             Bibliography preview text string
         """
-        # Bibliography format: Census year and location, then repository
-        year = data.get('censusYear', '????')
-        place = data.get('eventPlace', 'Unknown Place')
+        try:
+            # Reuse the same parsing logic as full footnote
+            from rmcitecraft.models.citation import ParsedCitation
 
-        # Parse place to get state and county
-        place_parts = [p.strip() for p in place.split(',')]
-        if len(place_parts) >= 2:
-            county = place_parts[-3] if len(place_parts) >= 3 else place_parts[-2]
-            state = place_parts[-2] if len(place_parts) >= 3 else place_parts[-1]
-            bib_place = f"{state}, {county}"
-        else:
-            bib_place = place
+            place = data.get('eventPlace', '')
+            place_parts = [p.strip() for p in place.split(',')]
 
-        # Include NARA publication if available
-        nara_pub = data.get('affiliatePublicationNumber', '')
+            if len(place_parts) >= 4:
+                town_ward = place_parts[0]
+                county = place_parts[1]
+                state = place_parts[2]
+            elif len(place_parts) >= 3:
+                town_ward = None
+                county = place_parts[0]
+                state = place_parts[1]
+            else:
+                town_ward = None
+                county = place
+                state = ""
 
-        preview = f"{year} U.S. census, {bib_place}"
+            parsed = ParsedCitation(
+                citation_id=0,
+                source_name=f"Fed Census: {data.get('censusYear', '????')}",
+                familysearch_entry="",
+                census_year=int(data.get('censusYear', 1930)),
+                state=state,
+                county=county,
+                town_ward=town_ward,
+                enumeration_district=data.get('enumerationDistrict'),
+                sheet=data.get('sheetNumber'),
+                line=data.get('lineNumber'),
+                family_number=data.get('familyNumber'),
+                dwelling_number=data.get('dwellingNumber'),
+                person_name=data.get('name', 'Unknown Person'),
+                given_name=data.get('name', '').split()[0] if data.get('name') else '',
+                surname=data.get('name', '').split()[-1] if data.get('name') else '',
+                familysearch_url=data.get('familySearchUrl', ''),
+                access_date=self._format_access_date(data.get('extractedAt', '')),
+                nara_publication=data.get('affiliatePublicationNumber'),
+                is_complete=True,
+            )
 
-        if nara_pub:
-            preview += f"; NARA microfilm publication {nara_pub}"
+            _, _, bibliography = self.formatter.format(parsed)
+            return bibliography
 
-        preview += "; digital images, <i>FamilySearch</i>"
-
-        return preview
+        except Exception as e:
+            logger.error(f"Error generating bibliography preview: {e}")
+            year = data.get('censusYear', '????')
+            place = data.get('eventPlace', 'Unknown Place')
+            return f"{year} U.S. census, {place}; digital images, <i>FamilySearch</i>"
 
     def _render_data_table(self, title: str, data: dict) -> None:
         """Render a data dictionary as a formatted table.
@@ -1327,6 +1503,140 @@ class CitationManagerTab:
                 pass
 
         return normalized
+
+    def _format_access_date(self, date_str: str) -> str:
+        """Format access date from various formats to Evidence Explained format.
+
+        Args:
+            date_str: Date string (ISO8601, RootsMagic format, or Evidence Explained)
+
+        Returns:
+            Formatted date string (e.g., "8 March 2024")
+
+        Examples:
+            "2025-10-25T21:10:56.128Z" -> "25 October 2025"
+            "Fri Mar 08 20:50:16 UTC 2024" -> "8 March 2024"
+            "24 July 2015" -> "24 July 2015" (already formatted)
+        """
+        if not date_str:
+            return "Unknown"
+
+        try:
+            # Try ISO 8601 format (from browser extension)
+            if "T" in date_str:
+                dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                # Format: "25 October 2025" (%-d may not work on Windows, so use .lstrip('0'))
+                day = dt.strftime("%d").lstrip('0')
+                month = dt.strftime("%B")
+                year = dt.strftime("%Y")
+                return f"{day} {month} {year}"
+
+            # Try RootsMagic export format "Fri Mar 08 20:50:16 UTC 2024"
+            if "UTC" in date_str:
+                # Parse: "Fri Mar 08 20:50:16 UTC 2024"
+                parts = date_str.split()
+                month_str = parts[1]  # "Mar"
+                day_str = parts[2].lstrip("0")  # "08" -> "8"
+                year_str = parts[4]  # "2024"
+
+                # Convert month abbreviation to full name
+                month_map = {
+                    "Jan": "January", "Feb": "February", "Mar": "March",
+                    "Apr": "April", "May": "May", "Jun": "June",
+                    "Jul": "July", "Aug": "August", "Sep": "September",
+                    "Oct": "October", "Nov": "November", "Dec": "December"
+                }
+                month_full = month_map.get(month_str, month_str)
+
+                return f"{day_str} {month_full} {year_str}"  # "8 March 2024"
+
+            # Already in Evidence Explained format (e.g., "24 July 2015")
+            return date_str
+
+        except Exception as e:
+            logger.warning(f"Could not parse date '{date_str}': {e}")
+            return date_str  # Return as-is if parsing fails
+
+    def _find_census_image_for_person(self, person_name: str, census_year: int) -> Optional[Path]:
+        """Find census image for a person and census year.
+
+        Args:
+            person_name: Person's name (e.g., "Upton Imes")
+            census_year: Census year (e.g., 1930)
+
+        Returns:
+            Path to census image file, or None if not found
+        """
+        logger.info(f"=== FINDING CENSUS IMAGE ===")
+        logger.info(f"Person: {person_name}, Year: {census_year}")
+
+        try:
+            # Parse name into surname and given name
+            name_parts = person_name.strip().split()
+            if not name_parts:
+                logger.warning(f"Empty name provided")
+                return None
+
+            given_name = name_parts[0]
+            surname = name_parts[-1]
+            logger.info(f"Parsed name: Given='{given_name}', Surname='{surname}'")
+
+            # Query database for person with matching name
+            cursor = self.db.connection.cursor()
+            logger.info(f"Database connection established: {self.db.connection}")
+
+            # Find person by name (using RMNOCASE collation)
+            query = """
+                SELECT p.PersonID, n.Given, n.Surname
+                FROM PersonTable p
+                JOIN NameTable n ON p.PersonID = n.OwnerID
+                WHERE n.Surname COLLATE RMNOCASE = ?
+                  AND n.Given COLLATE RMNOCASE LIKE ?
+                LIMIT 1
+                """
+            logger.info(f"Executing query with: surname='{surname}', given_like='{given_name}%'")
+
+            cursor.execute(query, (surname, f"{given_name}%"))
+
+            person_row = cursor.fetchone()
+            if not person_row:
+                logger.warning(f"Person not found in database: {person_name}")
+                # Try broader search
+                cursor.execute(
+                    "SELECT p.PersonID, n.Given, n.Surname FROM PersonTable p "
+                    "JOIN NameTable n ON p.PersonID = n.OwnerID "
+                    "WHERE n.Surname COLLATE RMNOCASE LIKE ? LIMIT 5",
+                    (f"%{surname}%",)
+                )
+                similar = cursor.fetchall()
+                if similar:
+                    logger.info(f"Similar names found: {[(row[1], row[2]) for row in similar]}")
+                return None
+
+            person_id = person_row[0]
+            actual_given = person_row[1]
+            actual_surname = person_row[2]
+            logger.info(f"✓ Found PersonID {person_id}: {actual_given} {actual_surname}")
+
+            # Get all census images for this person
+            logger.info(f"Looking for census images for PersonID {person_id}...")
+            images = self.media_resolver.get_census_images_for_person(cursor, person_id)
+            logger.info(f"Found {len(images)} total census images: {[(y, str(p)[:50]) for y, p in images]}")
+
+            # Find image matching census year
+            for year, image_path in images:
+                if year == census_year:
+                    logger.info(f"✓✓✓ MATCH! Found {census_year} census image: {image_path}")
+                    logger.info(f"Image exists: {image_path.exists()}")
+                    return image_path
+
+            logger.warning(f"No census image found for {person_name} in {census_year}")
+            logger.info(f"Available years: {[y for y, _ in images]}")
+            return None
+
+        except Exception as e:
+            logger.error(f"ERROR finding census image: {e}", exc_info=True)
+            return None
 
     def _save_processed_citation(self, dialog: ui.dialog, citation_id: str, data: dict) -> None:
         """Save the processed citation (currently just removes from pending).

@@ -91,6 +91,17 @@ class DatabaseConnection:
 
         return self._connection
 
+    @property
+    def connection(self) -> sqlite3.Connection:
+        """Get or create database connection.
+
+        Returns:
+            Active SQLite connection with RMNOCASE collation loaded.
+        """
+        if self._connection is None:
+            self.connect(read_only=True)
+        return self._connection
+
     def close(self) -> None:
         """Close the database connection."""
         if self._connection:
