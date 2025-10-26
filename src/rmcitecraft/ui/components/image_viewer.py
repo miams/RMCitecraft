@@ -254,12 +254,21 @@ class CensusImageViewer:
                         console.log('Found scroll content:', scrollContent);
 
                         if (scrollContent) {{
-                            console.log('Scroll values:', scrollContent.scrollLeft, scrollContent.scrollTop);
+                            const info = {{
+                                scrollLeft: Math.round(scrollContent.scrollLeft),
+                                scrollTop: Math.round(scrollContent.scrollTop),
+                                scrollWidth: scrollContent.scrollWidth,
+                                scrollHeight: scrollContent.scrollHeight,
+                                clientWidth: scrollContent.clientWidth,
+                                clientHeight: scrollContent.clientHeight,
+                                canScrollX: scrollContent.scrollWidth > scrollContent.clientWidth,
+                                canScrollY: scrollContent.scrollHeight > scrollContent.clientHeight
+                            }};
+                            console.log('Scroll info:', info);
                             return {{
                                 found: true,
                                 id: '{viewer_id}',
-                                scrollLeft: Math.round(scrollContent.scrollLeft),
-                                scrollTop: Math.round(scrollContent.scrollTop)
+                                ...info
                             }};
                         }}
                     }}
@@ -299,8 +308,11 @@ class CensusImageViewer:
                     )
                 elif result.get('id'):
                     viewer_id = result.get('id', '')
+                    can_scroll_x = result.get('canScrollX', False)
+                    can_scroll_y = result.get('canScrollY', False)
+                    scroll_status = f"{'✓X' if can_scroll_x else '✗X'} {'✓Y' if can_scroll_y else '✗Y'}"
                     self.position_label.set_text(
-                        f"Zoom: {zoom_pct}% | Scroll: X={scroll_x}px, Y={scroll_y}px [ID: {viewer_id[-4:]}]"
+                        f"Zoom: {zoom_pct}% | X={scroll_x}px, Y={scroll_y}px [{scroll_status}] ID:{viewer_id[-4:]}"
                     )
                 else:
                     self.position_label.set_text(
