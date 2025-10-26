@@ -42,6 +42,7 @@ class CensusImageViewer:
         self.image_element: Optional[ui.image] = None
         self.container: Optional[ui.element] = None
         self.scroll_area: Optional[ui.scroll_area] = None
+        self.scroll_area_id: Optional[str] = None  # Unique ID for targeting
 
     def render(self) -> None:
         """Render the image viewer UI component."""
@@ -107,7 +108,12 @@ class CensusImageViewer:
             ui.separator()
 
             # Image container with scrolling
+            # Generate unique ID for this scroll area
+            import random
+            self.scroll_area_id = f"census-image-scroll-{random.randint(1000, 9999)}"
             self.scroll_area = ui.scroll_area().classes("w-full h-96 bg-gray-100")
+            # Add the ID as a data attribute for targeting
+            self.scroll_area._props['data-viewer-id'] = self.scroll_area_id
             with self.scroll_area:
                 if self.image_path and self.image_path.exists():
                     self.image_element = ui.image(str(self.image_path)).classes(
@@ -234,27 +240,45 @@ class CensusImageViewer:
             return
 
         try:
-            # Get scroll position via JavaScript - try multiple strategies
-            result = await ui.run_javascript('''
-                (() => {
-                    // Strategy 1: Find all scroll areas and use the last one (most likely ours)
-                    const scrollAreas = document.querySelectorAll('.q-scrollarea__content');
-                    console.log('Found', scrollAreas.length, 'scroll areas');
+            # Get scroll position via JavaScript - target our specific scroll area
+            viewer_id = self.scroll_area_id or "unknown"
+            result = await ui.run_javascript(f'''
+                (() => {{
+                    // Find our specific scroll area by data attribute
+                    const scrollArea = document.querySelector('[data-viewer-id="{viewer_id}"]');
+                    console.log('Looking for viewer ID:', "{viewer_id}");
+                    console.log('Found scroll area:', scrollArea);
 
-                    if (scrollAreas.length > 0) {
-                        // Use the last one (most recently created, likely the image viewer)
-                        const el = scrollAreas[scrollAreas.length - 1];
-                        console.log('Using scroll area:', el, 'scrollLeft:', el.scrollLeft, 'scrollTop:', el.scrollTop);
-                        return {
+                    if (scrollArea) {{
+                        // Find the actual scrollable content within it
+                        const scrollContent = scrollArea.querySelector('.q-scrollarea__content');
+                        console.log('Found scroll content:', scrollContent);
+
+                        if (scrollContent) {{
+                            console.log('Scroll values:', scrollContent.scrollLeft, scrollContent.scrollTop);
+                            return {{
+                                found: true,
+                                scrollLeft: Math.round(scrollContent.scrollLeft),
+                                scrollTop: Math.round(scrollContent.scrollTop)
+                            }};
+                        }}
+                    }}
+
+                    // Fallback: find all and use last (old behavior)
+                    const allScrollAreas = document.querySelectorAll('.q-scrollarea__content');
+                    console.log('Fallback: Found', allScrollAreas.length, 'scroll areas');
+                    if (allScrollAreas.length > 0) {{
+                        const el = allScrollAreas[allScrollAreas.length - 1];
+                        return {{
                             found: true,
-                            count: scrollAreas.length,
+                            count: allScrollAreas.length,
                             scrollLeft: Math.round(el.scrollLeft),
                             scrollTop: Math.round(el.scrollTop)
-                        };
-                    }
+                        }};
+                    }}
 
-                    return {found: false, count: 0, scrollLeft: 0, scrollTop: 0};
-                })()
+                    return {{found: false, scrollLeft: 0, scrollTop: 0}};
+                }})()
             ''', timeout=2.0)
 
             logger.debug(f"JavaScript scroll result: {result}")
