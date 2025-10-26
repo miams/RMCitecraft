@@ -299,7 +299,7 @@ except (ValueError, TypeError) as e:
 
 - **Architecture**: `docs/architecture/IMAGE-VIEWER.md` - Complete API documentation
 - **Integration**: This file (`IMAGE-VIEWER-INTEGRATION.md`) - Integration details
-- **Real-time Updates**: `docs/architecture/REALTIME-UPDATES-FIX.md` - Citation preview updates
+- **Real-time Updates**: `docs/implementation/REALTIME-UPDATES-FIX.md` - Citation preview updates
 
 ---
 
