@@ -115,32 +115,10 @@ class CensusImageViewer:
                         )
                         ui.label("No image available").classes("text-gray-500")
 
-            # Add JavaScript to track scroll position
+            # Add timer to poll scroll position
             if self.image_path and self.image_path.exists():
-                # Inject JavaScript to continuously update scroll position
-                ui.run_javascript(f'''
-                    const updateScroll = () => {{
-                        const el = document.querySelector('.q-scrollarea__content');
-                        if (el) {{
-                            // Send scroll position back to Python
-                            emitEvent('scroll_position', {{
-                                scrollLeft: el.scrollLeft,
-                                scrollTop: el.scrollTop
-                            }});
-                        }}
-                    }};
-
-                    // Update on scroll
-                    const el = document.querySelector('.q-scrollarea__content');
-                    if (el) {{
-                        el.addEventListener('scroll', updateScroll);
-                        // Initial update
-                        updateScroll();
-                    }}
-                ''')
-
-                # Listen for scroll position updates
-                ui.on('scroll_position', self._on_scroll_update)
+                # Poll scroll position every 500ms
+                ui.timer(0.5, self._update_scroll_position)
 
             # Pan controls (alternative to mouse drag)
             with ui.row().classes("w-full items-center justify-center gap-2 p-2"):
@@ -244,22 +222,38 @@ class CensusImageViewer:
             f"transform: {transform}; transform-origin: top left; transition: transform 0.2s;"
         )
 
-    def _on_scroll_update(self, e) -> None:
-        """Handle scroll position update from JavaScript."""
+    async def _update_scroll_position(self) -> None:
+        """Poll and update scroll position display."""
         if not self.position_label:
             return
 
-        # Get scroll position from event data
-        scroll_x = e.args.get('scrollLeft', 0)
-        scroll_y = e.args.get('scrollTop', 0)
+        try:
+            # Get scroll position via JavaScript
+            result = await ui.run_javascript('''
+                (() => {
+                    const el = document.querySelector('.q-scrollarea__content');
+                    if (el) {
+                        return {
+                            scrollLeft: Math.round(el.scrollLeft),
+                            scrollTop: Math.round(el.scrollTop)
+                        };
+                    }
+                    return {scrollLeft: 0, scrollTop: 0};
+                })()
+            ''', timeout=1.0)
 
-        # Update label
-        zoom_pct = int(self.zoom_level * 100)
-        self.position_label.set_text(
-            f"Zoom: {zoom_pct}% | Scroll: X={int(scroll_x)}px, Y={int(scroll_y)}px"
-        )
+            if result:
+                scroll_x = result.get('scrollLeft', 0)
+                scroll_y = result.get('scrollTop', 0)
 
-        logger.debug(f"Scroll position updated: X={scroll_x}, Y={scroll_y}")
+                # Update label
+                zoom_pct = int(self.zoom_level * 100)
+                self.position_label.set_text(
+                    f"Zoom: {zoom_pct}% | Scroll: X={scroll_x}px, Y={scroll_y}px"
+                )
+        except Exception as e:
+            # Silently fail - don't spam logs
+            pass
 
     def get_position(self) -> dict:
         """Get current zoom and pan position.
