@@ -6,6 +6,7 @@ including ICU extension loading for the RMNOCASE collation.
 
 import sqlite3
 from pathlib import Path
+
 from loguru import logger
 
 

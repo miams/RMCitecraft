@@ -1,9 +1,7 @@
 """Data models for census citations."""
 
-from datetime import date
-from typing import Optional
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class ParsedCitation(BaseModel):
@@ -18,12 +16,12 @@ class ParsedCitation(BaseModel):
     census_year: int = Field(ge=1790, le=1950, description="Census year")
     state: str
     county: str
-    town_ward: Optional[str] = None
-    enumeration_district: Optional[str] = None
-    sheet: Optional[str] = None
-    line: Optional[str] = None
-    family_number: Optional[str] = None
-    dwelling_number: Optional[str] = None
+    town_ward: str | None = None
+    enumeration_district: str | None = None
+    sheet: str | None = None
+    line: str | None = None
+    family_number: str | None = None
+    dwelling_number: str | None = None
 
     # Person info
     person_name: str
@@ -33,13 +31,13 @@ class ParsedCitation(BaseModel):
     # URLs and references
     familysearch_url: str
     access_date: str
-    nara_publication: Optional[str] = None  # e.g., "T623"
-    fhl_microfilm: Optional[str] = None  # e.g., "1,241,311"
+    nara_publication: str | None = None  # e.g., "T623"
+    fhl_microfilm: str | None = None  # e.g., "1,241,311"
 
     # Generated citations (populated by formatter)
-    footnote: Optional[str] = None
-    short_footnote: Optional[str] = None
-    bibliography: Optional[str] = None
+    footnote: str | None = None
+    short_footnote: str | None = None
+    bibliography: str | None = None
 
     # Validation status
     is_complete: bool = False
@@ -71,16 +69,16 @@ class CitationExtraction(BaseModel):
     state: str = Field(min_length=2, description="US state or territory")
     county: str = Field(min_length=1, description="County name")
     person_name: str
-    town_ward: Optional[str] = None
-    enumeration_district: Optional[str] = None
-    sheet: Optional[str] = None
-    line: Optional[str] = None
-    family_number: Optional[str] = None
-    dwelling_number: Optional[str] = None
+    town_ward: str | None = None
+    enumeration_district: str | None = None
+    sheet: str | None = None
+    line: str | None = None
+    family_number: str | None = None
+    dwelling_number: str | None = None
     familysearch_url: str
     access_date: str
-    nara_publication: Optional[str] = None
-    fhl_microfilm: Optional[str] = None
+    nara_publication: str | None = None
+    fhl_microfilm: str | None = None
 
     # Fields LLM couldn't extract
     missing_fields: list[str] = Field(

@@ -5,12 +5,11 @@ the RMCitecraft application.
 """
 
 import sys
-from typing import Optional
 
 from loguru import logger
 
 from rmcitecraft.daemon import get_status, is_running, start_daemon, stop_daemon
-from rmcitecraft.version import format_version_string, get_version_info
+from rmcitecraft.version import format_version_string
 
 __all__ = ["cli_main"]
 
@@ -77,11 +76,11 @@ def cmd_start(background: bool = False) -> int:
 
         try:
             # Import and run the main app
-            from rmcitecraft.main import main as run_app
-
             # Write PID file for foreground process
             import os
-            from rmcitecraft.daemon import write_pid_file, remove_pid_file
+
+            from rmcitecraft.daemon import remove_pid_file, write_pid_file
+            from rmcitecraft.main import main as run_app
 
             write_pid_file(os.getpid())
 
@@ -198,7 +197,7 @@ def print_help() -> None:
     print()
 
 
-def cli_main(args: Optional[list[str]] = None) -> int:
+def cli_main(args: list[str] | None = None) -> int:
     """Main CLI entry point.
 
     Args:

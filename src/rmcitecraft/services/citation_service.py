@@ -7,15 +7,15 @@ This service coordinates the two-phase citation processing:
 
 import sqlite3
 from typing import Any
+
 from loguru import logger
 
 from rmcitecraft.models.census_citation import (
-    CensusExtraction,
     CensusCitation,
     PlaceDetails,
 )
-from rmcitecraft.services.llm_extractor import LLMCitationExtractor
 from rmcitecraft.services.citation_formatter import format_census_citation
+from rmcitecraft.services.llm_extractor import LLMCitationExtractor
 
 
 class CitationGenerationService:

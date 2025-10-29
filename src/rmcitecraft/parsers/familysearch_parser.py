@@ -7,7 +7,6 @@ and handling of format variations.
 
 import re
 from datetime import datetime
-from typing import Optional
 
 from loguru import logger
 
@@ -200,7 +199,7 @@ class FamilySearchParser:
 
         return citation
 
-    def _extract_town_ward(self, text: str, county: str) -> Optional[str]:
+    def _extract_town_ward(self, text: str, county: str) -> str | None:
         """Extract town/ward from citation text."""
         # Look for text after person name and before semicolon
         # Pattern: "Person Name, Town/Ward, County, State, Country; citing..."
@@ -239,7 +238,7 @@ class FamilySearchParser:
 
         return None
 
-    def _extract_ed(self, text: str, details: str) -> Optional[str]:
+    def _extract_ed(self, text: str, details: str) -> str | None:
         """Extract enumeration district from text or details."""
         # Try citation details first
         match = self.ED_PATTERN.search(details)
@@ -256,7 +255,7 @@ class FamilySearchParser:
                     return group
         return None
 
-    def _extract_sheet(self, text: str, details: str) -> Optional[str]:
+    def _extract_sheet(self, text: str, details: str) -> str | None:
         """Extract sheet from text or details."""
         # Try citation details first
         match = self.SHEET_PATTERN.search(details)
@@ -269,7 +268,7 @@ class FamilySearchParser:
             return match.group(1)
         return None
 
-    def _extract_family(self, text: str, details: str) -> Optional[str]:
+    def _extract_family(self, text: str, details: str) -> str | None:
         """Extract family number from text or details."""
         match = self.FAMILY_PATTERN.search(details)
         if match:
@@ -280,7 +279,7 @@ class FamilySearchParser:
             return match.group(1)
         return None
 
-    def _extract_dwelling(self, text: str, details: str) -> Optional[str]:
+    def _extract_dwelling(self, text: str, details: str) -> str | None:
         """Extract dwelling number from text or details."""
         match = self.DWELLING_PATTERN.search(details)
         if match:
@@ -342,14 +341,14 @@ class FamilySearchParser:
             return self._format_access_date(raw_date)
         return ""
 
-    def _extract_nara(self, text: str) -> Optional[str]:
+    def _extract_nara(self, text: str) -> str | None:
         """Extract NARA publication number."""
         match = self.NARA_PATTERN.search(text)
         if match:
             return match.group(1)
         return None
 
-    def _extract_fhl(self, text: str) -> Optional[str]:
+    def _extract_fhl(self, text: str) -> str | None:
         """Extract FHL microfilm number."""
         match = self.FHL_PATTERN.search(text)
         if match:
@@ -359,10 +358,10 @@ class FamilySearchParser:
     def _identify_missing_fields(
         self,
         census_year: int,
-        ed: Optional[str],
-        sheet: Optional[str],
-        family: Optional[str],
-        town: Optional[str],
+        ed: str | None,
+        sheet: str | None,
+        family: str | None,
+        town: str | None,
     ) -> list[str]:
         """Identify missing required fields based on census year."""
         missing = []
@@ -429,7 +428,7 @@ class FamilySearchParser:
         # Check if this is simplified FamilySearch format (no location data)
         # Format: "United States Census, 1940", , <i>FamilySearch</i> (URL), Entry for Person Names, 1940.
         if us_index is None or us_index < 3:
-            logger.debug(f"Location hierarchy not found, checking for simplified format")
+            logger.debug("Location hierarchy not found, checking for simplified format")
             return self._parse_simplified_familysearch_format(source_name, familysearch_entry, citation_id, census_year)
 
         # Location components are the parts before "United States"

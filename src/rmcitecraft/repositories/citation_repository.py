@@ -2,7 +2,6 @@
 
 import sqlite3
 import xml.etree.ElementTree as ET
-from typing import List, Optional
 
 from loguru import logger
 
@@ -21,7 +20,7 @@ class CitationRepository:
         self.db = db
 
     @staticmethod
-    def extract_field_from_blob(fields_blob: bytes, field_name: str) -> Optional[str]:
+    def extract_field_from_blob(fields_blob: bytes, field_name: str) -> str | None:
         """Extract a field value from Fields BLOB XML.
 
         Args:
@@ -56,7 +55,7 @@ class CitationRepository:
             return None
 
     @staticmethod
-    def extract_freeform_text(fields_blob: bytes) -> Optional[str]:
+    def extract_freeform_text(fields_blob: bytes) -> str | None:
         """Extract citation text from Fields BLOB (for Free Form citations).
 
         This is a convenience wrapper around extract_field_from_blob for the "Page" field.
@@ -69,7 +68,7 @@ class CitationRepository:
         """
         return CitationRepository.extract_field_from_blob(fields_blob, "Page")
 
-    def get_citations_by_year(self, census_year: int) -> List[sqlite3.Row]:
+    def get_citations_by_year(self, census_year: int) -> list[sqlite3.Row]:
         """Get all census citations for a specific year.
 
         Args:
@@ -105,7 +104,7 @@ class CitationRepository:
             logger.debug(f"Found {len(results)} citations for year {census_year}")
             return results
 
-    def get_citation_by_id(self, citation_id: int) -> Optional[sqlite3.Row]:
+    def get_citation_by_id(self, citation_id: int) -> sqlite3.Row | None:
         """Get a single citation by ID.
 
         Args:
@@ -181,7 +180,7 @@ class CitationRepository:
             logger.error(f"Failed to update citation {citation_id}: {e}")
             return False
 
-    def get_all_census_years(self) -> List[int]:
+    def get_all_census_years(self) -> list[int]:
         """Get list of all census years present in the database.
 
         Returns:

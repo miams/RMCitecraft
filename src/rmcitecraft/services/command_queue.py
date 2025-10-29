@@ -8,8 +8,6 @@ Commands are queued and polled by the extension every 2 seconds.
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
 
 from loguru import logger
 
@@ -20,7 +18,7 @@ class Command:
 
     id: str
     type: str
-    data: Dict
+    data: dict
     created_at: float = field(default_factory=time.time)
     status: str = "pending"  # pending, completed, failed, expired
 
@@ -29,7 +27,7 @@ class Command:
         age_seconds = time.time() - self.created_at
         return age_seconds > (max_age_minutes * 60)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert command to dictionary for API response."""
         return {
             "id": self.id,
@@ -55,11 +53,11 @@ class CommandQueue:
         Args:
             max_age_minutes: Maximum age of commands before expiration (default: 5)
         """
-        self._commands: Dict[str, Command] = {}
+        self._commands: dict[str, Command] = {}
         self._max_age_minutes = max_age_minutes
         logger.info(f"Command queue initialized (max age: {max_age_minutes} minutes)")
 
-    def add(self, command_type: str, data: Optional[Dict] = None) -> str:
+    def add(self, command_type: str, data: dict | None = None) -> str:
         """
         Add a command to the queue.
 
@@ -85,7 +83,7 @@ class CommandQueue:
 
         return command_id
 
-    def get_pending(self) -> List[Dict]:
+    def get_pending(self) -> list[dict]:
         """
         Get all pending commands.
 
@@ -107,7 +105,7 @@ class CommandQueue:
 
         return pending
 
-    def complete(self, command_id: str, response: Optional[Dict] = None) -> bool:
+    def complete(self, command_id: str, response: dict | None = None) -> bool:
         """
         Mark a command as completed and remove from queue.
 
@@ -135,7 +133,7 @@ class CommandQueue:
 
         return True
 
-    def fail(self, command_id: str, error: Optional[str] = None) -> bool:
+    def fail(self, command_id: str, error: str | None = None) -> bool:
         """
         Mark a command as failed and remove from queue.
 
@@ -163,7 +161,7 @@ class CommandQueue:
 
         return True
 
-    def get(self, command_id: str) -> Optional[Dict]:
+    def get(self, command_id: str) -> dict | None:
         """
         Get a command by ID.
 
@@ -214,7 +212,7 @@ class CommandQueue:
 
         return len(expired_ids)
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """
         Get queue statistics.
 
@@ -231,7 +229,7 @@ class CommandQueue:
 
 
 # Global singleton instance
-_command_queue: Optional[CommandQueue] = None
+_command_queue: CommandQueue | None = None
 
 
 def get_command_queue() -> CommandQueue:

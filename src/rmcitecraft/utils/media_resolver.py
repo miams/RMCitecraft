@@ -8,7 +8,6 @@ RootsMagic uses symbolic placeholders in MediaPath:
 
 import os
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger
 
@@ -18,8 +17,8 @@ class MediaPathResolver:
 
     def __init__(
         self,
-        media_root: Optional[str] = None,
-        database_path: Optional[str] = None,
+        media_root: str | None = None,
+        database_path: str | None = None,
     ):
         """Initialize resolver with root directories.
 
@@ -37,7 +36,7 @@ class MediaPathResolver:
                 Path.home() / "Genealogy" / "RootsMagic" / "Files"
             )
 
-        self.database_dir: Optional[Path] = None
+        self.database_dir: Path | None = None
         if database_path:
             self.database_dir = Path(database_path).parent.resolve()
 
@@ -48,7 +47,7 @@ class MediaPathResolver:
         self,
         media_path: str,
         media_file: str,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Resolve RootsMagic media path to absolute path.
 
         Args:
@@ -103,7 +102,7 @@ class MediaPathResolver:
         self,
         cursor,
         event_id: int,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Get census image path for a given EventID.
 
         Args:

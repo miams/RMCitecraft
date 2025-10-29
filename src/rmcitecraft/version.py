@@ -6,7 +6,6 @@ This module provides version and build information for the application.
 import importlib.metadata
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 __all__ = ["VERSION", "get_version_info", "get_last_updated"]
 

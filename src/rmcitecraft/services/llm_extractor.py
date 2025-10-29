@@ -6,14 +6,14 @@ census years.
 """
 
 from typing import Any
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import PydanticOutputParser
+
 from langchain_anthropic import ChatAnthropic
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from loguru import logger
 
 from rmcitecraft.models.census_citation import CensusExtraction
-
 
 # System instructions (cached for all requests)
 SYSTEM_INSTRUCTIONS = """You are a genealogical citation parser specialized in US Federal Census records from FamilySearch.

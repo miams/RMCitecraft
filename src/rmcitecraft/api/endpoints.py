@@ -7,9 +7,8 @@ Provides HTTP API for:
 - Command queue management for extension
 """
 
-from typing import Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
@@ -45,7 +44,7 @@ class CommandRequest(BaseModel):
     """Command creation request model."""
 
     type: str
-    data: Optional[Dict] = None
+    data: dict | None = None
 
 
 class CommandResponse(BaseModel):
@@ -87,7 +86,7 @@ def create_api_router() -> APIRouter:
     # -------------------------------------------------------------------------
 
     @router.post("/citation/import", response_model=CitationImportResponse)
-    async def import_citation(data: Dict = Body(...)):
+    async def import_citation(data: dict = Body(...)):
         """
         Import citation data from browser extension.
 
@@ -117,11 +116,11 @@ def create_api_router() -> APIRouter:
 
         except ValueError as e:
             logger.error(f"Citation import validation error: {e}")
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
         except Exception as e:
             logger.error(f"Citation import error: {e}")
-            raise HTTPException(status_code=500, detail="Internal server error")
+            raise HTTPException(status_code=500, detail="Internal server error") from e
 
     @router.get("/citation/pending")
     async def get_pending_citations():
@@ -211,10 +210,10 @@ def create_api_router() -> APIRouter:
 
         except Exception as e:
             logger.error(f"Command queue error: {e}")
-            raise HTTPException(status_code=500, detail="Internal server error")
+            raise HTTPException(status_code=500, detail="Internal server error") from e
 
     @router.delete("/extension/commands/{command_id}")
-    async def complete_command(command_id: str, response: Optional[Dict] = Body(None)):
+    async def complete_command(command_id: str, response: dict | None = Body(None)):
         """
         Mark a command as completed and remove from queue.
 

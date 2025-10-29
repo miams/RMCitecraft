@@ -3,8 +3,8 @@
 import os
 
 from fastapi.middleware.cors import CORSMiddleware
-from nicegui import app, ui
 from loguru import logger
+from nicegui import app, ui
 
 from rmcitecraft.api import create_api_router
 from rmcitecraft.config import get_config
@@ -59,10 +59,9 @@ def setup_app() -> None:
 
         with ui.tab_panels(tabs, value=tab_home).classes("w-full h-full"):
             # Home tab
-            with ui.tab_panel(tab_home):
-                with ui.column().classes("w-full items-center p-8"):
-                    with ui.card().classes("w-full max-w-4xl p-6"):
-                        ui.markdown("""
+            with ui.tab_panel(tab_home), ui.column().classes("w-full items-center p-8"):
+                with ui.card().classes("w-full max-w-4xl p-6"):
+                    ui.markdown("""
                         ## Welcome to RMCitecraft
 
                         This application helps you:
@@ -90,14 +89,14 @@ def setup_app() -> None:
 
                         """)
 
-                    with ui.expansion("System Status", icon="info").classes(
-                        "w-full max-w-4xl"
-                    ):
-                        ui.label(f"Database: {config.rm_database_path}").classes("text-sm")
-                        ui.label(f"LLM Provider: {config.default_llm_provider}").classes(
-                            "text-sm"
-                        )
-                        ui.label(f"Log Level: {config.log_level}").classes("text-sm")
+                with ui.expansion("System Status", icon="info").classes(
+                    "w-full max-w-4xl"
+                ):
+                    ui.label(f"Database: {config.rm_database_path}").classes("text-sm")
+                    ui.label(f"LLM Provider: {config.default_llm_provider}").classes(
+                        "text-sm"
+                    )
+                    ui.label(f"Log Level: {config.log_level}").classes("text-sm")
 
             # Citation Manager tab
             with ui.tab_panel(tab_citations).classes("w-full h-full"):

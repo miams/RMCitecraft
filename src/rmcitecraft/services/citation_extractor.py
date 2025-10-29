@@ -4,7 +4,6 @@ Extracts structured citation data from FamilySearch entries using LLM.
 """
 
 import asyncio
-from typing import List, Optional
 
 from langchain_core.output_parsers import PydanticOutputParser
 from loguru import logger
@@ -44,7 +43,7 @@ class CitationExtractor:
         self,
         source_name: str,
         familysearch_entry: str,
-    ) -> Optional[CitationExtraction]:
+    ) -> CitationExtraction | None:
         """Extract citation data from FamilySearch entry.
 
         Args:
@@ -94,9 +93,9 @@ class CitationExtractor:
 
     async def extract_batch(
         self,
-        citations: List[tuple[str, str]],
-        max_concurrent: Optional[int] = None,
-    ) -> List[Optional[CitationExtraction]]:
+        citations: list[tuple[str, str]],
+        max_concurrent: int | None = None,
+    ) -> list[CitationExtraction | None]:
         """Extract multiple citations in parallel.
 
         Args:
@@ -116,7 +115,7 @@ class CitationExtractor:
 
         async def extract_with_semaphore(
             source_name: str, familysearch_entry: str
-        ) -> Optional[CitationExtraction]:
+        ) -> CitationExtraction | None:
             async with semaphore:
                 return await self.extract_citation(source_name, familysearch_entry)
 
@@ -155,7 +154,7 @@ class CitationExtractor:
 async def extract_citation_data(
     source_name: str,
     familysearch_entry: str,
-) -> Optional[CitationExtraction]:
+) -> CitationExtraction | None:
     """Extract citation data (convenience function).
 
     Args:

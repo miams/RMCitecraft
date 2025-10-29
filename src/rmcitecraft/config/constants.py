@@ -1,9 +1,8 @@
 """Constants for census years, folder mappings, and state abbreviations."""
 
-from typing import Dict, List
 
 # Valid US Federal Census years (1790-1950, every 10 years)
-CENSUS_YEARS: List[int] = list(range(1790, 1960, 10))
+CENSUS_YEARS: list[int] = list(range(1790, 1960, 10))
 
 # Census year template ranges
 CENSUS_YEAR_RANGES = {
@@ -14,7 +13,7 @@ CENSUS_YEAR_RANGES = {
 }
 
 # Folder mappings for census years and schedule types
-FOLDER_MAPPINGS: Dict[str, str] = {
+FOLDER_MAPPINGS: dict[str, str] = {
     # Standard federal census
     "1790_federal": "1790 Federal",
     "1800_federal": "1800 Federal",
@@ -48,7 +47,7 @@ FOLDER_MAPPINGS: Dict[str, str] = {
 # US State abbreviations (traditional style for Evidence Explained citations)
 # Reference: Mills, Elizabeth Shown. Evidence Explained, 4th Edition.
 # Note: These are NOT postal codes (PA → Pa., OH → Ohio, etc.)
-STATE_ABBREVIATIONS: Dict[str, str] = {
+STATE_ABBREVIATIONS: dict[str, str] = {
     "Alabama": "Ala.",
     "Alaska": "Alaska",
     "Arizona": "Ariz.",
@@ -111,7 +110,7 @@ STATE_ABBREVIATIONS: Dict[str, str] = {
 
 # Locality type abbreviations for short footnotes (Evidence Explained style)
 # Reference: Mills, Elizabeth Shown. Evidence Explained, 4th Edition.
-LOCALITY_TYPE_ABBREVIATIONS: Dict[str, str] = {
+LOCALITY_TYPE_ABBREVIATIONS: dict[str, str] = {
     "Township": "Twp.",
     "City": "City",  # Cities not abbreviated
     "Village": "Vill.",

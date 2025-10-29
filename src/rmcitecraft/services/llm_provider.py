@@ -4,15 +4,14 @@ Supports multiple LLM providers with fallback chain.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
 from langchain_core.output_parsers import PydanticOutputParser
-from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 from loguru import logger
-from pydantic import BaseModel
 
 from rmcitecraft.config import get_config
 
@@ -125,7 +124,7 @@ class LLMProviderFactory:
     }
 
     @classmethod
-    def create_provider(cls, provider_name: str) -> Optional[LLMProvider]:
+    def create_provider(cls, provider_name: str) -> LLMProvider | None:
         """Create a specific LLM provider.
 
         Args:
@@ -148,7 +147,7 @@ class LLMProviderFactory:
         return provider
 
     @classmethod
-    def get_default_provider(cls) -> Optional[LLMProvider]:
+    def get_default_provider(cls) -> LLMProvider | None:
         """Get the default LLM provider from config.
 
         Returns:
@@ -204,7 +203,7 @@ class LLMProviderFactory:
             return model | parser
 
 
-def get_llm_for_extraction() -> Optional[BaseChatModel]:
+def get_llm_for_extraction() -> BaseChatModel | None:
     """Get an LLM instance for citation extraction.
 
     Returns:

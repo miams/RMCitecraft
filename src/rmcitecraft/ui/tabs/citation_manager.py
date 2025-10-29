@@ -8,7 +8,6 @@ This tab provides the main citation management interface:
 import webbrowser
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger
 from nicegui import ui
@@ -42,20 +41,20 @@ class CitationManagerTab:
         )
 
         # State
-        self.selected_year: Optional[int] = None
+        self.selected_year: int | None = None
         self.citations: list[dict] = []
-        self.selected_citation: Optional[dict] = None
-        self.parsed_citation: Optional[ParsedCitation] = None
+        self.selected_citation: dict | None = None
+        self.parsed_citation: ParsedCitation | None = None
         self.selected_citation_ids: set[int] = set()
         self.sort_by: str = "status"  # Default sort
         self.sort_reverse: bool = False
 
         # UI references (will be set when rendering)
-        self.citation_list_container: Optional[ui.column] = None
-        self.detail_container: Optional[ui.column] = None
-        self.status_label: Optional[ui.label] = None
-        self.pending_citations_container: Optional[ui.column] = None
-        self.pending_badge: Optional[ui.badge] = None
+        self.citation_list_container: ui.column | None = None
+        self.detail_container: ui.column | None = None
+        self.status_label: ui.label | None = None
+        self.pending_citations_container: ui.column | None = None
+        self.pending_badge: ui.badge | None = None
 
         # Services
         self.citation_import_service = get_citation_import_service()
@@ -147,7 +146,7 @@ class CitationManagerTab:
             with self.detail_container:
                 ui.label("Select a citation to view details").classes("text-gray-500 italic")
 
-    def _on_year_selected(self, year: Optional[int]) -> None:
+    def _on_year_selected(self, year: int | None) -> None:
         """Handle census year selection.
 
         Args:
@@ -229,31 +228,27 @@ class CitationManagerTab:
         is_complete = parsed.is_complete
         has_url = bool(parsed.familysearch_url)
 
-        # Status icon and color (priority order)
+        # Status icon and color
         if not has_url:
-            # Priority 1: Missing FamilySearch URL (critical error)
+            # Missing FamilySearch URL (critical error)
             status_icon = "error"
             status_color = "text-red-600"
             status_tooltip = "Missing FamilySearch URL"
-            status_priority = 0  # Highest priority for sorting
         elif has_formatted:
-            # Priority 2: Already formatted (complete)
+            # Already formatted (complete)
             status_icon = "check_circle"
             status_color = "text-green-600"
             status_tooltip = "Already formatted"
-            status_priority = 3  # Lowest priority (done)
         elif is_complete:
-            # Priority 3: Ready to format
+            # Ready to format
             status_icon = "radio_button_unchecked"
             status_color = "text-blue-600"
             status_tooltip = "Ready to format"
-            status_priority = 2  # Medium priority
         else:
-            # Priority 4: Missing fields
+            # Missing fields
             status_icon = "warning"
             status_color = "text-amber-600"
             status_tooltip = f"Missing: {', '.join(parsed.missing_fields)}"
-            status_priority = 1  # Higher priority than complete
 
         # Citation item card
         is_selected = citation_id in self.selected_citation_ids
@@ -752,10 +747,9 @@ class CitationManagerTab:
 
         with ui.expansion(
             f"Pending Citations from Extension ({len(pending)})", icon="cloud_download", value=True
-        ).classes("w-full bg-blue-50"):
-            with ui.column().classes("w-full p-4 gap-2"):
-                self.pending_citations_container = ui.column().classes("w-full gap-2")
-                self._update_pending_citations_display()
+        ).classes("w-full bg-blue-50"), ui.column().classes("w-full p-4 gap-2"):
+            self.pending_citations_container = ui.column().classes("w-full gap-2")
+            self._update_pending_citations_display()
 
     def _update_pending_citations_display(self) -> None:
         """Update the pending citations display."""
@@ -894,8 +888,8 @@ class CitationManagerTab:
             try:
                 self._processing_dialog.close()
                 delattr(self, "_processing_dialog")
-            except:
-                pass
+            except Exception:
+                pass  # Ignore errors closing old dialog
 
         # Create dialog with no_backdrop_dismiss AND persistent
         # Store as a strong reference to prevent garbage collection
@@ -1019,7 +1013,7 @@ class CitationManagerTab:
                                 try:
                                     # Create image viewer at 275% zoom
                                     # Opens at top-left (0, 0) - user scrolls to desired position
-                                    viewer = create_census_image_viewer(
+                                    create_census_image_viewer(
                                         image_path=image_path, initial_zoom=2.75
                                     )
                                 except Exception as e:
@@ -1618,7 +1612,7 @@ class CitationManagerTab:
             logger.warning(f"Could not parse date '{date_str}': {e}")
             return date_str  # Return as-is if parsing fails
 
-    def _find_census_image_for_person(self, person_name: str, census_year: int) -> Optional[Path]:
+    def _find_census_image_for_person(self, person_name: str, census_year: int) -> Path | None:
         """Find census image for a person and census year.
 
         Args:
@@ -1628,14 +1622,14 @@ class CitationManagerTab:
         Returns:
             Path to census image file, or None if not found
         """
-        logger.info(f"=== FINDING CENSUS IMAGE ===")
+        logger.info("=== FINDING CENSUS IMAGE ===")
         logger.info(f"Person: {person_name}, Year: {census_year}")
 
         try:
             # Parse name into surname and given name
             name_parts = person_name.strip().split()
             if not name_parts:
-                logger.warning(f"Empty name provided")
+                logger.warning("Empty name provided")
                 return None
 
             given_name = name_parts[0]

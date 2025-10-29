@@ -1,9 +1,9 @@
 """Database connection and management for RootsMagic .rmtree files."""
 
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator, Optional
 
 from loguru import logger
 
@@ -15,8 +15,8 @@ class DatabaseConnection:
 
     def __init__(
         self,
-        db_path: Optional[str] = None,
-        icu_extension_path: Optional[str] = None,
+        db_path: str | None = None,
+        icu_extension_path: str | None = None,
     ) -> None:
         """Initialize database connection manager.
 
@@ -38,7 +38,7 @@ class DatabaseConnection:
                 f"ICU extension not found: {self.icu_extension_path}"
             )
 
-        self._connection: Optional[sqlite3.Connection] = None
+        self._connection: sqlite3.Connection | None = None
 
     def connect(self, read_only: bool = True) -> sqlite3.Connection:
         """Establish connection to RootsMagic database with RMNOCASE collation.

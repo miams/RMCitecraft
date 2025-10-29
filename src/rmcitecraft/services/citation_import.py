@@ -10,7 +10,6 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Lock
-from typing import Dict, List, Optional
 
 from loguru import logger
 from pydantic import BaseModel, Field, validator
@@ -26,35 +25,35 @@ class ImportedCitationData(BaseModel):
     # Metadata
     familySearchUrl: str = Field(..., description="FamilySearch ARK/PAL URL")
     extractedAt: str = Field(..., description="ISO timestamp when extracted")
-    censusYear: Optional[int] = Field(None, ge=1790, le=1950, description="Census year")
+    censusYear: int | None = Field(None, ge=1790, le=1950, description="Census year")
 
     # Person information
-    name: Optional[str] = Field(None, description="Person name")
-    sex: Optional[str] = Field(None, description="Sex/Gender")
-    age: Optional[str] = Field(None, description="Age")
-    birthYear: Optional[str] = Field(None, description="Birth year")
-    race: Optional[str] = Field(None, description="Race")
-    relationship: Optional[str] = Field(None, description="Relationship to head")
-    maritalStatus: Optional[str] = Field(None, description="Marital status")
-    occupation: Optional[str] = Field(None, description="Occupation")
-    industry: Optional[str] = Field(None, description="Industry")
+    name: str | None = Field(None, description="Person name")
+    sex: str | None = Field(None, description="Sex/Gender")
+    age: str | None = Field(None, description="Age")
+    birthYear: str | None = Field(None, description="Birth year")
+    race: str | None = Field(None, description="Race")
+    relationship: str | None = Field(None, description="Relationship to head")
+    maritalStatus: str | None = Field(None, description="Marital status")
+    occupation: str | None = Field(None, description="Occupation")
+    industry: str | None = Field(None, description="Industry")
 
     # Event information
-    eventDate: Optional[str] = Field(None, description="Event date")
-    eventPlace: Optional[str] = Field(None, description="Event place")
-    eventPlaceOriginal: Optional[str] = Field(None, description="Original place")
+    eventDate: str | None = Field(None, description="Event date")
+    eventPlace: str | None = Field(None, description="Event place")
+    eventPlaceOriginal: str | None = Field(None, description="Original place")
 
     # Census-specific fields
-    enumerationDistrict: Optional[str] = Field(None, description="Enumeration District")
-    lineNumber: Optional[str] = Field(None, description="Line number")
-    pageNumber: Optional[str] = Field(None, description="Page number")
-    sheetNumber: Optional[str] = Field(None, description="Sheet number")
-    familyNumber: Optional[str] = Field(None, description="Family number")
-    dwellingNumber: Optional[str] = Field(None, description="Dwelling number")
+    enumerationDistrict: str | None = Field(None, description="Enumeration District")
+    lineNumber: str | None = Field(None, description="Line number")
+    pageNumber: str | None = Field(None, description="Page number")
+    sheetNumber: str | None = Field(None, description="Sheet number")
+    familyNumber: str | None = Field(None, description="Family number")
+    dwellingNumber: str | None = Field(None, description="Dwelling number")
 
     # Additional metadata
-    filmNumber: Optional[str] = Field(None, description="Film number")
-    imageNumber: Optional[str] = Field(None, description="Image number")
+    filmNumber: str | None = Field(None, description="Film number")
+    imageNumber: str | None = Field(None, description="Image number")
 
     @validator("familySearchUrl")
     def validate_url(cls, v):
@@ -80,7 +79,7 @@ class PendingCitation:
     imported_at: float = field(default_factory=time.time)
     status: str = "pending"  # pending, reviewed, approved, rejected
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary for API response."""
         return {
             "id": self.id,
@@ -98,7 +97,7 @@ class CitationImportService:
     Uses file-based storage to persist across multiple processes.
     """
 
-    def __init__(self, storage_path: Optional[Path] = None):
+    def __init__(self, storage_path: Path | None = None):
         """Initialize citation import service.
 
         Args:
@@ -121,7 +120,7 @@ class CitationImportService:
         """Load pending citations from JSON file."""
         try:
             if self._storage_path.exists():
-                with open(self._storage_path, 'r') as f:
+                with open(self._storage_path) as f:
                     data = json.load(f)
 
                 # Reconstruct PendingCitation objects from stored data
@@ -170,7 +169,7 @@ class CitationImportService:
         except Exception as e:
             logger.error(f"Failed to save citations to file: {e}")
 
-    def import_citation(self, data: Dict) -> str:
+    def import_citation(self, data: dict) -> str:
         """
         Import citation data from extension.
 
@@ -217,7 +216,7 @@ class CitationImportService:
                 logger.error(f"Failed to import citation: {e}")
                 raise ValueError(f"Invalid citation data: {e}")
 
-    def get_pending(self) -> List[Dict]:
+    def get_pending(self) -> list[dict]:
         """
         Get all pending citations.
 
@@ -237,7 +236,7 @@ class CitationImportService:
             logger.debug(f"Retrieved {len(pending)} pending citation(s)")
             return pending
 
-    def get(self, citation_id: str) -> Optional[Dict]:
+    def get(self, citation_id: str) -> dict | None:
         """
         Get a specific citation by ID.
 
@@ -334,7 +333,7 @@ class CitationImportService:
         logger.info(f"Cleared {count} pending citation(s)")
         return count
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """
         Get import statistics.
 
@@ -353,7 +352,7 @@ class CitationImportService:
 
 
 # Global singleton instance
-_citation_import_service: Optional[CitationImportService] = None
+_citation_import_service: CitationImportService | None = None
 
 
 def get_citation_import_service() -> CitationImportService:

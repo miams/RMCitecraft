@@ -8,7 +8,6 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger
 
@@ -29,7 +28,7 @@ def get_pid_file() -> Path:
     return pid_dir / "rmcitecraft.pid"
 
 
-def get_pid() -> Optional[int]:
+def get_pid() -> int | None:
     """Get the PID of the running application from PID file.
 
     Returns:
@@ -41,7 +40,7 @@ def get_pid() -> Optional[int]:
         return None
 
     try:
-        with open(pid_file, "r") as f:
+        with open(pid_file) as f:
             pid = int(f.read().strip())
 
         # Verify the process is actually running

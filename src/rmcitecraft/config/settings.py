@@ -1,7 +1,6 @@
 """Application settings and configuration management."""
 
 from pathlib import Path
-from typing import Optional
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,9 +22,9 @@ class Config(BaseSettings):
     llm_max_tokens: int = Field(default=1024, ge=100, le=4096)
 
     # API Keys
-    anthropic_api_key: Optional[str] = Field(default=None, description="Anthropic API key")
+    anthropic_api_key: str | None = Field(default=None, description="Anthropic API key")
     anthropic_model: str = Field(default="claude-3-5-sonnet-20241022")
-    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
+    openai_api_key: str | None = Field(default=None, description="OpenAI API key")
     openai_model: str = Field(default="gpt-4o-mini")
     ollama_base_url: str = Field(default="http://localhost:11434")
     ollama_model: str = Field(default="llama3.1:8b")
@@ -89,7 +88,7 @@ class Config(BaseSettings):
 
 
 # Global configuration instance
-_config: Optional[Config] = None
+_config: Config | None = None
 
 
 def get_config() -> Config:

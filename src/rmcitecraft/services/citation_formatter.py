@@ -4,8 +4,7 @@ This module implements deterministic template-based formatting following
 Elizabeth Shown Mills' Evidence Explained citation style for census records.
 """
 
-from rmcitecraft.models.census_citation import CensusExtraction, CensusCitation, PlaceDetails
-
+from rmcitecraft.models.census_citation import CensusCitation, CensusExtraction, PlaceDetails
 
 # State abbreviations for short footnotes (Evidence Explained style)
 # Reference: Mills, Elizabeth Shown. Evidence Explained, 4th Edition.
