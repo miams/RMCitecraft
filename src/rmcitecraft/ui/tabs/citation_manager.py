@@ -38,7 +38,7 @@ class CitationManagerTab:
         # Media resolver for census images
         self.media_resolver = MediaPathResolver(
             media_root=str(self.config.rm_media_root_directory),
-            database_path=str(self.config.rm_database_path)
+            database_path=str(self.config.rm_database_path),
         )
 
         # State
@@ -105,9 +105,9 @@ class CitationManagerTab:
                     "text-sm text-gray-600 flex-grow"
                 )
 
-                ui.button(
-                    "Select All", on_click=self._on_select_all, icon="select_all"
-                ).props("flat dense")
+                ui.button("Select All", on_click=self._on_select_all, icon="select_all").props(
+                    "flat dense"
+                )
 
             # Sort controls
             with ui.row().classes("w-full items-center gap-2 px-2 py-1 bg-gray-50 border-b"):
@@ -145,9 +145,7 @@ class CitationManagerTab:
             self.detail_container = ui.column().classes("w-full gap-4")
 
             with self.detail_container:
-                ui.label("Select a citation to view details").classes(
-                    "text-gray-500 italic"
-                )
+                ui.label("Select a citation to view details").classes("text-gray-500 italic")
 
     def _on_year_selected(self, year: Optional[int]) -> None:
         """Handle census year selection.
@@ -186,9 +184,7 @@ class CitationManagerTab:
 
         with self.citation_list_container:
             if not self.citations:
-                ui.label("No citations found for this year").classes(
-                    "text-gray-500 italic p-4"
-                )
+                ui.label("No citations found for this year").classes("text-gray-500 italic p-4")
                 return
 
             # Sort citations based on current sort criteria
@@ -226,9 +222,7 @@ class CitationManagerTab:
         # Pass SourceName as second parameter for simplified format state/county extraction
         context_text = citation["ActualText"] if citation["ActualText"] else source_name
 
-        parsed = self.parser.parse(
-            parse_text, context_text, citation_id=citation_id
-        )
+        parsed = self.parser.parse(parse_text, context_text, citation_id=citation_id)
 
         # Determine status
         has_formatted = bool(citation["Footnote"])
@@ -263,12 +257,12 @@ class CitationManagerTab:
 
         # Citation item card
         is_selected = citation_id in self.selected_citation_ids
-        card_class = "cursor-pointer hover:bg-blue-50" + (
-            " bg-blue-100" if is_selected else ""
-        )
+        card_class = "cursor-pointer hover:bg-blue-50" + (" bg-blue-100" if is_selected else "")
 
-        with ui.card().classes(f"w-full p-2 {card_class}").on(
-            "click", lambda c=citation: self._on_citation_selected(c)
+        with (
+            ui.card()
+            .classes(f"w-full p-2 {card_class}")
+            .on("click", lambda c=citation: self._on_citation_selected(c))
         ):
             with ui.row().classes("w-full items-start gap-2"):
                 # Checkbox for batch selection
@@ -341,9 +335,7 @@ class CitationManagerTab:
         if self.status_label:
             selected_count = len(self.selected_citation_ids)
             total_count = len(self.citations)
-            self.status_label.set_text(
-                f"{selected_count} of {total_count} citations selected"
-            )
+            self.status_label.set_text(f"{selected_count} of {total_count} citations selected")
 
     def _on_select_all(self) -> None:
         """Select/deselect all citations."""
@@ -361,9 +353,7 @@ class CitationManagerTab:
         if self.status_label:
             selected_count = len(self.selected_citation_ids)
             total_count = len(self.citations)
-            self.status_label.set_text(
-                f"{selected_count} of {total_count} citations selected"
-            )
+            self.status_label.set_text(f"{selected_count} of {total_count} citations selected")
 
     def _update_detail_panel(self) -> None:
         """Update the detail panel with selected citation."""
@@ -374,9 +364,7 @@ class CitationManagerTab:
 
         with self.detail_container:
             if not self.selected_citation or not self.parsed_citation:
-                ui.label("Select a citation to view details").classes(
-                    "text-gray-500 italic"
-                )
+                ui.label("Select a citation to view details").classes("text-gray-500 italic")
                 return
 
             citation = self.selected_citation
@@ -384,9 +372,7 @@ class CitationManagerTab:
 
             # Citation header with FamilySearch button
             with ui.row().classes("w-full items-center justify-between"):
-                ui.label(f"Citation ID: {citation['CitationID']}").classes(
-                    "text-xl font-bold"
-                )
+                ui.label(f"Citation ID: {citation['CitationID']}").classes("text-xl font-bold")
 
                 # Add "Open FamilySearch" button if URL exists
                 if parsed.familysearch_url:
@@ -416,9 +402,15 @@ class CitationManagerTab:
                             ui.label(freeform_text).classes("text-sm bg-yellow-50 p-2 rounded mb-2")
 
                     # Extract Footnote, ShortFootnote, Bibliography from SourceFields BLOB
-                    source_footnote = self.repo.extract_field_from_blob(citation["SourceFields"], "Footnote")
-                    source_short = self.repo.extract_field_from_blob(citation["SourceFields"], "ShortFootnote")
-                    source_bib = self.repo.extract_field_from_blob(citation["SourceFields"], "Bibliography")
+                    source_footnote = self.repo.extract_field_from_blob(
+                        citation["SourceFields"], "Footnote"
+                    )
+                    source_short = self.repo.extract_field_from_blob(
+                        citation["SourceFields"], "ShortFootnote"
+                    )
+                    source_bib = self.repo.extract_field_from_blob(
+                        citation["SourceFields"], "Bibliography"
+                    )
 
                     # Show existing formatted citations from database (prefer CitationTable, fall back to SourceTable)
                     footnote_text = citation["Footnote"] or source_footnote
@@ -450,9 +442,7 @@ class CitationManagerTab:
                         ui.label("Bibliography (Database):").classes(
                             "text-xs font-medium text-gray-600"
                         )
-                        ui.markdown(f"_{bib_text}_").classes(
-                            "text-sm bg-blue-50 p-2 rounded mb-2"
-                        )
+                        ui.markdown(f"_{bib_text}_").classes("text-sm bg-blue-50 p-2 rounded mb-2")
                     else:
                         ui.label("Bibliography:").classes("text-xs font-medium text-gray-600")
                         ui.label("(not set)").classes("text-sm text-gray-400 italic mb-2")
@@ -474,9 +464,9 @@ class CitationManagerTab:
                         ui.icon("warning").classes("text-amber-600")
                         with ui.column().classes("flex-grow"):
                             ui.label("Citation Incomplete").classes("font-medium")
-                            ui.label(
-                                f"Missing fields: {', '.join(parsed.missing_fields)}"
-                            ).classes("text-sm text-gray-700")
+                            ui.label(f"Missing fields: {', '.join(parsed.missing_fields)}").classes(
+                                "text-sm text-gray-700"
+                            )
 
     def _render_parsed_data(self, parsed: ParsedCitation) -> None:
         """Render parsed citation data.
@@ -539,7 +529,9 @@ class CitationManagerTab:
                     "Update Database",
                     icon="save",
                     color="primary",
-                    on_click=lambda: self._on_update_single_citation(parsed, footnote, short_footnote, bibliography),
+                    on_click=lambda: self._on_update_single_citation(
+                        parsed, footnote, short_footnote, bibliography
+                    ),
                 ).props("unelevated")
 
     def _extract_person_name(self, source_name: str) -> str:
@@ -583,7 +575,7 @@ class CitationManagerTab:
         """
         try:
             # Use NiceGUI's clipboard functionality
-            ui.run_javascript(f'navigator.clipboard.writeText({footnote!r})')
+            ui.run_javascript(f"navigator.clipboard.writeText({footnote!r})")
             ui.notify("Footnote copied to clipboard", type="positive")
             logger.debug("Footnote copied to clipboard")
         except Exception as e:
@@ -759,9 +751,7 @@ class CitationManagerTab:
             return
 
         with ui.expansion(
-            f"Pending Citations from Extension ({len(pending)})",
-            icon="cloud_download",
-            value=True
+            f"Pending Citations from Extension ({len(pending)})", icon="cloud_download", value=True
         ).classes("w-full bg-blue-50"):
             with ui.column().classes("w-full p-4 gap-2"):
                 self.pending_citations_container = ui.column().classes("w-full gap-2")
@@ -823,13 +813,16 @@ class CitationManagerTab:
                     ui.button(
                         "Download Image",
                         icon="download",
-                        on_click=lambda cid=citation_id, url=data.get("familySearchUrl"): self._on_download_image_clicked(cid, url),
+                        on_click=lambda cid=citation_id,
+                        url=data.get("familySearchUrl"): self._on_download_image_clicked(cid, url),
                     ).props("dense color=primary outlined")
 
                     ui.button(
                         "Process",
                         icon="play_arrow",
-                        on_click=lambda cdata=citation_data: self._on_process_pending_citation(cdata),
+                        on_click=lambda cdata=citation_data: self._on_process_pending_citation(
+                            cdata
+                        ),
                     ).props("dense color=positive")
 
                     ui.button(
@@ -852,11 +845,7 @@ class CitationManagerTab:
 
             # Queue download_image command for extension
             command_id = self.command_queue.add(
-                "download_image",
-                {
-                    "citation_id": citation_id,
-                    "url": familysearch_url
-                }
+                "download_image", {"citation_id": citation_id, "url": familysearch_url}
             )
 
             logger.info(f"Queued download_image command: {command_id} for citation {citation_id}")
@@ -896,29 +885,36 @@ class CitationManagerTab:
 
         # PAUSE THE AUTO-REFRESH TIMER while dialog is open
         # This prevents the table refresh from destroying the dialog
-        if hasattr(self, '_refresh_timer'):
+        if hasattr(self, "_refresh_timer"):
             self._refresh_timer.deactivate()
             logger.info("Paused auto-refresh timer")
 
         # Close any existing dialog first
-        if hasattr(self, '_processing_dialog') and self._processing_dialog:
+        if hasattr(self, "_processing_dialog") and self._processing_dialog:
             try:
                 self._processing_dialog.close()
-                delattr(self, '_processing_dialog')
+                delattr(self, "_processing_dialog")
             except:
                 pass
 
         # Create dialog with no_backdrop_dismiss AND persistent
         # Store as a strong reference to prevent garbage collection
         self._processing_dialog = ui.dialog()
-        self._processing_dialog.props('no-backdrop-dismiss persistent maximized')
+        self._processing_dialog.props("no-backdrop-dismiss persistent maximized")
 
         # Add event handlers to track dialog lifecycle
-        self._processing_dialog.on('show', lambda: logger.info(f"Dialog SHOWN for citation {citation_id}"))
-        self._processing_dialog.on('hide', lambda: logger.warning(f"Dialog HIDDEN for citation {citation_id}"))
-        self._processing_dialog.on('before-hide', lambda: logger.warning(f"Dialog BEFORE-HIDE event for citation {citation_id}"))
+        self._processing_dialog.on(
+            "show", lambda: logger.info(f"Dialog SHOWN for citation {citation_id}")
+        )
+        self._processing_dialog.on(
+            "hide", lambda: logger.warning(f"Dialog HIDDEN for citation {citation_id}")
+        )
+        self._processing_dialog.on(
+            "before-hide",
+            lambda: logger.warning(f"Dialog BEFORE-HIDE event for citation {citation_id}"),
+        )
 
-        census_year = data.get('censusYear', 'Unknown')
+        census_year = data.get("censusYear", "Unknown")
         logger.debug(f"Processing citation data: year={census_year}, name={data.get('name')}")
 
         normalized_data = self._normalize_extension_data(data)
@@ -930,14 +926,16 @@ class CitationManagerTab:
             with ui.row().classes("w-full items-center justify-between p-3 bg-blue-50 mb-2"):
                 with ui.column().classes("gap-0"):
                     ui.label(f"Person: {data.get('name', 'Unknown')}").classes("text-lg font-bold")
-                    ui.label(f"{census_year} Census - {data.get('eventPlace', 'Unknown')}").classes("text-sm text-gray-600")
+                    ui.label(f"{census_year} Census - {data.get('eventPlace', 'Unknown')}").classes(
+                        "text-sm text-gray-600"
+                    )
 
                 # FamilySearch link in header
-                if data.get('familySearchUrl'):
+                if data.get("familySearchUrl"):
                     ui.button(
                         "Open FamilySearch Page",
                         icon="open_in_new",
-                        on_click=lambda: webbrowser.open(data['familySearchUrl'])
+                        on_click=lambda: webbrowser.open(data["familySearchUrl"]),
                     ).props("dense outlined color=primary")
 
             # Two-column layout for compact display
@@ -947,27 +945,50 @@ class CitationManagerTab:
                     # Key citation fields (always visible, compact)
                     with ui.card().classes("w-full p-2"):
                         ui.label("Key Citation Fields").classes("text-sm font-bold mb-1")
-                        self._render_compact_data(normalized_data, [
-                            'censusYear', 'name', 'eventPlace', 'enumerationDistrict',
-                            'sheetNumber', 'lineNumber', 'familyNumber'
-                        ])
+                        self._render_compact_data(
+                            normalized_data,
+                            [
+                                "censusYear",
+                                "name",
+                                "eventPlace",
+                                "enumerationDistrict",
+                                "sheetNumber",
+                                "lineNumber",
+                                "familyNumber",
+                            ],
+                        )
 
                     # Missing fields form (if any)
                     if missing_fields:
                         with ui.card().classes("w-full p-2 bg-amber-50"):
-                            ui.label("⚠ Missing Required Fields").classes("text-sm font-bold mb-1 text-amber-800")
+                            ui.label("⚠ Missing Required Fields").classes(
+                                "text-sm font-bold mb-1 text-amber-800"
+                            )
                             self._render_missing_fields_form(missing_fields, data)
 
                     # Additional fields (collapsed)
-                    with ui.expansion("Additional Fields", icon="expand_more", value=False).classes("w-full"):
+                    with ui.expansion("Additional Fields", icon="expand_more", value=False).classes(
+                        "w-full"
+                    ):
                         with ui.column().classes("gap-1 p-2"):
-                            self._render_compact_data(normalized_data, [
-                                'age', 'sex', 'birthYear', 'race', 'relationship',
-                                'maritalStatus', 'occupation', 'industry'
-                            ])
+                            self._render_compact_data(
+                                normalized_data,
+                                [
+                                    "age",
+                                    "sex",
+                                    "birthYear",
+                                    "race",
+                                    "relationship",
+                                    "maritalStatus",
+                                    "occupation",
+                                    "industry",
+                                ],
+                            )
 
                     # Raw data (collapsed)
-                    with ui.expansion("FamilySearch Raw Data", icon="cloud", value=False).classes("w-full"):
+                    with ui.expansion("FamilySearch Raw Data", icon="cloud", value=False).classes(
+                        "w-full"
+                    ):
                         with ui.column().classes("gap-0 p-2 text-xs"):
                             for key, value in sorted(data.items()):
                                 if value:
@@ -976,8 +997,8 @@ class CitationManagerTab:
                 # RIGHT COLUMN - Census image and citation preview
                 with ui.column().classes("w-1/2 gap-2"):
                     # Census image viewer (top half of right column)
-                    person_name = data.get('name', '')
-                    census_year_val = data.get('censusYear')
+                    person_name = data.get("name", "")
+                    census_year_val = data.get("censusYear")
 
                     # Debug output
                     debug_messages = []
@@ -987,35 +1008,51 @@ class CitationManagerTab:
                             census_year_int = int(census_year_val)
                             debug_messages.append(f"Looking for: {person_name} ({census_year_int})")
 
-                            image_path = self._find_census_image_for_person(person_name, census_year_int)
+                            image_path = self._find_census_image_for_person(
+                                person_name, census_year_int
+                            )
 
                             debug_messages.append(f"Image path result: {image_path}")
 
                             if image_path:
                                 debug_messages.append(f"Image exists: {image_path.exists()}")
                                 try:
-                                    # Create image viewer at 275% zoom, positioned to top-right
+                                    # Create image viewer at 275% zoom
+                                    # Opens at top-left (0, 0) - user scrolls to desired position
                                     viewer = create_census_image_viewer(
-                                        image_path=image_path,
-                                        initial_zoom=2.75
+                                        image_path=image_path, initial_zoom=2.75
                                     )
-                                    # Position to top-right area of image
-                                    viewer.position_to_area(x_percent=1.0, y_percent=0.0, zoom=2.75)
                                 except Exception as e:
-                                    logger.error(f"Failed to create image viewer: {e}", exc_info=True)
+                                    logger.error(
+                                        f"Failed to create image viewer: {e}", exc_info=True
+                                    )
                                     with ui.card().classes("w-full p-4 bg-red-50"):
-                                        with ui.column().classes("items-center justify-center gap-2"):
+                                        with ui.column().classes(
+                                            "items-center justify-center gap-2"
+                                        ):
                                             ui.icon("error", size="3rem").classes("text-red-400")
-                                            ui.label("Failed to load census image").classes("text-red-700")
-                                            ui.label(f"Error: {str(e)}").classes("text-xs text-red-600")
+                                            ui.label("Failed to load census image").classes(
+                                                "text-red-700"
+                                            )
+                                            ui.label(f"Error: {str(e)}").classes(
+                                                "text-xs text-red-600"
+                                            )
                             else:
                                 with ui.card().classes("w-full p-4 bg-gray-50"):
                                     with ui.column().classes("items-center justify-center gap-2"):
-                                        ui.icon("image_not_supported", size="3rem").classes("text-gray-400")
-                                        ui.label("No census image available").classes("text-gray-500")
-                                        ui.label(f"Looking for: {person_name} ({census_year_int})").classes("text-xs text-gray-400")
+                                        ui.icon("image_not_supported", size="3rem").classes(
+                                            "text-gray-400"
+                                        )
+                                        ui.label("No census image available").classes(
+                                            "text-gray-500"
+                                        )
+                                        ui.label(
+                                            f"Looking for: {person_name} ({census_year_int})"
+                                        ).classes("text-xs text-gray-400")
                                         # Show debug info
-                                        with ui.expansion("Debug Info", icon="bug_report").classes("w-full mt-2"):
+                                        with ui.expansion("Debug Info", icon="bug_report").classes(
+                                            "w-full mt-2"
+                                        ):
                                             for msg in debug_messages:
                                                 ui.label(msg).classes("text-xs font-mono")
                         except (ValueError, TypeError) as e:
@@ -1027,19 +1064,31 @@ class CitationManagerTab:
                         ui.label("Generated Citations").classes("text-sm font-bold mb-2")
 
                         # Full Footnote
-                        ui.label("Full Footnote:").classes("text-xs font-semibold text-gray-700 mt-1")
+                        ui.label("Full Footnote:").classes(
+                            "text-xs font-semibold text-gray-700 mt-1"
+                        )
                         preview_footnote = self._generate_citation_preview(data)
-                        footnote_preview = ui.markdown(f"_{preview_footnote}_").classes("text-xs bg-white p-2 rounded")
+                        footnote_preview = ui.markdown(f"_{preview_footnote}_").classes(
+                            "text-xs bg-white p-2 rounded"
+                        )
 
                         # Short Footnote
-                        ui.label("Short Footnote:").classes("text-xs font-semibold text-gray-700 mt-2")
+                        ui.label("Short Footnote:").classes(
+                            "text-xs font-semibold text-gray-700 mt-2"
+                        )
                         preview_short = self._generate_short_citation_preview(data)
-                        short_preview = ui.markdown(f"_{preview_short}_").classes("text-xs bg-white p-2 rounded")
+                        short_preview = ui.markdown(f"_{preview_short}_").classes(
+                            "text-xs bg-white p-2 rounded"
+                        )
 
                         # Bibliography
-                        ui.label("Bibliography:").classes("text-xs font-semibold text-gray-700 mt-2")
+                        ui.label("Bibliography:").classes(
+                            "text-xs font-semibold text-gray-700 mt-2"
+                        )
                         preview_bib = self._generate_bibliography_preview(data)
-                        bib_preview = ui.markdown(f"_{preview_bib}_").classes("text-xs bg-white p-2 rounded")
+                        bib_preview = ui.markdown(f"_{preview_bib}_").classes(
+                            "text-xs bg-white p-2 rounded"
+                        )
 
                         # Function to update all previews when data changes
                         def update_previews():
@@ -1056,15 +1105,17 @@ class CitationManagerTab:
                                 logger.error(f"Error updating previews: {e}")
 
                         # Store update function for use by input fields
-                        data['_update_previews'] = update_previews
+                        data["_update_previews"] = update_previews
 
                     # Citation format info
-                    cite_format = normalized_data.get('citationFormat', 'Unknown')
+                    cite_format = normalized_data.get("citationFormat", "Unknown")
                     with ui.card().classes("w-full p-2"):
                         ui.label("Citation Format Details").classes("text-xs font-bold mb-1")
                         ui.label(f"Format: {cite_format}").classes("text-xs")
-                        if normalized_data.get('affiliatePublicationNumber'):
-                            ui.label(f"NARA: {normalized_data['affiliatePublicationNumber']}").classes("text-xs")
+                        if normalized_data.get("affiliatePublicationNumber"):
+                            ui.label(
+                                f"NARA: {normalized_data['affiliatePublicationNumber']}"
+                            ).classes("text-xs")
 
             # Action buttons at bottom
             with ui.row().classes("w-full justify-end gap-2 p-3 border-t mt-2"):
@@ -1072,7 +1123,9 @@ class CitationManagerTab:
                 ui.button(
                     "Save to RootsMagic",
                     icon="save",
-                    on_click=lambda: self._save_processed_citation(self._processing_dialog, citation_id, data)
+                    on_click=lambda: self._save_processed_citation(
+                        self._processing_dialog, citation_id, data
+                    ),
                 ).props("color=primary unelevated")
 
         logger.info(f"Dialog content built successfully for citation {citation_id}")
@@ -1082,7 +1135,7 @@ class CitationManagerTab:
             self._processing_dialog.open()
 
             # Force dialog to be visible with JavaScript
-            ui.run_javascript('''
+            ui.run_javascript("""
                 setTimeout(() => {
                     const dialogs = document.querySelectorAll('.q-dialog');
                     dialogs.forEach(dialog => {
@@ -1094,7 +1147,7 @@ class CitationManagerTab:
                         }
                     });
                 }, 100);
-            ''')
+            """)
 
             logger.info(f"Dialog.open() called successfully for citation {citation_id}")
         except Exception as e:
@@ -1104,16 +1157,16 @@ class CitationManagerTab:
     def _close_processing_dialog(self) -> None:
         """Close the processing dialog."""
         logger.info("Close dialog method called")
-        if hasattr(self, '_processing_dialog'):
+        if hasattr(self, "_processing_dialog"):
             logger.info("Closing processing dialog...")
             self._processing_dialog.close()
-            delattr(self, '_processing_dialog')
+            delattr(self, "_processing_dialog")
             logger.info("Processing dialog closed and reference removed")
         else:
             logger.warning("Close called but no _processing_dialog attribute found")
 
         # RESUME THE AUTO-REFRESH TIMER after dialog closes
-        if hasattr(self, '_refresh_timer'):
+        if hasattr(self, "_refresh_timer"):
             self._refresh_timer.activate()
             logger.info("Resumed auto-refresh timer")
 
@@ -1127,7 +1180,7 @@ class CitationManagerTab:
         for key in keys:
             value = data.get(key)
             if value:
-                label_text = key.replace('_', ' ').title()
+                label_text = key.replace("_", " ").title()
                 with ui.row().classes("w-full items-start gap-1"):
                     ui.label(f"{label_text}:").classes("text-xs font-medium text-gray-700 w-32")
                     ui.label(str(value)).classes("text-xs text-gray-900 flex-grow break-all")
@@ -1148,18 +1201,18 @@ class CitationManagerTab:
             year = int(census_year) if census_year else 0
 
             # Always required
-            if not data.get('name'):
-                missing.append('name')
-            if not data.get('eventPlace'):
-                missing.append('eventPlace')
+            if not data.get("name"):
+                missing.append("name")
+            if not data.get("eventPlace"):
+                missing.append("eventPlace")
 
             # Year-specific requirements
             if year >= 1900 and year <= 1950:
                 # 1900-1950: ED, sheet, family number typically required
-                if not data.get('enumerationDistrict'):
-                    missing.append('enumerationDistrict')
-                if not data.get('sheetNumber'):
-                    missing.append('sheetNumber')
+                if not data.get("enumerationDistrict"):
+                    missing.append("enumerationDistrict")
+                if not data.get("sheetNumber"):
+                    missing.append("sheetNumber")
 
         except (ValueError, TypeError):
             logger.warning(f"Invalid census year for missing field detection: {census_year}")
@@ -1174,29 +1227,29 @@ class CitationManagerTab:
             data: Citation data dictionary (will be updated with user input)
         """
         field_labels = {
-            'name': 'Person Name',
-            'eventPlace': 'Event Place (e.g., "Ohio, Noble")',
-            'enumerationDistrict': 'Enumeration District (ED)',
-            'sheetNumber': 'Sheet Number',
-            'familyNumber': 'Family Number',
-            'lineNumber': 'Line Number',
-            'pageNumber': 'Page Number'
+            "name": "Person Name",
+            "eventPlace": 'Event Place (e.g., "Ohio, Noble")',
+            "enumerationDistrict": "Enumeration District (ED)",
+            "sheetNumber": "Sheet Number",
+            "familyNumber": "Family Number",
+            "lineNumber": "Line Number",
+            "pageNumber": "Page Number",
         }
 
         def on_field_change(field_name: str, value: str):
             """Handle field change and update previews in real-time."""
             data[field_name] = value
             # Trigger preview update if function is available
-            if '_update_previews' in data:
-                data['_update_previews']()
+            if "_update_previews" in data:
+                data["_update_previews"]()
 
         for field in missing_fields:
-            label = field_labels.get(field, field.replace('_', ' ').title())
+            label = field_labels.get(field, field.replace("_", " ").title())
             with ui.row().classes("w-full items-center gap-2 mb-2"):
                 ui.label(f"{label}:").classes("w-48")
                 ui.input(
-                    value=data.get(field, ''),
-                    on_change=lambda e, f=field: on_field_change(f, e.value)
+                    value=data.get(field, ""),
+                    on_change=lambda e, f=field: on_field_change(f, e.value),
                 ).classes("flex-grow").props("outlined dense")
 
     def _generate_citation_preview(self, data: dict) -> str:
@@ -1213,8 +1266,8 @@ class CitationManagerTab:
             from rmcitecraft.models.citation import ParsedCitation
 
             # Parse place to get components
-            place = data.get('eventPlace', '')
-            place_parts = [p.strip() for p in place.split(',')]
+            place = data.get("eventPlace", "")
+            place_parts = [p.strip() for p in place.split(",")]
 
             # Determine components based on place string length
             if len(place_parts) >= 4:
@@ -1238,21 +1291,21 @@ class CitationManagerTab:
                 citation_id=0,  # Temporary ID
                 source_name=f"Fed Census: {data.get('censusYear', '????')}",
                 familysearch_entry="",
-                census_year=int(data.get('censusYear', 1930)),
+                census_year=int(data.get("censusYear", 1930)),
                 state=state,
                 county=county,
                 town_ward=town_ward,
-                enumeration_district=data.get('enumerationDistrict'),
-                sheet=data.get('sheetNumber'),
-                line=data.get('lineNumber'),
-                family_number=data.get('familyNumber'),
-                dwelling_number=data.get('dwellingNumber'),
-                person_name=data.get('name', 'Unknown Person'),
-                given_name=data.get('name', '').split()[0] if data.get('name') else '',
-                surname=data.get('name', '').split()[-1] if data.get('name') else '',
-                familysearch_url=data.get('familySearchUrl', ''),
-                access_date=self._format_access_date(data.get('extractedAt', '')),
-                nara_publication=data.get('affiliatePublicationNumber'),
+                enumeration_district=data.get("enumerationDistrict"),
+                sheet=data.get("sheetNumber"),
+                line=data.get("lineNumber"),
+                family_number=data.get("familyNumber"),
+                dwelling_number=data.get("dwellingNumber"),
+                person_name=data.get("name", "Unknown Person"),
+                given_name=data.get("name", "").split()[0] if data.get("name") else "",
+                surname=data.get("name", "").split()[-1] if data.get("name") else "",
+                familysearch_url=data.get("familySearchUrl", ""),
+                access_date=self._format_access_date(data.get("extractedAt", "")),
+                nara_publication=data.get("affiliatePublicationNumber"),
                 is_complete=True,  # Assume complete for preview
             )
 
@@ -1263,9 +1316,9 @@ class CitationManagerTab:
         except Exception as e:
             logger.error(f"Error generating citation preview: {e}")
             # Fallback to simple preview
-            name = data.get('name', 'Unknown Person')
-            year = data.get('censusYear', '????')
-            place = data.get('eventPlace', 'Unknown Place')
+            name = data.get("name", "Unknown Person")
+            year = data.get("censusYear", "????")
+            place = data.get("eventPlace", "Unknown Place")
             return f"{year} U.S. census, {place}, {name}"
 
     def _generate_short_citation_preview(self, data: dict) -> str:
@@ -1281,8 +1334,8 @@ class CitationManagerTab:
             # Reuse the same parsing logic as full footnote
             from rmcitecraft.models.citation import ParsedCitation
 
-            place = data.get('eventPlace', '')
-            place_parts = [p.strip() for p in place.split(',')]
+            place = data.get("eventPlace", "")
+            place_parts = [p.strip() for p in place.split(",")]
 
             if len(place_parts) >= 4:
                 town_ward = place_parts[0]
@@ -1301,21 +1354,21 @@ class CitationManagerTab:
                 citation_id=0,
                 source_name=f"Fed Census: {data.get('censusYear', '????')}",
                 familysearch_entry="",
-                census_year=int(data.get('censusYear', 1930)),
+                census_year=int(data.get("censusYear", 1930)),
                 state=state,
                 county=county,
                 town_ward=town_ward,
-                enumeration_district=data.get('enumerationDistrict'),
-                sheet=data.get('sheetNumber'),
-                line=data.get('lineNumber'),
-                family_number=data.get('familyNumber'),
-                dwelling_number=data.get('dwellingNumber'),
-                person_name=data.get('name', 'Unknown Person'),
-                given_name=data.get('name', '').split()[0] if data.get('name') else '',
-                surname=data.get('name', '').split()[-1] if data.get('name') else '',
-                familysearch_url=data.get('familySearchUrl', ''),
-                access_date=self._format_access_date(data.get('extractedAt', '')),
-                nara_publication=data.get('affiliatePublicationNumber'),
+                enumeration_district=data.get("enumerationDistrict"),
+                sheet=data.get("sheetNumber"),
+                line=data.get("lineNumber"),
+                family_number=data.get("familyNumber"),
+                dwelling_number=data.get("dwellingNumber"),
+                person_name=data.get("name", "Unknown Person"),
+                given_name=data.get("name", "").split()[0] if data.get("name") else "",
+                surname=data.get("name", "").split()[-1] if data.get("name") else "",
+                familysearch_url=data.get("familySearchUrl", ""),
+                access_date=self._format_access_date(data.get("extractedAt", "")),
+                nara_publication=data.get("affiliatePublicationNumber"),
                 is_complete=True,
             )
 
@@ -1324,9 +1377,9 @@ class CitationManagerTab:
 
         except Exception as e:
             logger.error(f"Error generating short citation preview: {e}")
-            name = data.get('name', 'Unknown Person')
-            year = data.get('censusYear', '????')
-            place = data.get('eventPlace', 'Unknown Place')
+            name = data.get("name", "Unknown Person")
+            year = data.get("censusYear", "????")
+            place = data.get("eventPlace", "Unknown Place")
             return f"{year} U.S. census, {place}, {name}"
 
     def _generate_bibliography_preview(self, data: dict) -> str:
@@ -1342,8 +1395,8 @@ class CitationManagerTab:
             # Reuse the same parsing logic as full footnote
             from rmcitecraft.models.citation import ParsedCitation
 
-            place = data.get('eventPlace', '')
-            place_parts = [p.strip() for p in place.split(',')]
+            place = data.get("eventPlace", "")
+            place_parts = [p.strip() for p in place.split(",")]
 
             if len(place_parts) >= 4:
                 town_ward = place_parts[0]
@@ -1362,21 +1415,21 @@ class CitationManagerTab:
                 citation_id=0,
                 source_name=f"Fed Census: {data.get('censusYear', '????')}",
                 familysearch_entry="",
-                census_year=int(data.get('censusYear', 1930)),
+                census_year=int(data.get("censusYear", 1930)),
                 state=state,
                 county=county,
                 town_ward=town_ward,
-                enumeration_district=data.get('enumerationDistrict'),
-                sheet=data.get('sheetNumber'),
-                line=data.get('lineNumber'),
-                family_number=data.get('familyNumber'),
-                dwelling_number=data.get('dwellingNumber'),
-                person_name=data.get('name', 'Unknown Person'),
-                given_name=data.get('name', '').split()[0] if data.get('name') else '',
-                surname=data.get('name', '').split()[-1] if data.get('name') else '',
-                familysearch_url=data.get('familySearchUrl', ''),
-                access_date=self._format_access_date(data.get('extractedAt', '')),
-                nara_publication=data.get('affiliatePublicationNumber'),
+                enumeration_district=data.get("enumerationDistrict"),
+                sheet=data.get("sheetNumber"),
+                line=data.get("lineNumber"),
+                family_number=data.get("familyNumber"),
+                dwelling_number=data.get("dwellingNumber"),
+                person_name=data.get("name", "Unknown Person"),
+                given_name=data.get("name", "").split()[0] if data.get("name") else "",
+                surname=data.get("name", "").split()[-1] if data.get("name") else "",
+                familysearch_url=data.get("familySearchUrl", ""),
+                access_date=self._format_access_date(data.get("extractedAt", "")),
+                nara_publication=data.get("affiliatePublicationNumber"),
                 is_complete=True,
             )
 
@@ -1385,8 +1438,8 @@ class CitationManagerTab:
 
         except Exception as e:
             logger.error(f"Error generating bibliography preview: {e}")
-            year = data.get('censusYear', '????')
-            place = data.get('eventPlace', 'Unknown Place')
+            year = data.get("censusYear", "????")
+            place = data.get("eventPlace", "Unknown Place")
             return f"{year} U.S. census, {place}; digital images, <i>FamilySearch</i>"
 
     def _render_data_table(self, title: str, data: dict) -> None:
@@ -1404,11 +1457,11 @@ class CitationManagerTab:
         with ui.column().classes("w-full gap-1"):
             for key, value in sorted(data.items()):
                 # Skip None values and internal fields
-                if value is None or key.startswith('_'):
+                if value is None or key.startswith("_"):
                     continue
 
                 # Format the key as a readable label
-                label = key.replace('_', ' ').replace('eventPlace', 'Event Place').title()
+                label = key.replace("_", " ").replace("eventPlace", "Event Place").title()
 
                 # Format the value
                 if isinstance(value, bool):
@@ -1435,70 +1488,70 @@ class CitationManagerTab:
         normalized = {}
 
         # Census year - parse from eventDate if not directly available
-        census_year = data.get('censusYear')
-        if not census_year and data.get('eventDate'):
+        census_year = data.get("censusYear")
+        if not census_year and data.get("eventDate"):
             # Try to extract year from eventDate
-            event_date = str(data.get('eventDate', ''))
+            event_date = str(data.get("eventDate", ""))
             if event_date.isdigit() and len(event_date) == 4:
                 census_year = event_date
-        normalized['censusYear'] = census_year
+        normalized["censusYear"] = census_year
 
         # Person information
-        normalized['name'] = data.get('name')
-        normalized['sex'] = data.get('sex')
-        normalized['age'] = data.get('age')
-        normalized['birthYear'] = data.get('birthYear')
-        normalized['birthplace'] = data.get('birthplace')
-        normalized['race'] = data.get('race')
-        normalized['relationship'] = data.get('relationship')
-        normalized['maritalStatus'] = data.get('maritalStatus')
-        normalized['occupation'] = data.get('occupation')
-        normalized['industry'] = data.get('industry')
+        normalized["name"] = data.get("name")
+        normalized["sex"] = data.get("sex")
+        normalized["age"] = data.get("age")
+        normalized["birthYear"] = data.get("birthYear")
+        normalized["birthplace"] = data.get("birthplace")
+        normalized["race"] = data.get("race")
+        normalized["relationship"] = data.get("relationship")
+        normalized["maritalStatus"] = data.get("maritalStatus")
+        normalized["occupation"] = data.get("occupation")
+        normalized["industry"] = data.get("industry")
 
         # Location information
-        normalized['eventPlace'] = data.get('eventPlace')
-        normalized['eventPlaceOriginal'] = data.get('eventPlaceOriginal')
+        normalized["eventPlace"] = data.get("eventPlace")
+        normalized["eventPlaceOriginal"] = data.get("eventPlaceOriginal")
 
         # Parse place into components
-        place = data.get('eventPlace', '')
+        place = data.get("eventPlace", "")
         if place:
-            place_parts = [p.strip() for p in place.split(',')]
+            place_parts = [p.strip() for p in place.split(",")]
             if len(place_parts) >= 4:
-                normalized['township_city'] = place_parts[0]
-                normalized['county'] = place_parts[1]
-                normalized['state'] = place_parts[2]
-                normalized['country'] = place_parts[3]
+                normalized["township_city"] = place_parts[0]
+                normalized["county"] = place_parts[1]
+                normalized["state"] = place_parts[2]
+                normalized["country"] = place_parts[3]
             elif len(place_parts) >= 3:
-                normalized['county'] = place_parts[0]
-                normalized['state'] = place_parts[1]
-                normalized['country'] = place_parts[2]
+                normalized["county"] = place_parts[0]
+                normalized["state"] = place_parts[1]
+                normalized["country"] = place_parts[2]
 
         # Census location fields
-        normalized['enumerationDistrict'] = data.get('enumerationDistrict')
-        normalized['enumerationDistrictLocation'] = data.get('enumerationDistrictLocation')
-        normalized['lineNumber'] = data.get('lineNumber')
-        normalized['pageNumber'] = data.get('pageNumber')
-        normalized['sheetNumber'] = data.get('sheetNumber')
-        normalized['sheetLetter'] = data.get('sheetLetter')
-        normalized['familyNumber'] = data.get('familyNumber')
-        normalized['dwellingNumber'] = data.get('dwellingNumber')
+        normalized["enumerationDistrict"] = data.get("enumerationDistrict")
+        normalized["enumerationDistrictLocation"] = data.get("enumerationDistrictLocation")
+        normalized["lineNumber"] = data.get("lineNumber")
+        normalized["pageNumber"] = data.get("pageNumber")
+        normalized["sheetNumber"] = data.get("sheetNumber")
+        normalized["sheetLetter"] = data.get("sheetLetter")
+        normalized["familyNumber"] = data.get("familyNumber")
+        normalized["dwellingNumber"] = data.get("dwellingNumber")
 
         # Source metadata
-        normalized['imageNumber'] = data.get('imageNumber')
-        normalized['affiliatePublicationNumber'] = data.get('affiliatePublicationNumber')
-        normalized['familySearchUrl'] = data.get('familySearchUrl')
-        normalized['extractedAt'] = data.get('extractedAt')
+        normalized["imageNumber"] = data.get("imageNumber")
+        normalized["affiliatePublicationNumber"] = data.get("affiliatePublicationNumber")
+        normalized["familySearchUrl"] = data.get("familySearchUrl")
+        normalized["extractedAt"] = data.get("extractedAt")
 
         # Determine citation format based on census year
         if census_year:
             try:
                 year = int(census_year)
                 if year <= 1870:
-                    normalized['citationFormat'] = 'pre-1880 (page number, no ED)'
+                    normalized["citationFormat"] = "pre-1880 (page number, no ED)"
                 elif 1880 <= year <= 1940:
-                    normalized['citationFormat'] = '1880-1940 (sheet number, ED required)'
+                    normalized["citationFormat"] = "1880-1940 (sheet number, ED required)"
                 elif year == 1950:
-                    normalized['citationFormat'] = '1950 (page number, ED required)'
+                    normalized["citationFormat"] = "1950 (page number, ED required)"
             except (ValueError, TypeError):
                 pass
 
@@ -1526,7 +1579,7 @@ class CitationManagerTab:
             if "T" in date_str:
                 dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
                 # Format: "25 October 2025" (%-d may not work on Windows, so use .lstrip('0'))
-                day = dt.strftime("%d").lstrip('0')
+                day = dt.strftime("%d").lstrip("0")
                 month = dt.strftime("%B")
                 year = dt.strftime("%Y")
                 return f"{day} {month} {year}"
@@ -1541,10 +1594,18 @@ class CitationManagerTab:
 
                 # Convert month abbreviation to full name
                 month_map = {
-                    "Jan": "January", "Feb": "February", "Mar": "March",
-                    "Apr": "April", "May": "May", "Jun": "June",
-                    "Jul": "July", "Aug": "August", "Sep": "September",
-                    "Oct": "October", "Nov": "November", "Dec": "December"
+                    "Jan": "January",
+                    "Feb": "February",
+                    "Mar": "March",
+                    "Apr": "April",
+                    "May": "May",
+                    "Jun": "June",
+                    "Jul": "July",
+                    "Aug": "August",
+                    "Sep": "September",
+                    "Oct": "October",
+                    "Nov": "November",
+                    "Dec": "December",
                 }
                 month_full = month_map.get(month_str, month_str)
 
@@ -1606,7 +1667,7 @@ class CitationManagerTab:
                     "SELECT p.PersonID, n.Given, n.Surname FROM PersonTable p "
                     "JOIN NameTable n ON p.PersonID = n.OwnerID "
                     "WHERE n.Surname COLLATE RMNOCASE LIKE ? LIMIT 5",
-                    (f"%{surname}%",)
+                    (f"%{surname}%",),
                 )
                 similar = cursor.fetchall()
                 if similar:
@@ -1621,7 +1682,9 @@ class CitationManagerTab:
             # Get all census images for this person
             logger.info(f"Looking for census images for PersonID {person_id}...")
             images = self.media_resolver.get_census_images_for_person(cursor, person_id)
-            logger.info(f"Found {len(images)} total census images: {[(y, str(p)[:50]) for y, p in images]}")
+            logger.info(
+                f"Found {len(images)} total census images: {[(y, str(p)[:50]) for y, p in images]}"
+            )
 
             # Find image matching census year
             for year, image_path in images:
