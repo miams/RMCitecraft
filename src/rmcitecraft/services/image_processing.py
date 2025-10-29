@@ -279,10 +279,8 @@ class ImageProcessingService:
             # Get symbolic path for RootsMagic
             symbolic_path = self.dir_mapper.get_symbolic_path(metadata.year, metadata.schedule_type)
 
-            # Generate caption
-            person_name = f"{metadata.given_name} {metadata.surname}"
-            location = f"{metadata.county}, {metadata.state}"
-            caption = image_repo.generate_caption(metadata.year, person_name, location)
+            # Generate caption: "Census: 1930 Fed Census - Tulsa, OK"
+            caption = image_repo.generate_caption(metadata.year, metadata.county, metadata.state)
 
             # Format census date
             census_date = image_repo.format_census_date(metadata.year)
@@ -298,12 +296,31 @@ class ImageProcessingService:
 
             metadata.media_id = media_id
 
-            # Link to citation
-            image_repo.link_media_to_citation(media_id, int(metadata.citation_id))
+            # Find census event by person name and year
+            event_id = image_repo.find_census_event(
+                metadata.surname, metadata.given_name, metadata.year
+            )
 
-            # Link to event (if event_id provided)
-            if metadata.event_id:
-                image_repo.link_media_to_event(media_id, metadata.event_id)
+            if event_id:
+                logger.info(f"Found census event: EventID={event_id}")
+
+                # Link image to event
+                image_repo.link_media_to_event(media_id, event_id)
+                metadata.event_id = event_id
+
+                # Find and link to all citations for this event
+                citation_ids = image_repo.find_citations_for_event(event_id)
+                if citation_ids:
+                    logger.info(f"Found {len(citation_ids)} citation(s) for event: {citation_ids}")
+                    for cit_id in citation_ids:
+                        image_repo.link_media_to_citation(media_id, cit_id)
+                else:
+                    logger.warning(f"No citations found for EventID={event_id}")
+            else:
+                logger.warning(
+                    f"Census event not found for {metadata.given_name} "
+                    f"{metadata.surname} ({metadata.year})"
+                )
 
         finally:
             # Always close connection

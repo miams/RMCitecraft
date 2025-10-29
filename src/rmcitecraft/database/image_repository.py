@@ -10,6 +10,61 @@ from datetime import UTC, datetime
 
 from loguru import logger
 
+# US State abbreviations (postal codes)
+STATE_ABBREVIATIONS = {
+    "Alabama": "AL",
+    "Alaska": "AK",
+    "Arizona": "AZ",
+    "Arkansas": "AR",
+    "California": "CA",
+    "Colorado": "CO",
+    "Connecticut": "CT",
+    "Delaware": "DE",
+    "Florida": "FL",
+    "Georgia": "GA",
+    "Hawaii": "HI",
+    "Idaho": "ID",
+    "Illinois": "IL",
+    "Indiana": "IN",
+    "Iowa": "IA",
+    "Kansas": "KS",
+    "Kentucky": "KY",
+    "Louisiana": "LA",
+    "Maine": "ME",
+    "Maryland": "MD",
+    "Massachusetts": "MA",
+    "Michigan": "MI",
+    "Minnesota": "MN",
+    "Mississippi": "MS",
+    "Missouri": "MO",
+    "Montana": "MT",
+    "Nebraska": "NE",
+    "Nevada": "NV",
+    "New Hampshire": "NH",
+    "New Jersey": "NJ",
+    "New Mexico": "NM",
+    "New York": "NY",
+    "North Carolina": "NC",
+    "North Dakota": "ND",
+    "Ohio": "OH",
+    "Oklahoma": "OK",
+    "Oregon": "OR",
+    "Pennsylvania": "PA",
+    "Rhode Island": "RI",
+    "South Carolina": "SC",
+    "South Dakota": "SD",
+    "Tennessee": "TN",
+    "Texas": "TX",
+    "Utah": "UT",
+    "Vermont": "VT",
+    "Virginia": "VA",
+    "Washington": "WA",
+    "West Virginia": "WV",
+    "Wisconsin": "WI",
+    "Wyoming": "WY",
+    "District of Columbia": "DC",
+}
+
 
 class ImageRepository:
     """
@@ -349,23 +404,106 @@ class ImageRepository:
         """
         return datetime.now(UTC).timestamp()
 
-    def generate_caption(self, year: int, person_name: str, location: str) -> str:
+    def generate_caption(self, year: int, county: str, state: str) -> str:
         """
         Generate caption for census image.
 
+        Format: "Census: YYYY Fed Census - County, ST"
+        Uses 2-letter postal code for state abbreviation.
+
         Args:
             year: Census year
-            person_name: Full name of person
-            location: Location (e.g., "Tulsa, Oklahoma")
+            county: County name
+            state: State full name (e.g., "Oklahoma")
 
         Returns:
             Formatted caption
 
         Example:
-            >>> repo.generate_caption(1930, "Jesse Dorsey Iams", "Tulsa, Oklahoma")
-            '1930 U.S. Census - Jesse Dorsey Iams, Tulsa, Oklahoma'
+            >>> repo.generate_caption(1930, "Tulsa", "Oklahoma")
+            'Census: 1930 Fed Census - Tulsa, OK'
         """
-        return f"{year} U.S. Census - {person_name}, {location}"
+        # Get state abbreviation (default to full name if not found)
+        state_abbr = STATE_ABBREVIATIONS.get(state, state)
+        return f"Census: {year} Fed Census - {county}, {state_abbr}"
+
+    def find_census_event(self, surname: str, given_name: str, year: int) -> int | None:
+        """
+        Find census event ID for a person and year.
+
+        Args:
+            surname: Person's surname
+            given_name: Person's given name
+            year: Census year
+
+        Returns:
+            EventID if found, None otherwise
+        """
+        cursor = self.conn.cursor()
+
+        # Find person by name
+        cursor.execute(
+            """
+            SELECT OwnerID
+            FROM NameTable
+            WHERE Surname COLLATE RMNOCASE = ?
+              AND Given COLLATE RMNOCASE LIKE ?
+              AND IsPrimary = 1
+            LIMIT 1
+            """,
+            (surname, f"{given_name}%"),
+        )
+
+        person_row = cursor.fetchone()
+        if not person_row:
+            logger.warning(f"Person not found: {given_name} {surname}")
+            return None
+
+        person_id = person_row[0]
+
+        # Find census event for that person and year
+        cursor.execute(
+            """
+            SELECT EventID
+            FROM EventTable
+            WHERE OwnerID = ?
+              AND EventType = 18
+              AND Date LIKE ?
+            LIMIT 1
+            """,
+            (person_id, f"%{year}%"),
+        )
+
+        event_row = cursor.fetchone()
+        if event_row:
+            return event_row[0]
+
+        logger.warning(f"Census event not found for {given_name} {surname} ({year})")
+        return None
+
+    def find_citations_for_event(self, event_id: int) -> list[int]:
+        """
+        Find all citation IDs linked to an event.
+
+        Args:
+            event_id: EventID
+
+        Returns:
+            List of CitationIDs
+        """
+        cursor = self.conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT CitationID
+            FROM CitationLinkTable
+            WHERE OwnerType = 2
+              AND OwnerID = ?
+            """,
+            (event_id,),
+        )
+
+        return [row[0] for row in cursor.fetchall()]
 
     def format_census_date(self, year: int, month: int = 4, day: int = 1) -> str:
         """
