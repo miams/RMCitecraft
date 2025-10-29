@@ -384,16 +384,21 @@ def get_image_processing_service() -> ImageProcessingService:
     if _image_processing_service is None:
         # Import here to avoid circular dependencies
         from rmcitecraft.config import get_config
-        from rmcitecraft.database.connection import get_database_connection
+        from rmcitecraft.database.connection import connect_rmtree
 
         config = get_config()
-        db_conn = get_database_connection()
 
         if not config.rm_media_root_directory:
             raise RuntimeError(
                 "RM_MEDIA_ROOT_DIRECTORY not configured. "
                 "Set in .env file to enable image management."
             )
+
+        # Connect to database with RMNOCASE support
+        db_conn = connect_rmtree(
+            db_path=config.rm_database_path,
+            extension_path=config.sqlite_icu_extension,
+        )
 
         _image_processing_service = ImageProcessingService(
             db_connection=db_conn,
