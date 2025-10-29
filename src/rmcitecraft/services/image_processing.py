@@ -28,31 +28,53 @@ class ImageProcessingService:
 
     Coordinates all services to handle image download detection,
     file organization, and database linking.
+
+    Thread-safe: Creates new database connections per operation to avoid
+    SQLite threading issues (FileWatcher runs in separate thread).
     """
 
     def __init__(
         self,
-        db_connection: sqlite3.Connection,
+        db_path: Path | str,
+        icu_extension_path: Path | str,
         media_root: Path | str,
     ):
         """
         Initialize image processing service.
 
         Args:
-            db_connection: RootsMagic database connection (with ICU loaded)
+            db_path: Path to RootsMagic database file
+            icu_extension_path: Path to ICU extension for RMNOCASE
             media_root: Root directory for RootsMagic media files
         """
-        self.db_conn = db_connection
+        self.db_path = Path(db_path)
+        self.icu_extension_path = Path(icu_extension_path)
 
         # Initialize services
         self.filename_gen = FilenameGenerator()
         self.dir_mapper = DirectoryMapper(media_root)
-        self.image_repo = ImageRepository(db_connection)
 
         # Active image tracking (in-memory)
         self._active_images: dict[str, ImageMetadata] = {}
 
         logger.info("ImageProcessingService initialized")
+
+    def _get_db_connection(self) -> sqlite3.Connection:
+        """
+        Create a new database connection for this thread.
+
+        Thread-safe: Each call creates a new connection with RMNOCASE support.
+        SQLite connections cannot be shared across threads.
+
+        Returns:
+            New database connection with ICU extension loaded
+        """
+        from rmcitecraft.database.connection import connect_rmtree
+
+        return connect_rmtree(
+            db_path=self.db_path,
+            extension_path=self.icu_extension_path,
+        )
 
     def register_pending_image(self, metadata: ImageMetadata) -> None:
         """
@@ -142,8 +164,13 @@ class ImageProcessingService:
             )
             metadata.final_filename = filename
 
-            # Check for duplicate
-            existing_media_id = self.image_repo.find_media_by_file(filename)
+            # Check for duplicate (thread-safe database access)
+            db_conn = self._get_db_connection()
+            try:
+                image_repo = ImageRepository(db_conn)
+                existing_media_id = image_repo.find_media_by_file(filename)
+            finally:
+                db_conn.close()
 
             if existing_media_id:
                 logger.info(
@@ -234,44 +261,59 @@ class ImageProcessingService:
         """
         Create MultimediaTable record and MediaLinkTable entries.
 
+        Thread-safe: Creates new database connection for this operation.
+
         Args:
             metadata: Image metadata (updated with media_id)
 
         Raises:
             sqlite3.Error: If database operations fail
         """
-        # Get symbolic path for RootsMagic
-        symbolic_path = self.dir_mapper.get_symbolic_path(metadata.year, metadata.schedule_type)
+        # Create new connection for this thread
+        db_conn = self._get_db_connection()
 
-        # Generate caption
-        person_name = f"{metadata.given_name} {metadata.surname}"
-        location = f"{metadata.county}, {metadata.state}"
-        caption = self.image_repo.generate_caption(metadata.year, person_name, location)
+        try:
+            # Create repository with thread-specific connection
+            image_repo = ImageRepository(db_conn)
 
-        # Format census date
-        census_date = self.image_repo.format_census_date(metadata.year)
+            # Get symbolic path for RootsMagic
+            symbolic_path = self.dir_mapper.get_symbolic_path(metadata.year, metadata.schedule_type)
 
-        # Create media record
-        media_id = self.image_repo.create_media_record(
-            media_path=symbolic_path,
-            media_file=metadata.final_filename,
-            caption=caption,
-            ref_number=metadata.familysearch_url,
-            census_date=census_date,
-        )
+            # Generate caption
+            person_name = f"{metadata.given_name} {metadata.surname}"
+            location = f"{metadata.county}, {metadata.state}"
+            caption = image_repo.generate_caption(metadata.year, person_name, location)
 
-        metadata.media_id = media_id
+            # Format census date
+            census_date = image_repo.format_census_date(metadata.year)
 
-        # Link to citation
-        self.image_repo.link_media_to_citation(media_id, int(metadata.citation_id))
+            # Create media record
+            media_id = image_repo.create_media_record(
+                media_path=symbolic_path,
+                media_file=metadata.final_filename,
+                caption=caption,
+                ref_number=metadata.familysearch_url,
+                census_date=census_date,
+            )
 
-        # Link to event (if event_id provided)
-        if metadata.event_id:
-            self.image_repo.link_media_to_event(media_id, metadata.event_id)
+            metadata.media_id = media_id
+
+            # Link to citation
+            image_repo.link_media_to_citation(media_id, int(metadata.citation_id))
+
+            # Link to event (if event_id provided)
+            if metadata.event_id:
+                image_repo.link_media_to_event(media_id, metadata.event_id)
+
+        finally:
+            # Always close connection
+            db_conn.close()
 
     def _link_existing_media(self, metadata: ImageMetadata) -> None:
         """
         Link existing media to new citation (duplicate handling).
+
+        Thread-safe: Creates new database connection for this operation.
 
         Args:
             metadata: Image metadata with existing media_id
@@ -279,12 +321,23 @@ class ImageProcessingService:
         if not metadata.media_id:
             return
 
-        # Link to new citation
-        self.image_repo.link_media_to_citation(metadata.media_id, int(metadata.citation_id))
+        # Create new connection for this thread
+        db_conn = self._get_db_connection()
 
-        # Link to event if provided
-        if metadata.event_id:
-            self.image_repo.link_media_to_event(metadata.media_id, metadata.event_id)
+        try:
+            # Create repository with thread-specific connection
+            image_repo = ImageRepository(db_conn)
+
+            # Link to new citation
+            image_repo.link_media_to_citation(metadata.media_id, int(metadata.citation_id))
+
+            # Link to event if provided
+            if metadata.event_id:
+                image_repo.link_media_to_event(metadata.media_id, metadata.event_id)
+
+        finally:
+            # Always close connection
+            db_conn.close()
 
     def get_image_status(self, image_id: str) -> ImageStatus | None:
         """
@@ -384,7 +437,6 @@ def get_image_processing_service() -> ImageProcessingService:
     if _image_processing_service is None:
         # Import here to avoid circular dependencies
         from rmcitecraft.config import get_config
-        from rmcitecraft.database.connection import connect_rmtree
 
         config = get_config()
 
@@ -394,17 +446,14 @@ def get_image_processing_service() -> ImageProcessingService:
                 "Set in .env file to enable image management."
             )
 
-        # Connect to database with RMNOCASE support
-        db_conn = connect_rmtree(
-            db_path=config.rm_database_path,
-            extension_path=config.sqlite_icu_extension,
-        )
-
+        # Create service with database paths (thread-safe)
+        # Each operation creates its own connection
         _image_processing_service = ImageProcessingService(
-            db_connection=db_conn,
+            db_path=config.rm_database_path,
+            icu_extension_path=config.sqlite_icu_extension,
             media_root=config.rm_media_root_directory,
         )
 
-        logger.info("ImageProcessingService singleton initialized")
+        logger.info("ImageProcessingService singleton initialized (thread-safe mode)")
 
     return _image_processing_service
