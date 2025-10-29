@@ -877,8 +877,14 @@ class CitationManagerTab:
                 else "Unknown"
             )
 
-            # Parse location (format: "City, County, State" or "County, State")
+            # Parse location (FamilySearch format: "City, County, State, Country")
+            # Remove "United States" if present (always last)
             location_parts = [p.strip() for p in event_place.split(",")]
+            if location_parts and location_parts[-1] in ["United States", "USA"]:
+                location_parts = location_parts[:-1]
+
+            # Now extract State (last) and County (second to last)
+            # Handles: "County, State" or "City, County, State"
             state = location_parts[-1] if location_parts else "Unknown"
             county = location_parts[-2] if len(location_parts) >= 2 else "Unknown"
 
