@@ -505,6 +505,32 @@ class ImageRepository:
 
         return [row[0] for row in cursor.fetchall()]
 
+    def find_event_for_citation(self, citation_id: int) -> int | None:
+        """
+        Find event ID linked to a citation.
+
+        Args:
+            citation_id: CitationID from CitationTable
+
+        Returns:
+            EventID if found, None otherwise
+        """
+        cursor = self.conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT OwnerID
+            FROM CitationLinkTable
+            WHERE CitationID = ?
+              AND OwnerType = 2
+            LIMIT 1
+            """,
+            (citation_id,),
+        )
+
+        result = cursor.fetchone()
+        return result[0] if result else None
+
     def format_census_date(self, year: int, month: int = 4, day: int = 1) -> str:
         """
         Format census date in RootsMagic format.

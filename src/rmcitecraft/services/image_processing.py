@@ -296,13 +296,12 @@ class ImageProcessingService:
 
             metadata.media_id = media_id
 
-            # Find census event by person name and year
-            event_id = image_repo.find_census_event(
-                metadata.surname, metadata.given_name, metadata.year
-            )
+            # Find census event using the CitationID we already have
+            citation_id = int(metadata.citation_id)
+            event_id = image_repo.find_event_for_citation(citation_id)
 
             if event_id:
-                logger.info(f"Found census event: EventID={event_id}")
+                logger.info(f"Found census event: EventID={event_id} for CitationID={citation_id}")
 
                 # Link image to event
                 image_repo.link_media_to_event(media_id, event_id)
@@ -317,10 +316,7 @@ class ImageProcessingService:
                 else:
                     logger.warning(f"No citations found for EventID={event_id}")
             else:
-                logger.warning(
-                    f"Census event not found for {metadata.given_name} "
-                    f"{metadata.surname} ({metadata.year})"
-                )
+                logger.warning(f"Census event not found for CitationID={citation_id}")
 
         finally:
             # Always close connection
