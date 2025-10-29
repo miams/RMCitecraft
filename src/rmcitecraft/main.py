@@ -1,6 +1,7 @@
 """Main application entry point for RMCitecraft."""
 
 import os
+from pathlib import Path
 
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
@@ -8,7 +9,21 @@ from nicegui import app, ui
 
 from rmcitecraft.api import create_api_router
 from rmcitecraft.config import get_config
+from rmcitecraft.services.file_watcher import FileWatcher
+from rmcitecraft.services.image_processing import get_image_processing_service
 from rmcitecraft.ui.tabs.citation_manager import CitationManagerTab
+
+
+def _cleanup_services(file_watcher: FileWatcher | None) -> None:
+    """Clean up services on application shutdown.
+
+    Args:
+        file_watcher: File watcher instance (if started)
+    """
+    if file_watcher and file_watcher.is_running():
+        logger.info("Stopping file watcher...")
+        file_watcher.stop()
+        logger.info("File watcher stopped")
 
 
 def setup_app() -> None:
@@ -31,6 +46,34 @@ def setup_app() -> None:
     app.include_router(api_router)
 
     logger.info("REST API endpoints configured")
+
+    # Initialize file watcher for image downloads (if configured)
+    file_watcher: FileWatcher | None = None
+    try:
+        # Get image processing service (validates configuration)
+        image_service = get_image_processing_service()
+
+        # Get downloads directory (typically ~/Downloads)
+        downloads_dir = Path.home() / "Downloads"
+
+        if downloads_dir.exists():
+            # Create file watcher with callback to image processing service
+            file_watcher = FileWatcher(
+                downloads_dir=downloads_dir,
+                callback=image_service.process_downloaded_file,
+            )
+            file_watcher.start()
+            logger.info(f"File watcher started: monitoring {downloads_dir}")
+        else:
+            logger.warning(f"Downloads directory not found: {downloads_dir}")
+
+    except RuntimeError as e:
+        logger.warning(f"Image processing not configured: {e}")
+    except Exception as e:
+        logger.error(f"Failed to start file watcher: {e}")
+
+    # Store cleanup handlers
+    app.on_shutdown(lambda: _cleanup_services(file_watcher))
 
     # Store tab instances for cleanup
     citation_manager: CitationManagerTab | None = None
@@ -89,13 +132,9 @@ def setup_app() -> None:
 
                         """)
 
-                with ui.expansion("System Status", icon="info").classes(
-                    "w-full max-w-4xl"
-                ):
+                with ui.expansion("System Status", icon="info").classes("w-full max-w-4xl"):
                     ui.label(f"Database: {config.rm_database_path}").classes("text-sm")
-                    ui.label(f"LLM Provider: {config.default_llm_provider}").classes(
-                        "text-sm"
-                    )
+                    ui.label(f"LLM Provider: {config.default_llm_provider}").classes("text-sm")
                     ui.label(f"Log Level: {config.log_level}").classes("text-sm")
 
             # Citation Manager tab
@@ -118,9 +157,7 @@ def setup_app() -> None:
 
             with ui.column().classes("w-full gap-4 p-4"):
                 ui.label(f"Database: {config.rm_database_path}").classes("text-sm")
-                ui.label(f"LLM Provider: {config.default_llm_provider}").classes(
-                    "text-sm"
-                )
+                ui.label(f"LLM Provider: {config.default_llm_provider}").classes("text-sm")
                 ui.label(f"Log Level: {config.log_level}").classes("text-sm")
 
                 ui.separator()

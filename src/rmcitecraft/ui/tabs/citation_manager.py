@@ -14,11 +14,13 @@ from nicegui import ui
 
 from rmcitecraft.config import get_config
 from rmcitecraft.models.citation import ParsedCitation
+from rmcitecraft.models.image import ImageMetadata
 from rmcitecraft.parsers.citation_formatter import CitationFormatter
 from rmcitecraft.parsers.familysearch_parser import FamilySearchParser
 from rmcitecraft.repositories import CitationRepository, DatabaseConnection
 from rmcitecraft.services.citation_import import get_citation_import_service
 from rmcitecraft.services.command_queue import get_command_queue
+from rmcitecraft.services.image_processing import get_image_processing_service
 from rmcitecraft.ui.components.image_viewer import create_census_image_viewer
 from rmcitecraft.utils.media_resolver import MediaPathResolver
 
@@ -59,6 +61,13 @@ class CitationManagerTab:
         # Services
         self.citation_import_service = get_citation_import_service()
         self.command_queue = get_command_queue()
+
+        # Image processing service (lazy init - may not be configured)
+        try:
+            self.image_processing_service = get_image_processing_service()
+        except RuntimeError as e:
+            logger.warning(f"Image processing service not available: {e}")
+            self.image_processing_service = None
 
     def render(self) -> None:
         """Render the citation manager tab."""
@@ -745,9 +754,14 @@ class CitationManagerTab:
             # Don't show section if no pending citations
             return
 
-        with ui.expansion(
-            f"Pending Citations from Extension ({len(pending)})", icon="cloud_download", value=True
-        ).classes("w-full bg-blue-50"), ui.column().classes("w-full p-4 gap-2"):
+        with (
+            ui.expansion(
+                f"Pending Citations from Extension ({len(pending)})",
+                icon="cloud_download",
+                value=True,
+            ).classes("w-full bg-blue-50"),
+            ui.column().classes("w-full p-4 gap-2"),
+        ):
             self.pending_citations_container = ui.column().classes("w-full gap-2")
             self._update_pending_citations_display()
 
@@ -804,11 +818,12 @@ class CitationManagerTab:
 
                 # Action buttons
                 with ui.column().classes("gap-2"):
+                    familysearch_url = data.get("familySearchUrl")
                     ui.button(
                         "Download Image",
                         icon="download",
                         on_click=lambda cid=citation_id,
-                        url=data.get("familySearchUrl"): self._on_download_image_clicked(cid, url),
+                        url=familysearch_url: self._on_download_image_clicked(cid, url),
                     ).props("dense color=primary outlined")
 
                     ui.button(
@@ -837,17 +852,72 @@ class CitationManagerTab:
                 ui.notify("No FamilySearch URL available", type="warning")
                 return
 
+            # Get citation data to extract census details
+            citation_data = self.citation_import_service.get(citation_id)
+            if not citation_data:
+                ui.notify("Citation not found", type="negative")
+                return
+
+            data = citation_data["data"]
+
+            # Extract census details for image metadata
+            year = data.get("censusYear")
+            name = data.get("name", "Unknown")
+            event_place = data.get("eventPlace", "")
+            access_date = data.get("extractedAt", datetime.now().isoformat())
+
+            # Parse name (simple split - surname is last)
+            name_parts = name.split()
+            surname = name_parts[-1] if name_parts else "Unknown"
+            given_name = (
+                " ".join(name_parts[:-1])
+                if len(name_parts) > 1
+                else name_parts[0]
+                if name_parts
+                else "Unknown"
+            )
+
+            # Parse location (format: "City, County, State" or "County, State")
+            location_parts = [p.strip() for p in event_place.split(",")]
+            state = location_parts[-1] if location_parts else "Unknown"
+            county = location_parts[-2] if len(location_parts) >= 2 else "Unknown"
+
+            if not year or not isinstance(year, int):
+                ui.notify("Invalid census year in citation data", type="warning")
+                return
+
+            # Register image with processing service
+            if self.image_processing_service:
+                image_id = f"img_{citation_id}_{int(datetime.now().timestamp())}"
+
+                metadata = ImageMetadata(
+                    image_id=image_id,
+                    citation_id=citation_id,
+                    year=year,
+                    state=state,
+                    county=county,
+                    surname=surname,
+                    given_name=given_name,
+                    familysearch_url=familysearch_url,
+                    access_date=access_date,
+                )
+
+                self.image_processing_service.register_pending_image(metadata)
+                logger.info(f"Registered image for processing: {image_id}")
+            else:
+                logger.warning("Image processing service not available - skipping registration")
+
             # Queue download_image command for extension
             command_id = self.command_queue.add(
                 "download_image", {"citation_id": citation_id, "url": familysearch_url}
             )
 
             logger.info(f"Queued download_image command: {command_id} for citation {citation_id}")
-            ui.notify("Download image command sent to extension", type="positive")
+            ui.notify("Image download initiated...", type="positive", position="top")
 
         except Exception as e:
-            logger.error(f"Failed to queue download image command: {e}")
-            ui.notify(f"Failed to queue command: {str(e)}", type="negative")
+            logger.error(f"Failed to initiate image download: {e}")
+            ui.notify(f"Failed to download image: {str(e)}", type="negative")
 
     def _on_process_pending_citation(self, citation_data: dict) -> None:
         """Process a pending citation (format and prepare for database).
