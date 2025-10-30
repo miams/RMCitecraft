@@ -568,9 +568,9 @@ class ImageRepository:
             - If single: Use maiden name
 
         Logic:
-        1. Get person's Gender from PersonTable
+        1. Get person's Sex from PersonTable
         2. Get Given name and Surname from NameTable (IsPrimary=1)
-        3. If Female (Gender=1):
+        3. If Female (Sex=1):
            a. Find families where person is Mother (FamilyTable.MotherID)
            b. For each family, check if marriage event exists before census year
            c. Use husband's surname from most recent marriage before census
@@ -589,10 +589,10 @@ class ImageRepository:
         """
         cursor = self.conn.cursor()
 
-        # Get person's Gender and primary name
+        # Get person's Sex and primary name
         cursor.execute(
             """
-            SELECT p.Gender, n.Given, n.Surname
+            SELECT p.Sex, n.Given, n.Surname
             FROM PersonTable p
             JOIN NameTable n ON p.PersonID = n.OwnerID
             WHERE p.PersonID = ?
@@ -607,11 +607,11 @@ class ImageRepository:
             logger.warning(f"Person not found: PersonID={person_id}")
             return None
 
-        gender, given_name, maiden_surname = person_row
+        sex, given_name, maiden_surname = person_row
 
-        # Gender: 0=Male, 1=Female, 2=Unknown
+        # Sex: 0=Male, 1=Female, 2=Unknown
         # If male or unknown, use name from NameTable as-is
-        if gender != 1:
+        if sex != 1:
             return (given_name, maiden_surname)
 
         # Female: Check for marriage before census year
