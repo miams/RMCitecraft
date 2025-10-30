@@ -505,6 +505,31 @@ class ImageRepository:
 
         return [row[0] for row in cursor.fetchall()]
 
+    def find_citation_by_url(self, familysearch_url: str) -> int | None:
+        """
+        Find CitationID by FamilySearch URL.
+
+        Args:
+            familysearch_url: FamilySearch ARK URL stored in RefNumber field
+
+        Returns:
+            CitationID if found, None otherwise
+        """
+        cursor = self.conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT CitationID
+            FROM CitationTable
+            WHERE RefNumber = ?
+            LIMIT 1
+            """,
+            (familysearch_url,),
+        )
+
+        result = cursor.fetchone()
+        return result[0] if result else None
+
     def find_event_for_citation(self, citation_id: int) -> int | None:
         """
         Find event ID linked to a citation.

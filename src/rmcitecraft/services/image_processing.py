@@ -159,44 +159,58 @@ class ImageProcessingService:
             try:
                 image_repo = ImageRepository(db_conn)
 
-                # Get EventID from CitationID
-                citation_id = int(metadata.citation_id)
-                event_id = image_repo.find_event_for_citation(citation_id)
+                # Get CitationID from database using FamilySearch URL
+                # metadata.citation_id might be import system ID (e.g., "import_xxx")
+                # so we look up the actual database CitationID using the URL
+                citation_id = image_repo.find_citation_by_url(metadata.familysearch_url)
 
-                if event_id:
-                    # Get PersonID from EventID
-                    person_id = image_repo.get_person_id_for_event(event_id)
+                if not citation_id:
+                    logger.warning(
+                        f"Citation not found in database for URL: {metadata.familysearch_url}. "
+                        "Citation may need to be processed first."
+                    )
+                    # Fall back to using parsed name from citation
+                else:
+                    # Get EventID from CitationID
+                    event_id = image_repo.find_event_for_citation(citation_id)
 
-                    if person_id:
-                        # Get correct name for census (handles married women's surnames)
-                        name_tuple = image_repo.get_person_name_for_census(person_id, metadata.year)
+                    if event_id:
+                        # Get PersonID from EventID
+                        person_id = image_repo.get_person_id_for_event(event_id)
 
-                        if name_tuple:
-                            given_name, surname = name_tuple
-                            # Update metadata with correct name from database
-                            metadata.given_name = given_name
-                            metadata.surname = surname
-                            logger.info(
-                                f"Using name from database: {given_name} {surname} "
-                                f"(PersonID={person_id})"
+                        if person_id:
+                            # Get correct name for census (handles married women's surnames)
+                            name_tuple = image_repo.get_person_name_for_census(
+                                person_id, metadata.year
                             )
+
+                            if name_tuple:
+                                given_name, surname = name_tuple
+                                # Update metadata with correct name from database
+                                metadata.given_name = given_name
+                                metadata.surname = surname
+                                logger.info(
+                                    f"Using name from database: {given_name} {surname} "
+                                    f"(PersonID={person_id})"
+                                )
+                            else:
+                                logger.warning(
+                                    f"Could not get name for PersonID={person_id}, "
+                                    "using parsed citation name"
+                                )
                         else:
                             logger.warning(
-                                f"Could not get name for PersonID={person_id}, "
+                                f"Could not get PersonID for EventID={event_id}, "
                                 "using parsed citation name"
                             )
                     else:
                         logger.warning(
-                            f"Could not get PersonID for EventID={event_id}, "
+                            f"Could not get EventID for CitationID={citation_id}, "
                             "using parsed citation name"
                         )
-                else:
-                    logger.warning(
-                        f"Could not get EventID for CitationID={citation_id}, "
-                        "using parsed citation name"
-                    )
             finally:
-                db_conn.close()
+                if db_conn:
+                    db_conn.close()
 
             # Generate standardized filename with correct name from database
             extension = self.filename_gen.extract_extension(file_path)
@@ -342,8 +356,17 @@ class ImageProcessingService:
 
             metadata.media_id = media_id
 
-            # Find census event using the CitationID we already have
-            citation_id = int(metadata.citation_id)
+            # Find census event using the CitationID from database
+            # Look up CitationID using FamilySearch URL (metadata.citation_id might be import ID)
+            citation_id = image_repo.find_citation_by_url(metadata.familysearch_url)
+
+            if not citation_id:
+                logger.warning(
+                    f"Citation not found in database for URL: {metadata.familysearch_url}. "
+                    "Skipping event/citation linking."
+                )
+                return
+
             event_id = image_repo.find_event_for_citation(citation_id)
 
             if event_id:
@@ -387,8 +410,17 @@ class ImageProcessingService:
             # Create repository with thread-specific connection
             image_repo = ImageRepository(db_conn)
 
-            # Link to new citation
-            image_repo.link_media_to_citation(metadata.media_id, int(metadata.citation_id))
+            # Look up CitationID using FamilySearch URL
+            citation_id = image_repo.find_citation_by_url(metadata.familysearch_url)
+
+            if citation_id:
+                # Link to citation
+                image_repo.link_media_to_citation(metadata.media_id, citation_id)
+            else:
+                logger.warning(
+                    f"Citation not found in database for URL: {metadata.familysearch_url}. "
+                    "Skipping citation linking for duplicate."
+                )
 
             # Link to event if provided
             if metadata.event_id:
