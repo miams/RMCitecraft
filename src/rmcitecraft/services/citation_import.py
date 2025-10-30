@@ -26,6 +26,9 @@ class ImportedCitationData(BaseModel):
     familySearchUrl: str = Field(..., description="FamilySearch ARK/PAL URL")
     extractedAt: str = Field(..., description="ISO timestamp when extracted")
     censusYear: int | None = Field(None, ge=1790, le=1950, description="Census year")
+    rootsMagicCitationId: int | None = Field(
+        None, description="RootsMagic database CitationID if known"
+    )
 
     # Person information
     name: str | None = Field(None, description="Person name")
@@ -97,12 +100,13 @@ class CitationImportService:
     Uses file-based storage to persist across multiple processes.
     """
 
-    def __init__(self, storage_path: Path | None = None):
+    def __init__(self, storage_path: Path | None = None, db_path: Path | None = None):
         """Initialize citation import service.
 
         Args:
             storage_path: Path to JSON file for persistent storage
                          (default: logs/pending_citations.json)
+            db_path: Path to RootsMagic database for CitationID lookup
         """
         if storage_path is None:
             storage_path = Path("logs/pending_citations.json")
@@ -110,6 +114,7 @@ class CitationImportService:
         self._storage_path = Path(storage_path)
         self._storage_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = Lock()
+        self._db_path = db_path
 
         # Load existing pending citations from file
         self._load_from_file()
@@ -133,7 +138,7 @@ class CitationImportService:
                         id=cit_dict["id"],
                         data=citation_data,
                         imported_at=cit_dict.get("imported_at", time.time()),
-                        status=cit_dict.get("status", "pending")
+                        status=cit_dict.get("status", "pending"),
                     )
                     self._pending_citations[pending.id] = pending
 
@@ -153,12 +158,12 @@ class CitationImportService:
         try:
             data = {
                 "import_counter": self._import_counter,
-                "citations": [cit.to_dict() for cit in self._pending_citations.values()]
+                "citations": [cit.to_dict() for cit in self._pending_citations.values()],
             }
 
             # Write atomically using a temporary file
-            temp_path = self._storage_path.with_suffix('.tmp')
-            with open(temp_path, 'w') as f:
+            temp_path = self._storage_path.with_suffix(".tmp")
+            with open(temp_path, "w") as f:
                 json.dump(data, f, indent=2)
 
             # Atomic rename
@@ -168,6 +173,52 @@ class CitationImportService:
 
         except Exception as e:
             logger.error(f"Failed to save citations to file: {e}")
+
+    def _find_matching_citation(self, citation_data: ImportedCitationData) -> int | None:
+        """
+        Find matching RootsMagic CitationID for imported citation data.
+
+        Args:
+            citation_data: Imported citation data from extension
+
+        Returns:
+            CitationID if found, None otherwise
+        """
+        if not self._db_path:
+            return None
+
+        try:
+            from rmcitecraft.database.connection import connect_rmtree
+            from rmcitecraft.database.image_repository import ImageRepository
+
+            # Parse name from citation data
+            name_parts = (citation_data.name or "").split()
+            if not name_parts or not citation_data.censusYear:
+                return None
+
+            surname = name_parts[-1]
+            given_name = " ".join(name_parts[:-1]) if len(name_parts) > 1 else name_parts[0]
+
+            # Connect to database and look up citation
+            conn = connect_rmtree(self._db_path, Path("./sqlite-extension/icu.dylib"))
+            try:
+                repo = ImageRepository(conn)
+                citation_id = repo.find_citation_by_census_details(
+                    surname, given_name, citation_data.censusYear
+                )
+
+                if citation_id:
+                    logger.info(
+                        f"Found matching RootsMagic CitationID={citation_id} for "
+                        f"{given_name} {surname} ({citation_data.censusYear})"
+                    )
+                return citation_id
+            finally:
+                conn.close()
+
+        except Exception as e:
+            logger.warning(f"Failed to lookup CitationID: {e}")
+            return None
 
     def import_citation(self, data: dict) -> str:
         """
@@ -189,6 +240,16 @@ class CitationImportService:
 
                 # Validate data structure
                 validated_data = ImportedCitationData(**data)
+
+                # Try to find matching RootsMagic CitationID if not provided
+                if (
+                    not validated_data.rootsMagicCitationId
+                    and validated_data.name
+                    and validated_data.censusYear
+                ):
+                    validated_data.rootsMagicCitationId = self._find_matching_citation(
+                        validated_data
+                    )
 
                 # Generate citation ID
                 self._import_counter += 1
@@ -228,9 +289,7 @@ class CitationImportService:
             self._load_from_file()
 
             pending = [
-                cit.to_dict()
-                for cit in self._pending_citations.values()
-                if cit.status == "pending"
+                cit.to_dict() for cit in self._pending_citations.values() if cit.status == "pending"
             ]
 
             logger.debug(f"Retrieved {len(pending)} pending citation(s)")
@@ -249,9 +308,7 @@ class CitationImportService:
         citation = self._pending_citations.get(citation_id)
         return citation.to_dict() if citation else None
 
-    def update_status(
-        self, citation_id: str, status: str
-    ) -> bool:
+    def update_status(self, citation_id: str, status: str) -> bool:
         """
         Update citation status.
 
@@ -359,10 +416,18 @@ def get_citation_import_service() -> CitationImportService:
     """
     Get the global citation import service instance.
 
+    Initializes with database path from config for CitationID lookup.
+
     Returns:
         CitationImportService singleton instance
     """
     global _citation_import_service
     if _citation_import_service is None:
-        _citation_import_service = CitationImportService()
+        # Import here to avoid circular dependencies
+        from rmcitecraft.config import get_config
+
+        config = get_config()
+
+        # Pass database path for CitationID lookup during import
+        _citation_import_service = CitationImportService(db_path=config.rm_database_path)
     return _citation_import_service

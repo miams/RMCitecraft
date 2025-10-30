@@ -159,12 +159,20 @@ class ImageProcessingService:
             try:
                 image_repo = ImageRepository(db_conn)
 
-                # Get CitationID from database by matching census details
-                # metadata.citation_id might be import system ID (e.g., "import_xxx")
-                # so we look up the actual database CitationID by person name and year
-                citation_id = image_repo.find_citation_by_census_details(
-                    metadata.surname, metadata.given_name, metadata.year
-                )
+                # Get CitationID - check if it's already a real database ID or needs lookup
+                # If citation_id is numeric, it's already a RootsMagic CitationID
+                # If it starts with "import_", we need to look it up by census details
+                try:
+                    citation_id = int(metadata.citation_id)
+                    logger.info(f"Using provided RootsMagic CitationID={citation_id}")
+                except ValueError:
+                    # Not a number - need to look up by census details
+                    logger.debug(
+                        f"Citation ID '{metadata.citation_id}' is not numeric, looking up by census details"
+                    )
+                    citation_id = image_repo.find_citation_by_census_details(
+                        metadata.surname, metadata.given_name, metadata.year
+                    )
 
                 if not citation_id:
                     logger.warning(
@@ -358,11 +366,16 @@ class ImageProcessingService:
 
             metadata.media_id = media_id
 
-            # Find census event using the CitationID from database
-            # Look up CitationID by matching person name and census year
-            citation_id = image_repo.find_citation_by_census_details(
-                metadata.surname, metadata.given_name, metadata.year
-            )
+            # Find census event using the CitationID
+            # If citation_id is numeric, use it directly; otherwise look it up
+            try:
+                citation_id = int(metadata.citation_id)
+                logger.debug(f"Using provided RootsMagic CitationID={citation_id}")
+            except ValueError:
+                # Look up CitationID by matching person name and census year
+                citation_id = image_repo.find_citation_by_census_details(
+                    metadata.surname, metadata.given_name, metadata.year
+                )
 
             if not citation_id:
                 logger.warning(
@@ -414,10 +427,13 @@ class ImageProcessingService:
             # Create repository with thread-specific connection
             image_repo = ImageRepository(db_conn)
 
-            # Look up CitationID by matching person name and census year
-            citation_id = image_repo.find_citation_by_census_details(
-                metadata.surname, metadata.given_name, metadata.year
-            )
+            # Get CitationID - use directly if numeric, otherwise look up
+            try:
+                citation_id = int(metadata.citation_id)
+            except ValueError:
+                citation_id = image_repo.find_citation_by_census_details(
+                    metadata.surname, metadata.given_name, metadata.year
+                )
 
             if citation_id:
                 # Link to citation

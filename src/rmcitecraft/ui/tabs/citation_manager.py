@@ -896,9 +896,14 @@ class CitationManagerTab:
             if self.image_processing_service:
                 image_id = f"img_{citation_id}_{int(datetime.now().timestamp())}"
 
+                # Get RootsMagic CitationID if available
+                rm_citation_id = data.get("rootsMagicCitationId")
+                if rm_citation_id:
+                    logger.info(f"Using RootsMagic CitationID={rm_citation_id} for image download")
+
                 metadata = ImageMetadata(
                     image_id=image_id,
-                    citation_id=citation_id,
+                    citation_id=str(rm_citation_id) if rm_citation_id else citation_id,
                     year=year,
                     state=state,
                     county=county,
