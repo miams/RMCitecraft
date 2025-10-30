@@ -531,6 +531,188 @@ class ImageRepository:
         result = cursor.fetchone()
         return result[0] if result else None
 
+    def get_person_id_for_event(self, event_id: int) -> int | None:
+        """
+        Get PersonID from EventID.
+
+        Args:
+            event_id: EventID from EventTable
+
+        Returns:
+            PersonID if found, None otherwise
+        """
+        cursor = self.conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT OwnerID
+            FROM EventTable
+            WHERE EventID = ?
+            LIMIT 1
+            """,
+            (event_id,),
+        )
+
+        result = cursor.fetchone()
+        return result[0] if result else None
+
+    def get_person_name_for_census(
+        self, person_id: int, census_year: int
+    ) -> tuple[str, str] | None:
+        """
+        Get person's name for census image filename.
+
+        For males: Use name from NameTable (IsPrimary=1)
+        For females: Check marital status at census time
+            - If married or widowed: Use husband's surname
+            - If single: Use maiden name
+
+        Logic:
+        1. Get person's Gender from PersonTable
+        2. Get Given name and Surname from NameTable (IsPrimary=1)
+        3. If Female (Gender=1):
+           a. Find families where person is Mother (FamilyTable.MotherID)
+           b. For each family, check if marriage event exists before census year
+           c. Use husband's surname from most recent marriage before census
+        4. Return (Given, Surname)
+
+        Args:
+            person_id: PersonID from PersonTable
+            census_year: Census year (to determine marital status at that time)
+
+        Returns:
+            Tuple of (given_name, surname) or None if not found
+
+        Example:
+            >>> repo.get_person_name_for_census(1651, 1940)
+            ('Jesse Dorsey', 'Iams')
+        """
+        cursor = self.conn.cursor()
+
+        # Get person's Gender and primary name
+        cursor.execute(
+            """
+            SELECT p.Gender, n.Given, n.Surname
+            FROM PersonTable p
+            JOIN NameTable n ON p.PersonID = n.OwnerID
+            WHERE p.PersonID = ?
+              AND n.IsPrimary = 1
+            LIMIT 1
+            """,
+            (person_id,),
+        )
+
+        person_row = cursor.fetchone()
+        if not person_row:
+            logger.warning(f"Person not found: PersonID={person_id}")
+            return None
+
+        gender, given_name, maiden_surname = person_row
+
+        # Gender: 0=Male, 1=Female, 2=Unknown
+        # If male or unknown, use name from NameTable as-is
+        if gender != 1:
+            return (given_name, maiden_surname)
+
+        # Female: Check for marriage before census year
+        # Find all families where this person is the Mother
+        cursor.execute(
+            """
+            SELECT FamilyID, FatherID
+            FROM FamilyTable
+            WHERE MotherID = ?
+            """,
+            (person_id,),
+        )
+
+        families = cursor.fetchall()
+        if not families:
+            # No families found - use maiden name
+            logger.debug(f"No families found for PersonID={person_id}, using maiden name")
+            return (given_name, maiden_surname)
+
+        # For each family, find marriage events before census year
+        # Track most recent marriage before census
+        most_recent_marriage: tuple[int, int, int] | None = (
+            None  # (marriage_year, family_id, father_id)
+        )
+
+        for family_id, father_id in families:
+            # Find marriage event for this family
+            # Marriage events have OwnerType=3 (Family) and EventType for Marriage
+            # Query EventTable for marriage events linked to this family
+            cursor.execute(
+                """
+                SELECT e.EventID, e.Date
+                FROM EventTable e
+                WHERE e.OwnerID = ?
+                  AND e.EventType IN (
+                    SELECT FactTypeID FROM FactTypeTable WHERE Name = 'Marriage'
+                  )
+                """,
+                (family_id,),
+            )
+
+            marriage_events = cursor.fetchall()
+            for event_id, date_str in marriage_events:
+                if not date_str:
+                    continue
+
+                # Parse year from RootsMagic date format: "D.+YYYYMMDD..+00000000.."
+                # Extract YYYY from the date string
+                try:
+                    # Date format: D.+19400101..+00000000..
+                    # Extract year: characters after "+", take first 4
+                    if "+1" in date_str or "+2" in date_str:
+                        year_start = date_str.index("+") + 1
+                        marriage_year = int(date_str[year_start : year_start + 4])
+
+                        # Check if marriage is before census year
+                        if marriage_year < census_year:
+                            # Track most recent marriage
+                            if (
+                                most_recent_marriage is None
+                                or marriage_year > most_recent_marriage[0]
+                            ):
+                                most_recent_marriage = (marriage_year, family_id, father_id)
+                except (ValueError, IndexError) as e:
+                    logger.warning(
+                        f"Could not parse marriage date: {date_str} for EventID={event_id}: {e}"
+                    )
+                    continue
+
+        # If we found a marriage before census year, use husband's surname
+        if most_recent_marriage:
+            marriage_year, family_id, father_id = most_recent_marriage
+
+            if father_id:
+                # Get husband's surname from NameTable
+                cursor.execute(
+                    """
+                    SELECT Surname
+                    FROM NameTable
+                    WHERE OwnerID = ?
+                      AND IsPrimary = 1
+                    LIMIT 1
+                    """,
+                    (father_id,),
+                )
+
+                husband_row = cursor.fetchone()
+                if husband_row:
+                    husband_surname = husband_row[0]
+                    logger.info(
+                        f"Female PersonID={person_id} married in {marriage_year} "
+                        f"(before census {census_year}), using husband's surname: {husband_surname}"
+                    )
+                    return (given_name, husband_surname)
+
+        # No marriage found before census year - use maiden name
+        logger.debug(
+            f"No marriage before {census_year} for PersonID={person_id}, using maiden name"
+        )
+        return (given_name, maiden_surname)
+
     def format_census_date(self, year: int, month: int = 4, day: int = 1) -> str:
         """
         Format census date in RootsMagic format.

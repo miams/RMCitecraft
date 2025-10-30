@@ -152,7 +152,53 @@ class ImageProcessingService:
             metadata.download_path = file_path
             metadata.update_status(ImageStatus.DOWNLOADED)
 
-            # Generate standardized filename
+            # Look up correct name from RootsMagic database
+            # For females who are married/widowed, use husband's surname
+            # This ensures filename uses accurate name from genealogy database
+            db_conn = self._get_db_connection()
+            try:
+                image_repo = ImageRepository(db_conn)
+
+                # Get EventID from CitationID
+                citation_id = int(metadata.citation_id)
+                event_id = image_repo.find_event_for_citation(citation_id)
+
+                if event_id:
+                    # Get PersonID from EventID
+                    person_id = image_repo.get_person_id_for_event(event_id)
+
+                    if person_id:
+                        # Get correct name for census (handles married women's surnames)
+                        name_tuple = image_repo.get_person_name_for_census(person_id, metadata.year)
+
+                        if name_tuple:
+                            given_name, surname = name_tuple
+                            # Update metadata with correct name from database
+                            metadata.given_name = given_name
+                            metadata.surname = surname
+                            logger.info(
+                                f"Using name from database: {given_name} {surname} "
+                                f"(PersonID={person_id})"
+                            )
+                        else:
+                            logger.warning(
+                                f"Could not get name for PersonID={person_id}, "
+                                "using parsed citation name"
+                            )
+                    else:
+                        logger.warning(
+                            f"Could not get PersonID for EventID={event_id}, "
+                            "using parsed citation name"
+                        )
+                else:
+                    logger.warning(
+                        f"Could not get EventID for CitationID={citation_id}, "
+                        "using parsed citation name"
+                    )
+            finally:
+                db_conn.close()
+
+            # Generate standardized filename with correct name from database
             extension = self.filename_gen.extract_extension(file_path)
             filename = self.filename_gen.generate_filename(
                 year=metadata.year,
