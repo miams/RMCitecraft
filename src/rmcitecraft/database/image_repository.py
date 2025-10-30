@@ -505,30 +505,80 @@ class ImageRepository:
 
         return [row[0] for row in cursor.fetchall()]
 
-    def find_citation_by_url(self, familysearch_url: str) -> int | None:
+    def find_citation_by_census_details(
+        self, surname: str, given_name: str, year: int
+    ) -> int | None:
         """
-        Find CitationID by FamilySearch URL.
+        Find CitationID by matching person name and census year.
 
         Args:
-            familysearch_url: FamilySearch ARK URL stored in RefNumber field
+            surname: Person's surname
+            given_name: Person's given name (can be abbreviated, e.g., "J Dorsey")
+            year: Census year
 
         Returns:
             CitationID if found, None otherwise
         """
         cursor = self.conn.cursor()
 
+        # Find person by name (handle abbreviated given names with LIKE)
+        cursor.execute(
+            """
+            SELECT OwnerID
+            FROM NameTable
+            WHERE Surname COLLATE RMNOCASE = ?
+              AND Given COLLATE RMNOCASE LIKE ?
+              AND IsPrimary = 1
+            LIMIT 1
+            """,
+            (surname, f"{given_name}%"),
+        )
+
+        person_row = cursor.fetchone()
+        if not person_row:
+            logger.debug(f"Person not found: {given_name} {surname}")
+            return None
+
+        person_id = person_row[0]
+
+        # Find census event for that person and year
+        cursor.execute(
+            """
+            SELECT EventID
+            FROM EventTable
+            WHERE OwnerID = ?
+              AND EventType = 18
+              AND Date LIKE ?
+            LIMIT 1
+            """,
+            (person_id, f"%{year}%"),
+        )
+
+        event_row = cursor.fetchone()
+        if not event_row:
+            logger.debug(f"Census event not found for {given_name} {surname} ({year})")
+            return None
+
+        event_id = event_row[0]
+
+        # Find citation linked to this event
         cursor.execute(
             """
             SELECT CitationID
-            FROM CitationTable
-            WHERE RefNumber = ?
+            FROM CitationLinkTable
+            WHERE OwnerType = 2
+              AND OwnerID = ?
             LIMIT 1
             """,
-            (familysearch_url,),
+            (event_id,),
         )
 
-        result = cursor.fetchone()
-        return result[0] if result else None
+        citation_row = cursor.fetchone()
+        if citation_row:
+            return citation_row[0]
+
+        logger.debug(f"Citation not found for EventID={event_id}")
+        return None
 
     def find_event_for_citation(self, citation_id: int) -> int | None:
         """

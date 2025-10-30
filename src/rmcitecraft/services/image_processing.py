@@ -159,15 +159,17 @@ class ImageProcessingService:
             try:
                 image_repo = ImageRepository(db_conn)
 
-                # Get CitationID from database using FamilySearch URL
+                # Get CitationID from database by matching census details
                 # metadata.citation_id might be import system ID (e.g., "import_xxx")
-                # so we look up the actual database CitationID using the URL
-                citation_id = image_repo.find_citation_by_url(metadata.familysearch_url)
+                # so we look up the actual database CitationID by person name and year
+                citation_id = image_repo.find_citation_by_census_details(
+                    metadata.surname, metadata.given_name, metadata.year
+                )
 
                 if not citation_id:
                     logger.warning(
-                        f"Citation not found in database for URL: {metadata.familysearch_url}. "
-                        "Citation may need to be processed first."
+                        f"Citation not found in database for {metadata.given_name} {metadata.surname} "
+                        f"({metadata.year}). Using parsed name from citation."
                     )
                     # Fall back to using parsed name from citation
                 else:
@@ -357,13 +359,15 @@ class ImageProcessingService:
             metadata.media_id = media_id
 
             # Find census event using the CitationID from database
-            # Look up CitationID using FamilySearch URL (metadata.citation_id might be import ID)
-            citation_id = image_repo.find_citation_by_url(metadata.familysearch_url)
+            # Look up CitationID by matching person name and census year
+            citation_id = image_repo.find_citation_by_census_details(
+                metadata.surname, metadata.given_name, metadata.year
+            )
 
             if not citation_id:
                 logger.warning(
-                    f"Citation not found in database for URL: {metadata.familysearch_url}. "
-                    "Skipping event/citation linking."
+                    f"Citation not found in database for {metadata.given_name} {metadata.surname} "
+                    f"({metadata.year}). Skipping event/citation linking."
                 )
                 return
 
@@ -410,16 +414,18 @@ class ImageProcessingService:
             # Create repository with thread-specific connection
             image_repo = ImageRepository(db_conn)
 
-            # Look up CitationID using FamilySearch URL
-            citation_id = image_repo.find_citation_by_url(metadata.familysearch_url)
+            # Look up CitationID by matching person name and census year
+            citation_id = image_repo.find_citation_by_census_details(
+                metadata.surname, metadata.given_name, metadata.year
+            )
 
             if citation_id:
                 # Link to citation
                 image_repo.link_media_to_citation(metadata.media_id, citation_id)
             else:
                 logger.warning(
-                    f"Citation not found in database for URL: {metadata.familysearch_url}. "
-                    "Skipping citation linking for duplicate."
+                    f"Citation not found in database for {metadata.given_name} {metadata.surname} "
+                    f"({metadata.year}). Skipping citation linking for duplicate."
                 )
 
             # Link to event if provided
