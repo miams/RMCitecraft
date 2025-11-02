@@ -21,6 +21,7 @@ from rmcitecraft.repositories import CitationRepository, DatabaseConnection
 from rmcitecraft.services.citation_import import get_citation_import_service
 from rmcitecraft.services.command_queue import get_command_queue
 from rmcitecraft.services.image_processing import get_image_processing_service
+from rmcitecraft.services.pending_request import get_pending_request_service
 from rmcitecraft.ui.components.image_viewer import create_census_image_viewer
 from rmcitecraft.utils.media_resolver import MediaPathResolver
 
@@ -383,7 +384,9 @@ class CitationManagerTab:
                     ui.button(
                         "Open FamilySearch",
                         icon="open_in_new",
-                        on_click=lambda: self._open_familysearch_url(parsed.familysearch_url),
+                        on_click=lambda: self._open_familysearch_url(
+                            citation["CitationID"], parsed.familysearch_url
+                        ),
                     ).props("color=primary flat")
 
             ui.separator()
@@ -557,16 +560,25 @@ class CitationManagerTab:
 
         return source_name
 
-    def _open_familysearch_url(self, url: str) -> None:
-        """Open FamilySearch URL in default browser.
+    def _open_familysearch_url(self, citation_id: int, url: str) -> None:
+        """Open FamilySearch URL in default browser and register pending request.
+
+        When user clicks "Open FamilySearch", we store the CitationID so that
+        when the browser extension sends data, we can match it to the correct
+        citation without guessing by name.
 
         Args:
+            citation_id: RootsMagic CitationID from database
             url: FamilySearch URL to open
         """
         try:
-            logger.info(f"Opening FamilySearch URL: {url}")
+            # Register pending request BEFORE opening browser
+            pending_service = get_pending_request_service()
+            pending_service.register_request(citation_id, url)
+
+            logger.info(f"Opening FamilySearch URL: {url} (CitationID={citation_id})")
             webbrowser.open(url)
-            ui.notify("Opening FamilySearch page in browser", type="positive")
+            ui.notify("Opening FamilySearch page in browser (request registered)", type="positive")
         except Exception as e:
             logger.error(f"Failed to open FamilySearch URL: {e}")
             ui.notify(f"Failed to open browser: {str(e)}", type="negative")

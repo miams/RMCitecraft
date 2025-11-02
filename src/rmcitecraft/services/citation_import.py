@@ -242,14 +242,39 @@ class CitationImportService:
                 validated_data = ImportedCitationData(**data)
 
                 # Try to find matching RootsMagic CitationID if not provided
-                if (
-                    not validated_data.rootsMagicCitationId
-                    and validated_data.name
-                    and validated_data.censusYear
-                ):
-                    validated_data.rootsMagicCitationId = self._find_matching_citation(
-                        validated_data
-                    )
+                if not validated_data.rootsMagicCitationId:
+                    # FIRST: Check for pending request (user clicked "Open FamilySearch")
+                    # This is the correct way - CitationID is already known
+                    if validated_data.familySearchUrl:
+                        from rmcitecraft.services.pending_request import get_pending_request_service
+
+                        pending_service = get_pending_request_service()
+                        citation_id_from_request = pending_service.match_and_consume(
+                            validated_data.familySearchUrl
+                        )
+
+                        if citation_id_from_request:
+                            validated_data.rootsMagicCitationId = citation_id_from_request
+                            logger.info(
+                                f"Matched to pending request: CitationID={citation_id_from_request}"
+                            )
+                        else:
+                            logger.warning(
+                                f"No pending request found for URL: {validated_data.familySearchUrl}. "
+                                "User may have imported directly from extension without clicking "
+                                "'Open FamilySearch' first. Falling back to name matching."
+                            )
+
+                    # FALLBACK: Try to guess CitationID by matching name and year
+                    # This is less reliable but handles direct extension imports
+                    if (
+                        not validated_data.rootsMagicCitationId
+                        and validated_data.name
+                        and validated_data.censusYear
+                    ):
+                        validated_data.rootsMagicCitationId = self._find_matching_citation(
+                            validated_data
+                        )
 
                 # Generate citation ID
                 self._import_counter += 1
