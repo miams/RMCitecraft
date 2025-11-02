@@ -151,12 +151,41 @@ class PendingRequestService:
                 f"Registered pending request: CitationID={citation_id} for URL={familysearch_url}"
             )
 
+    def _normalize_url(self, url: str) -> str:
+        """
+        Normalize FamilySearch URL for comparison.
+
+        Removes www prefix, query parameters, and trailing slashes.
+
+        Args:
+            url: FamilySearch URL
+
+        Returns:
+            Normalized URL for comparison
+        """
+        # Remove query parameters
+        if "?" in url:
+            url = url.split("?")[0]
+
+        # Remove www. prefix
+        url = url.replace("://www.", "://")
+
+        # Remove trailing slash
+        url = url.rstrip("/")
+
+        return url
+
     def match_and_consume(self, familysearch_url: str) -> int | None:
         """
         Match incoming browser extension data to pending request.
 
         Finds the most recent pending request for the given URL,
         removes it from the queue, and returns the CitationID.
+
+        URLs are normalized before matching to handle variations like:
+        - www. prefix differences
+        - Query parameters (?lang=en)
+        - Trailing slashes
 
         Args:
             familysearch_url: FamilySearch URL from browser extension
@@ -168,10 +197,16 @@ class PendingRequestService:
             # Reload from file to get latest state
             self._load_from_file()
 
+            # Normalize incoming URL
+            normalized_url = self._normalize_url(familysearch_url)
+
             # Find matching request (most recent first)
             matched_request = None
             for i in range(len(self._pending_requests) - 1, -1, -1):
-                if self._pending_requests[i].familysearch_url == familysearch_url:
+                # Normalize stored URL for comparison
+                stored_url = self._normalize_url(self._pending_requests[i].familysearch_url)
+
+                if stored_url == normalized_url:
                     matched_request = self._pending_requests.pop(i)
                     break
 
@@ -185,7 +220,10 @@ class PendingRequestService:
                 )
                 return matched_request.citation_id
             else:
-                logger.warning(f"No pending request found for URL: {familysearch_url}")
+                logger.warning(
+                    f"No pending request found for URL: {familysearch_url} "
+                    f"(normalized: {normalized_url})"
+                )
                 return None
 
     def get_pending_count(self) -> int:
