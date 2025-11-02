@@ -355,12 +355,18 @@ class ImageProcessingService:
             # Format census date
             census_date = image_repo.format_census_date(metadata.year)
 
+            # Strip query parameters from FamilySearch URL for RefNumber field
+            # Example: "https://...?lang=en" -> "https://..."
+            ref_number = metadata.familysearch_url
+            if "?" in ref_number:
+                ref_number = ref_number.split("?")[0]
+
             # Create media record
             media_id = image_repo.create_media_record(
                 media_path=symbolic_path,
                 media_file=metadata.final_filename,
                 caption=caption,
-                ref_number=metadata.familysearch_url,
+                ref_number=ref_number,
                 census_date=census_date,
             )
 
@@ -401,6 +407,20 @@ class ImageProcessingService:
                         image_repo.link_media_to_citation(media_id, cit_id)
                 else:
                     logger.warning(f"No citations found for EventID={event_id}")
+
+                # Link to source document
+                # Get SourceID from the primary citation
+                cursor = db_conn.cursor()
+                cursor.execute(
+                    "SELECT SourceID FROM CitationTable WHERE CitationID = ?", (citation_id,)
+                )
+                source_row = cursor.fetchone()
+                if source_row:
+                    source_id = source_row[0]
+                    image_repo.link_media_to_source(media_id, source_id)
+                    logger.info(f"Linked media to source: SourceID={source_id}")
+                else:
+                    logger.warning(f"Could not find SourceID for CitationID={citation_id}")
             else:
                 logger.warning(f"Census event not found for CitationID={citation_id}")
 

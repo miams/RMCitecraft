@@ -65,6 +65,10 @@ class FilenameGenerator:
         surname_clean = self._sanitize(surname)
         given_clean = self._sanitize(given_name)
 
+        # Remove trailing periods from given name to avoid double periods in filename
+        # Example: "Oscar E." becomes "Oscar E" (prevents "Oscar E..jpg")
+        given_clean = given_clean.rstrip(".")
+
         # Ensure extension doesn't have leading dot
         ext_clean = extension.lstrip(".")
 

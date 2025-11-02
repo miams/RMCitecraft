@@ -265,6 +265,60 @@ class ImageRepository:
             logger.error(f"Failed to link media to citation: {e}")
             raise
 
+    def link_media_to_source(self, media_id: int, source_id: int) -> None:
+        """
+        Link media to source in MediaLinkTable.
+
+        Args:
+            media_id: MediaID from MultimediaTable
+            source_id: SourceID from SourceTable
+
+        Example:
+            >>> repo.link_media_to_source(media_id=42, source_id=335)
+        """
+        cursor = self.conn.cursor()
+
+        try:
+            # Check if link already exists
+            cursor.execute(
+                """
+                SELECT LinkID FROM MediaLinkTable
+                WHERE MediaID = ? AND OwnerType = 3 AND OwnerID = ?
+                """,
+                (media_id, source_id),
+            )
+
+            if cursor.fetchone():
+                logger.warning(f"Media {media_id} already linked to source {source_id}")
+                return
+
+            # Get next LinkID
+            cursor.execute("SELECT COALESCE(MAX(LinkID), 0) + 1 FROM MediaLinkTable")
+            link_id = cursor.fetchone()[0]
+
+            # Current timestamp
+            utc_mod_date = self._get_utc_timestamp()
+
+            # Insert link (OwnerType=3 for Source)
+            cursor.execute(
+                """
+                INSERT INTO MediaLinkTable (
+                    LinkID, MediaID, OwnerType, OwnerID,
+                    IsPrimary, UTCModDate
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (link_id, media_id, 3, source_id, 0, utc_mod_date),
+            )
+
+            self.conn.commit()
+            logger.info(f"Linked media {media_id} to source {source_id}")
+
+        except sqlite3.Error as e:
+            self.conn.rollback()
+            logger.error(f"Failed to link media to source: {e}")
+            raise
+
     def find_media_by_file(self, media_file: str) -> int | None:
         """
         Find existing media record by filename.

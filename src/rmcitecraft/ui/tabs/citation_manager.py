@@ -425,9 +425,7 @@ class CitationManagerTab:
                         ui.label("Footnote (Database):").classes(
                             "text-xs font-medium text-gray-600"
                         )
-                        ui.markdown(f"_{footnote_text}_").classes(
-                            "text-sm bg-blue-50 p-2 rounded mb-2"
-                        )
+                        ui.markdown(footnote_text).classes("text-sm bg-blue-50 p-2 rounded mb-2")
                     else:
                         ui.label("Footnote:").classes("text-xs font-medium text-gray-600")
                         ui.label("(not set)").classes("text-sm text-gray-400 italic mb-2")
@@ -437,9 +435,7 @@ class CitationManagerTab:
                         ui.label("Short Footnote (Database):").classes(
                             "text-xs font-medium text-gray-600"
                         )
-                        ui.markdown(f"_{short_text}_").classes(
-                            "text-sm bg-blue-50 p-2 rounded mb-2"
-                        )
+                        ui.markdown(short_text).classes("text-sm bg-blue-50 p-2 rounded mb-2")
                     else:
                         ui.label("Short Footnote:").classes("text-xs font-medium text-gray-600")
                         ui.label("(not set)").classes("text-sm text-gray-400 italic mb-2")
@@ -449,7 +445,7 @@ class CitationManagerTab:
                         ui.label("Bibliography (Database):").classes(
                             "text-xs font-medium text-gray-600"
                         )
-                        ui.markdown(f"_{bib_text}_").classes("text-sm bg-blue-50 p-2 rounded mb-2")
+                        ui.markdown(bib_text).classes("text-sm bg-blue-50 p-2 rounded mb-2")
                     else:
                         ui.label("Bibliography:").classes("text-xs font-medium text-gray-600")
                         ui.label("(not set)").classes("text-sm text-gray-400 italic mb-2")
@@ -515,15 +511,15 @@ class CitationManagerTab:
         with ui.column().classes("gap-4 p-2"):
             # Footnote
             ui.label("Full Footnote:").classes("text-xs font-medium text-gray-600")
-            ui.markdown(f"_{footnote}_").classes("text-sm bg-gray-50 p-2 rounded")
+            ui.markdown(footnote).classes("text-sm bg-gray-50 p-2 rounded")
 
             # Short footnote
             ui.label("Short Footnote:").classes("text-xs font-medium text-gray-600")
-            ui.markdown(f"_{short_footnote}_").classes("text-sm bg-gray-50 p-2 rounded")
+            ui.markdown(short_footnote).classes("text-sm bg-gray-50 p-2 rounded")
 
             # Bibliography
             ui.label("Bibliography:").classes("text-xs font-medium text-gray-600")
-            ui.markdown(f"_{bibliography}_").classes("text-sm bg-gray-50 p-2 rounded")
+            ui.markdown(bibliography).classes("text-sm bg-gray-50 p-2 rounded")
 
             # Action buttons
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
@@ -1155,7 +1151,7 @@ class CitationManagerTab:
                             "text-xs font-semibold text-gray-700 mt-1"
                         )
                         preview_footnote = self._generate_citation_preview(data)
-                        footnote_preview = ui.markdown(f"_{preview_footnote}_").classes(
+                        footnote_preview = ui.markdown(preview_footnote).classes(
                             "text-xs bg-white p-2 rounded"
                         )
 
@@ -1164,7 +1160,7 @@ class CitationManagerTab:
                             "text-xs font-semibold text-gray-700 mt-2"
                         )
                         preview_short = self._generate_short_citation_preview(data)
-                        short_preview = ui.markdown(f"_{preview_short}_").classes(
+                        short_preview = ui.markdown(preview_short).classes(
                             "text-xs bg-white p-2 rounded"
                         )
 
@@ -1173,7 +1169,7 @@ class CitationManagerTab:
                             "text-xs font-semibold text-gray-700 mt-2"
                         )
                         preview_bib = self._generate_bibliography_preview(data)
-                        bib_preview = ui.markdown(f"_{preview_bib}_").classes(
+                        bib_preview = ui.markdown(preview_bib).classes(
                             "text-xs bg-white p-2 rounded"
                         )
 
