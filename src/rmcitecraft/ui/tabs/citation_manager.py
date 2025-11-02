@@ -872,7 +872,9 @@ class CitationManagerTab:
             year = data.get("censusYear")
             name = data.get("name", "Unknown")
             event_place = data.get("eventPlace", "")
-            access_date = data.get("extractedAt", datetime.now().isoformat())
+            access_date = self._format_access_date(
+                data.get("extractedAt", datetime.now().isoformat())
+            )
 
             # Parse name (simple split - surname is last)
             name_parts = name.split()
@@ -917,8 +919,16 @@ class CitationManagerTab:
                     county=county,
                     surname=surname,
                     given_name=given_name,
+                    familysearch_name=name,  # Preserve FamilySearch name for citations
                     familysearch_url=familysearch_url,
                     access_date=access_date,
+                    # Census-specific fields for citation formatting
+                    town_ward=data.get("eventPlace", "").split(",")[0].strip() if data.get("eventPlace") and len(data.get("eventPlace", "").split(",")) >= 4 else None,
+                    enumeration_district=data.get("enumerationDistrict"),
+                    sheet=data.get("sheetNumber"),
+                    line=data.get("lineNumber"),
+                    family_number=data.get("familyNumber"),
+                    dwelling_number=data.get("dwellingNumber"),
                 )
 
                 self.image_processing_service.register_pending_image(metadata)
@@ -1785,7 +1795,10 @@ class CitationManagerTab:
             return None
 
     def _save_processed_citation(self, dialog: ui.dialog, citation_id: str, data: dict) -> None:
-        """Save the processed citation (currently just removes from pending).
+        """Save the processed citation to database.
+
+        Updates SourceTable fields (Footnote, ShortFootnote, Bibliography)
+        and SourceTable.Name brackets for Free Form citations.
 
         Args:
             dialog: Dialog to close
@@ -1793,12 +1806,117 @@ class CitationManagerTab:
             data: Updated citation data
         """
         try:
-            # TODO: Implement actual database update
-            # For now, just remove from pending queue
+            # Get RootsMagic CitationID
+            rm_citation_id = data.get("rootsMagicCitationId")
+            if not rm_citation_id:
+                logger.warning("No RootsMagic CitationID found, cannot update database")
+                self.citation_import_service.remove(citation_id)
+                ui.notify("Citation removed from pending (no CitationID)", type="warning")
+                dialog.close()
+                self._refresh_pending_citations()
+                return
+
+            # Create ParsedCitation from data
+            from rmcitecraft.models.citation import ParsedCitation
+
+            place = data.get("eventPlace", "")
+            place_parts = [p.strip() for p in place.split(",")]
+
+            if len(place_parts) >= 4:
+                town_ward = place_parts[0]
+                county = place_parts[1]
+                state = place_parts[2]
+            elif len(place_parts) >= 3:
+                town_ward = None
+                county = place_parts[0]
+                state = place_parts[1]
+            else:
+                town_ward = None
+                county = place
+                state = ""
+
+            parsed = ParsedCitation(
+                citation_id=rm_citation_id,
+                source_name=f"Fed Census: {data.get('censusYear', '????')}",
+                familysearch_entry="",
+                census_year=int(data.get("censusYear", 1930)),
+                state=state,
+                county=county,
+                town_ward=town_ward,
+                enumeration_district=data.get("enumerationDistrict"),
+                sheet=data.get("sheetNumber"),
+                line=data.get("lineNumber"),
+                family_number=data.get("familyNumber"),
+                dwelling_number=data.get("dwellingNumber"),
+                person_name=data.get("name", "Unknown Person"),
+                given_name=data.get("name", "").split()[0] if data.get("name") else "",
+                surname=data.get("name", "").split()[-1] if data.get("name") else "",
+                familysearch_url=data.get("familySearchUrl", ""),
+                access_date=self._format_access_date(data.get("extractedAt", "")),
+                is_complete=True,
+            )
+
+            # Format citations
+            footnote, short_footnote, bibliography = self.formatter.format(parsed)
+
+            # Update database
+            from rmcitecraft.database.connection import connect_rmtree
+            from rmcitecraft.database.image_repository import ImageRepository
+
+            db_conn = connect_rmtree(self.db_path)
+            image_repo = ImageRepository(db_conn)
+
+            try:
+                # Get SourceID and TemplateID from CitationID
+                cursor = db_conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT s.SourceID, s.TemplateID
+                    FROM CitationTable c
+                    JOIN SourceTable s ON c.SourceID = s.SourceID
+                    WHERE c.CitationID = ?
+                    """,
+                    (rm_citation_id,),
+                )
+                source_row = cursor.fetchone()
+
+                if not source_row:
+                    logger.warning(f"No source found for CitationID={rm_citation_id}")
+                    raise ValueError(f"Source not found for CitationID={rm_citation_id}")
+
+                source_id, template_id = source_row
+
+                # Only update for Free Form citations (TemplateID=0)
+                if template_id == 0:
+                    # Update SourceTable.Fields BLOB
+                    image_repo.update_source_fields(
+                        source_id=source_id,
+                        footnote=footnote,
+                        short_footnote=short_footnote,
+                        bibliography=bibliography,
+                    )
+                    logger.info(
+                        f"Updated source fields (Free Form) for SourceID={source_id} "
+                        f"(CitationID={rm_citation_id})"
+                    )
+
+                    # Update SourceTable.Name to replace empty brackets []
+                    bracket_content = self.formatter.generate_source_name_bracket(parsed)
+                    image_repo.update_source_name_brackets(source_id, bracket_content)
+                else:
+                    logger.debug(
+                        f"Skipping citation update for non-Free Form citation "
+                        f"(TemplateID={template_id}, CitationID={rm_citation_id})"
+                    )
+
+            finally:
+                db_conn.close()
+
+            # Remove from pending queue
             self.citation_import_service.remove(citation_id)
 
-            logger.info(f"Processed citation: {citation_id}")
-            ui.notify("Citation processed successfully", type="positive")
+            logger.info(f"Processed citation: {citation_id} (CitationID={rm_citation_id})")
+            ui.notify("Citation saved to RootsMagic database", type="positive")
 
             dialog.close()
             self._refresh_pending_citations()

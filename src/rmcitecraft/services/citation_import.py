@@ -241,6 +241,18 @@ class CitationImportService:
                 # Validate data structure
                 validated_data = ImportedCitationData(**data)
 
+                # For 1950 census, map pageNumber to sheetNumber
+                # FamilySearch uses "Page Number" label but citations should refer to "sheet"
+                if (
+                    validated_data.censusYear == 1950
+                    and validated_data.pageNumber
+                    and not validated_data.sheetNumber
+                ):
+                    validated_data.sheetNumber = validated_data.pageNumber
+                    logger.debug(
+                        f"Mapped pageNumber={validated_data.pageNumber} to sheetNumber for 1950 census"
+                    )
+
                 # Try to find matching RootsMagic CitationID if not provided
                 if not validated_data.rootsMagicCitationId:
                     # FIRST: Check for pending request (user clicked "Open FamilySearch")

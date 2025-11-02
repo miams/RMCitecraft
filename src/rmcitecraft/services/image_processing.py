@@ -448,7 +448,15 @@ class ImageProcessingService:
 
                     # Only update for Free Form citations (TemplateID=0)
                     if template_id == 0:
-                        # Create ParsedCitation from metadata
+                        # Use FamilySearch name for citations (as it appears in record)
+                        # Use database name (metadata.given_name/surname) for filename only
+                        citation_name = (
+                            metadata.familysearch_name
+                            if metadata.familysearch_name
+                            else f"{metadata.given_name} {metadata.surname}"
+                        )
+
+                        # Create ParsedCitation from metadata with all census fields
                         parsed_citation = ParsedCitation(
                             citation_id=citation_id,
                             source_name=source_name,
@@ -456,11 +464,18 @@ class ImageProcessingService:
                             census_year=metadata.year,
                             state=metadata.state,
                             county=metadata.county,
-                            person_name=f"{metadata.given_name} {metadata.surname}",
-                            surname=metadata.surname,
-                            given_name=metadata.given_name,
+                            person_name=citation_name,
+                            surname=metadata.surname,  # For internal use
+                            given_name=metadata.given_name,  # For internal use
                             familysearch_url=metadata.familysearch_url,
                             access_date=metadata.access_date,
+                            # Census-specific fields for detailed citations
+                            town_ward=metadata.town_ward,
+                            enumeration_district=metadata.enumeration_district,
+                            sheet=metadata.sheet,
+                            line=metadata.line,
+                            family_number=metadata.family_number,
+                            dwelling_number=metadata.dwelling_number,
                         )
 
                         # Format citations
@@ -479,6 +494,12 @@ class ImageProcessingService:
                             f"Updated source fields (Free Form) for SourceID={source_id} "
                             f"(CitationID={citation_id})"
                         )
+
+                        # Update SourceTable.Name to replace empty brackets []
+                        bracket_content = self.citation_formatter.generate_source_name_bracket(
+                            parsed_citation
+                        )
+                        image_repo.update_source_name_brackets(source_id, bracket_content)
                     else:
                         logger.debug(
                             f"Skipping citation update for non-Free Form citation "

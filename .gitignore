@@ -10,6 +10,8 @@ config/.env
 
 # RootsMagic Database
 *.rmtree
+*.rmtree-shm
+*.rmtree-wal
 
 # Python
 __pycache__/
@@ -55,6 +57,7 @@ uv.lock
 *.log
 logs/*.log
 logs/*.jsonl
+logs/*.json
 rmtool.log
 rmcitecraft.log
 

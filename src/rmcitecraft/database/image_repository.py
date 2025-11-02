@@ -342,23 +342,31 @@ class ImageRepository:
             ...     bibliography="U.S. Pennsylvania. Greene County..."
             ... )
         """
+        import xml.sax.saxutils as saxutils
+
         cursor = self.conn.cursor()
 
         try:
+            # XML-escape the citation text to handle special characters like <i>, &, etc.
+            # Citations contain HTML tags like <i>FamilySearch</i> which must be escaped
+            footnote_escaped = saxutils.escape(footnote)
+            short_footnote_escaped = saxutils.escape(short_footnote)
+            bibliography_escaped = saxutils.escape(bibliography)
+
             # Build XML structure for SourceTable.Fields BLOB
             fields_xml = f"""<Root>
 <Fields>
 <Field>
 <Name>Footnote</Name>
-<Value>{footnote}</Value>
+<Value>{footnote_escaped}</Value>
 </Field>
 <Field>
 <Name>ShortFootnote</Name>
-<Value>{short_footnote}</Value>
+<Value>{short_footnote_escaped}</Value>
 </Field>
 <Field>
 <Name>Bibliography</Name>
-<Value>{bibliography}</Value>
+<Value>{bibliography_escaped}</Value>
 </Field>
 </Fields>
 </Root>"""
@@ -391,6 +399,67 @@ class ImageRepository:
         except sqlite3.Error as e:
             self.conn.rollback()
             logger.error(f"Failed to update source fields: {e}")
+            raise
+
+    def update_source_name_brackets(self, source_id: int, bracket_content: str) -> None:
+        """
+        Update SourceTable.Name field to replace empty brackets [] with citation details.
+
+        Only updates if the Name field contains exactly "[]" (empty brackets).
+
+        Args:
+            source_id: SourceID to update
+            bracket_content: Generated bracket content, e.g., "[citing enumeration district (ED) 16-628, sheet 17, line 16]"
+
+        Example:
+            Before: "Fed Census: 1950, Colorado, Denver [] Shepherd, William C."
+            After:  "Fed Census: 1950, Colorado, Denver [citing enumeration district (ED) 16-628, sheet 17, line 16] Shepherd, William C."
+        """
+        cursor = self.conn.cursor()
+
+        try:
+            # Get current Name
+            cursor.execute("SELECT Name FROM SourceTable WHERE SourceID = ?", (source_id,))
+            row = cursor.fetchone()
+
+            if not row:
+                logger.warning(f"No source found with SourceID={source_id}")
+                return
+
+            current_name = row[0]
+
+            # Only update if Name contains exactly "[]" (empty brackets)
+            if "[]" not in current_name:
+                logger.debug(
+                    f"SourceID={source_id} does not contain empty brackets, skipping update"
+                )
+                return
+
+            # Replace [] with bracket content
+            updated_name = current_name.replace("[]", bracket_content)
+
+            # Get current UTCModDate
+            utc_mod_date = self._get_utc_timestamp()
+
+            # Update SourceTable.Name
+            cursor.execute(
+                """
+                UPDATE SourceTable
+                SET Name = ?,
+                    UTCModDate = ?
+                WHERE SourceID = ?
+                """,
+                (updated_name, utc_mod_date, source_id),
+            )
+
+            self.conn.commit()
+            logger.info(
+                f"Updated source name for SourceID={source_id}: '{current_name}' → '{updated_name}'"
+            )
+
+        except sqlite3.Error as e:
+            self.conn.rollback()
+            logger.error(f"Failed to update source name: {e}")
             raise
 
     def find_media_by_file(self, media_file: str) -> int | None:

@@ -36,6 +36,55 @@ class CitationFormatter:
         else:  # 1900-1950
             return self._format_1900_1950(citation)
 
+    def generate_source_name_bracket(self, citation: ParsedCitation) -> str:
+        """Generate bracket content for SourceTable.Name field.
+
+        Creates the [citing ...] portion based on available citation details.
+        Aligns with what appears in the footnote between location and person name.
+
+        Args:
+            citation: Parsed citation data
+
+        Returns:
+            Bracket content string, e.g., "[citing enumeration district (ED) 16-628, sheet 17, line 16]"
+
+        Examples:
+            1900-1950: "[citing enumeration district (ED) 79-215, sheet 4, line 19]"
+            1850-1880: "[citing sheet 3B, dwelling 123, family 57]"
+            1790-1840: "[citing sheet 3B]"
+        """
+        year = citation.census_year
+        parts = []
+
+        # 1900-1950: ED, sheet, line
+        if year >= 1900:
+            if citation.enumeration_district:
+                parts.append(f"enumeration district (ED) {citation.enumeration_district}")
+            if citation.sheet:
+                parts.append(f"sheet {citation.sheet}")
+            if citation.line:
+                parts.append(f"line {citation.line}")
+
+        # 1850-1880: sheet, dwelling, family (no ED)
+        elif year >= 1850:
+            if citation.sheet:
+                parts.append(f"sheet {citation.sheet}")
+            if citation.dwelling_number and citation.family_number:
+                parts.append(f"dwelling {citation.dwelling_number}")
+                parts.append(f"family {citation.family_number}")
+            elif citation.family_number:
+                parts.append(f"family {citation.family_number}")
+
+        # 1790-1840: sheet only (minimal info)
+        else:
+            if citation.sheet:
+                parts.append(f"sheet {citation.sheet}")
+
+        if parts:
+            return f"[citing {', '.join(parts)}]"
+        else:
+            return "[]"
+
     def _format_1900_1950(
         self,
         c: ParsedCitation,
@@ -57,9 +106,9 @@ class CitationFormatter:
             f"{c.state},",
         ]
 
-        # 1910-1940: Omit "population schedule" (only schedules that survived)
-        # 1900 and 1950: Include "population schedule" if multiple schedule types exist
-        if c.census_year in [1900, 1950]:
+        # 1910-1950: Omit "population schedule" (only schedules that survived)
+        # 1900: Include "population schedule" (multiple schedule types exist)
+        if c.census_year == 1900:
             footnote_parts.append("population schedule,")
 
         if c.town_ward:
@@ -97,9 +146,9 @@ class CitationFormatter:
             f"{state_abbrev},",
         ]
 
-        # For 1900 and 1950: Include "pop. sch." (multiple schedule types)
-        # For 1910-1940: Omit "pop. sch." (only population schedules survived)
-        if c.census_year in [1900, 1950]:
+        # For 1900: Include "pop. sch." (multiple schedule types)
+        # For 1910-1950: Omit "pop. sch." (only population schedules survived)
+        if c.census_year == 1900:
             short_parts.append("pop. sch.,")
 
         if c.town_ward:
@@ -125,6 +174,9 @@ class CitationFormatter:
         if c.sheet:
             short_parts.append(f"sheet {c.sheet},")
 
+        if c.line:
+            short_parts.append(f"line {c.line},")
+
         short_parts.append(f"{c.person_name}.")
 
         short_footnote = " ".join(short_parts)
@@ -139,11 +191,12 @@ class CitationFormatter:
             "U.S.",
             f"{c.state}.",
             f"{c.county} County.",
-            f"{c.census_year} U.S Census.",
+            f"{c.census_year} U.S census.",
         ]
 
-        # 1910-1940: Omit "Population Schedule." (only schedules that survived)
-        if c.census_year in [1900, 1950]:
+        # 1910-1950: Omit "Population Schedule." (only schedules that survived)
+        # 1900: Include "Population Schedule." (multiple schedule types)
+        if c.census_year == 1900:
             bib_parts.append("Population Schedule.")
 
         bib_parts.extend([

@@ -40,8 +40,21 @@ class ImageMetadata(BaseModel):
     year: int = Field(ge=1790, le=1950, description="Census year")
     state: str = Field(description="State name")
     county: str = Field(description="County name")
-    surname: str = Field(description="Person's surname")
-    given_name: str = Field(description="Person's given name")
+    surname: str = Field(description="Person's surname (for filename)")
+    given_name: str = Field(description="Person's given name (for filename)")
+
+    # FamilySearch name (as it appears in the record, for citations)
+    familysearch_name: str | None = Field(
+        default=None, description="Name as it appears in FamilySearch record (for citations)"
+    )
+
+    # Additional Census Details (for citation formatting)
+    town_ward: str | None = Field(default=None, description="Town/Ward/Township")
+    enumeration_district: str | None = Field(default=None, description="Enumeration District")
+    sheet: str | None = Field(default=None, description="Sheet number")
+    line: str | None = Field(default=None, description="Line number")
+    family_number: str | None = Field(default=None, description="Family number")
+    dwelling_number: str | None = Field(default=None, description="Dwelling number")
 
     # Schedule Type (for folder selection)
     schedule_type: str = Field(default="population", description="Census schedule type")
