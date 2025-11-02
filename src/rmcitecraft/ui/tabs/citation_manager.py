@@ -76,8 +76,8 @@ class CitationManagerTab:
             # Top: Pending Citations from Extension (if any)
             self._render_pending_citations_section()
 
-            # Middle: Citation Manager (collapsible)
-            with ui.expansion("Citation Manager", icon="format_list_bulleted", value=True).classes(
+            # Middle: Citation Manager (collapsed by default - for manual review of existing citations)
+            with ui.expansion("Citation Manager (Manual Review)", icon="format_list_bulleted", value=False).classes(
                 "w-full"
             ) as self.citation_manager_expansion:
                 self._render_citation_manager_panel()
@@ -826,127 +826,19 @@ class CitationManagerTab:
 
                 # Action buttons
                 with ui.column().classes("gap-2"):
-                    familysearch_url = data.get("familySearchUrl")
                     ui.button(
-                        "Download Image",
-                        icon="download",
-                        on_click=lambda cid=citation_id,
-                        url=familysearch_url: self._on_download_image_clicked(cid, url),
-                    ).props("dense color=primary outlined")
-
-                    ui.button(
-                        "Process",
-                        icon="play_arrow",
+                        "Review & Save",
+                        icon="rate_review",
                         on_click=lambda cdata=citation_data: self._on_process_pending_citation(
                             cdata
                         ),
-                    ).props("dense color=positive")
+                    ).props("dense color=primary")
 
                     ui.button(
                         "Dismiss",
                         icon="close",
                         on_click=lambda cid=citation_id: self._on_dismiss_pending_citation(cid),
                     ).props("dense flat")
-
-    def _on_download_image_clicked(self, citation_id: str, familysearch_url: str) -> None:
-        """Handle download image button click.
-
-        Args:
-            citation_id: Citation ID
-            familysearch_url: FamilySearch URL for the citation
-        """
-        try:
-            if not familysearch_url:
-                ui.notify("No FamilySearch URL available", type="warning")
-                return
-
-            # Get citation data to extract census details
-            citation_data = self.citation_import_service.get(citation_id)
-            if not citation_data:
-                ui.notify("Citation not found", type="negative")
-                return
-
-            data = citation_data["data"]
-
-            # Extract census details for image metadata
-            year = data.get("censusYear")
-            name = data.get("name", "Unknown")
-            event_place = data.get("eventPlace", "")
-            access_date = self._format_access_date(
-                data.get("extractedAt", datetime.now().isoformat())
-            )
-
-            # Parse name (simple split - surname is last)
-            name_parts = name.split()
-            surname = name_parts[-1] if name_parts else "Unknown"
-            given_name = (
-                " ".join(name_parts[:-1])
-                if len(name_parts) > 1
-                else name_parts[0]
-                if name_parts
-                else "Unknown"
-            )
-
-            # Parse location (FamilySearch format: "City, County, State, Country")
-            # Remove "United States" if present (always last)
-            location_parts = [p.strip() for p in event_place.split(",")]
-            if location_parts and location_parts[-1] in ["United States", "USA"]:
-                location_parts = location_parts[:-1]
-
-            # Now extract State (last) and County (second to last)
-            # Handles: "County, State" or "City, County, State"
-            state = location_parts[-1] if location_parts else "Unknown"
-            county = location_parts[-2] if len(location_parts) >= 2 else "Unknown"
-
-            if not year or not isinstance(year, int):
-                ui.notify("Invalid census year in citation data", type="warning")
-                return
-
-            # Register image with processing service
-            if self.image_processing_service:
-                image_id = f"img_{citation_id}_{int(datetime.now().timestamp())}"
-
-                # Get RootsMagic CitationID if available
-                rm_citation_id = data.get("rootsMagicCitationId")
-                if rm_citation_id:
-                    logger.info(f"Using RootsMagic CitationID={rm_citation_id} for image download")
-
-                metadata = ImageMetadata(
-                    image_id=image_id,
-                    citation_id=str(rm_citation_id) if rm_citation_id else citation_id,
-                    year=year,
-                    state=state,
-                    county=county,
-                    surname=surname,
-                    given_name=given_name,
-                    familysearch_name=name,  # Preserve FamilySearch name for citations
-                    familysearch_url=familysearch_url,
-                    access_date=access_date,
-                    # Census-specific fields for citation formatting
-                    town_ward=data.get("eventPlace", "").split(",")[0].strip() if data.get("eventPlace") and len(data.get("eventPlace", "").split(",")) >= 4 else None,
-                    enumeration_district=data.get("enumerationDistrict"),
-                    sheet=data.get("sheetNumber"),
-                    line=data.get("lineNumber"),
-                    family_number=data.get("familyNumber"),
-                    dwelling_number=data.get("dwellingNumber"),
-                )
-
-                self.image_processing_service.register_pending_image(metadata)
-                logger.info(f"Registered image for processing: {image_id}")
-            else:
-                logger.warning("Image processing service not available - skipping registration")
-
-            # Queue download_image command for extension
-            command_id = self.command_queue.add(
-                "download_image", {"citation_id": citation_id, "url": familysearch_url}
-            )
-
-            logger.info(f"Queued download_image command: {command_id} for citation {citation_id}")
-            ui.notify("Image download initiated...", type="positive", position="top")
-
-        except Exception as e:
-            logger.error(f"Failed to initiate image download: {e}")
-            ui.notify(f"Failed to download image: {str(e)}", type="negative")
 
     def _on_process_pending_citation(self, citation_data: dict) -> None:
         """Process a pending citation (format and prepare for database).
@@ -1214,8 +1106,8 @@ class CitationManagerTab:
             with ui.row().classes("w-full justify-end gap-2 p-3 border-t mt-2"):
                 ui.button("Cancel", on_click=lambda: self._close_processing_dialog()).props("flat")
                 ui.button(
-                    "Save to RootsMagic",
-                    icon="save",
+                    "Apply to Database",
+                    icon="save_alt",
                     on_click=lambda: self._save_processed_citation(
                         self._processing_dialog, citation_id, data
                     ),
