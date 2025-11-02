@@ -426,10 +426,10 @@ class ImageProcessingService:
                     logger.warning(f"Could not find SourceID for CitationID={citation_id}")
 
                 # Generate and update citation fields in database
-                # Get source_name and familysearch_entry from database
+                # Get source_name, familysearch_entry, and TemplateID from database
                 cursor.execute(
                     """
-                    SELECT s.Name, c.ActualText
+                    SELECT s.Name, c.ActualText, s.TemplateID
                     FROM CitationTable c
                     JOIN SourceTable s ON c.SourceID = s.SourceID
                     WHERE c.CitationID = ?
@@ -444,35 +444,46 @@ class ImageProcessingService:
                 else:
                     source_name = citation_row[0]
                     familysearch_entry = citation_row[1] or ""
+                    template_id = citation_row[2]
 
-                    # Create ParsedCitation from metadata
-                    parsed_citation = ParsedCitation(
-                        citation_id=citation_id,
-                        source_name=source_name,
-                        familysearch_entry=familysearch_entry,
-                        census_year=metadata.year,
-                        state=metadata.state,
-                        county=metadata.county,
-                        person_name=f"{metadata.given_name} {metadata.surname}",
-                        surname=metadata.surname,
-                        given_name=metadata.given_name,
-                        familysearch_url=metadata.familysearch_url,
-                        access_date=metadata.access_date,
-                    )
+                    # Only update for Free Form citations (TemplateID=0)
+                    if template_id == 0:
+                        # Create ParsedCitation from metadata
+                        parsed_citation = ParsedCitation(
+                            citation_id=citation_id,
+                            source_name=source_name,
+                            familysearch_entry=familysearch_entry,
+                            census_year=metadata.year,
+                            state=metadata.state,
+                            county=metadata.county,
+                            person_name=f"{metadata.given_name} {metadata.surname}",
+                            surname=metadata.surname,
+                            given_name=metadata.given_name,
+                            familysearch_url=metadata.familysearch_url,
+                            access_date=metadata.access_date,
+                        )
 
-                    # Format citations
-                    footnote, short_footnote, bibliography = self.citation_formatter.format(
-                        parsed_citation
-                    )
+                        # Format citations
+                        footnote, short_footnote, bibliography = self.citation_formatter.format(
+                            parsed_citation
+                        )
 
-                    # Update database
-                    image_repo.update_citation_fields(
-                        citation_id=citation_id,
-                        footnote=footnote,
-                        short_footnote=short_footnote,
-                        bibliography=bibliography,
-                    )
-                    logger.info(f"Updated citation fields in database for CitationID={citation_id}")
+                        # Update SourceTable.Fields BLOB (for Free Form citations)
+                        image_repo.update_source_fields(
+                            source_id=source_id,
+                            footnote=footnote,
+                            short_footnote=short_footnote,
+                            bibliography=bibliography,
+                        )
+                        logger.info(
+                            f"Updated source fields (Free Form) for SourceID={source_id} "
+                            f"(CitationID={citation_id})"
+                        )
+                    else:
+                        logger.debug(
+                            f"Skipping citation update for non-Free Form citation "
+                            f"(TemplateID={template_id}, CitationID={citation_id})"
+                        )
             else:
                 logger.warning(f"Census event not found for CitationID={citation_id}")
 

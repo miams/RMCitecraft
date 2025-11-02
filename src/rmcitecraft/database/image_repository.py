@@ -319,59 +319,78 @@ class ImageRepository:
             logger.error(f"Failed to link media to source: {e}")
             raise
 
-    def update_citation_fields(
-        self, citation_id: int, footnote: str, short_footnote: str, bibliography: str
+    def update_source_fields(
+        self, source_id: int, footnote: str, short_footnote: str, bibliography: str
     ) -> None:
         """
-        Update citation fields in CitationTable with generated values.
+        Update source fields in SourceTable.Fields BLOB for Free Form citations.
+
+        For Free Form citations (TemplateID=0), the citation formats are stored
+        in SourceTable.Fields as XML, not in CitationTable.
 
         Args:
-            citation_id: CitationID to update
+            source_id: SourceID to update
             footnote: Full footnote text (Evidence Explained format)
             short_footnote: Short footnote text
             bibliography: Bibliography entry text
 
         Example:
-            >>> repo.update_citation_fields(
-            ...     citation_id=5130,
-            ...     footnote="1940 U.S. census, Tulsa County...",
-            ...     short_footnote="1940 U.S. census, Tulsa Co....",
-            ...     bibliography="U.S. Oklahoma. Tulsa County..."
+            >>> repo.update_source_fields(
+            ...     source_id=2135,
+            ...     footnote="1940 U.S. census, Greene County...",
+            ...     short_footnote="1940 U.S. census, Greene Co....",
+            ...     bibliography="U.S. Pennsylvania. Greene County..."
             ... )
         """
         cursor = self.conn.cursor()
 
         try:
-            # Get current UTCModDate for the citation
+            # Build XML structure for SourceTable.Fields BLOB
+            fields_xml = f"""<Root>
+<Fields>
+<Field>
+<Name>Footnote</Name>
+<Value>{footnote}</Value>
+</Field>
+<Field>
+<Name>ShortFootnote</Name>
+<Value>{short_footnote}</Value>
+</Field>
+<Field>
+<Name>Bibliography</Name>
+<Value>{bibliography}</Value>
+</Field>
+</Fields>
+</Root>"""
+
+            # Get current UTCModDate
             utc_mod_date = self._get_utc_timestamp()
 
-            # Update citation fields
+            # Update SourceTable.Fields
             cursor.execute(
                 """
-                UPDATE CitationTable
-                SET Footnote = ?,
-                    ShortFootnote = ?,
-                    Bibliography = ?,
+                UPDATE SourceTable
+                SET Fields = ?,
                     UTCModDate = ?
-                WHERE CitationID = ?
+                WHERE SourceID = ?
                 """,
-                (footnote, short_footnote, bibliography, utc_mod_date, citation_id),
+                (fields_xml.encode("utf-8"), utc_mod_date, source_id),
             )
 
             if cursor.rowcount == 0:
-                logger.warning(f"No citation found with CitationID={citation_id}")
+                logger.warning(f"No source found with SourceID={source_id}")
                 return
 
             self.conn.commit()
             logger.info(
-                f"Updated citation fields for CitationID={citation_id} "
+                f"Updated source fields for SourceID={source_id} "
                 f"(Footnote: {len(footnote)} chars, Short: {len(short_footnote)} chars, "
                 f"Bib: {len(bibliography)} chars)"
             )
 
         except sqlite3.Error as e:
             self.conn.rollback()
-            logger.error(f"Failed to update citation fields: {e}")
+            logger.error(f"Failed to update source fields: {e}")
             raise
 
     def find_media_by_file(self, media_file: str) -> int | None:
