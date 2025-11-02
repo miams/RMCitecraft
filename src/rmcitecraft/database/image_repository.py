@@ -536,31 +536,9 @@ class ImageRepository:
 
         person_row = cursor.fetchone()
 
-        # If not found, try phonetic matching with SOUNDEX for surname
-        # This handles typos like "Imas" vs "Iams"
         if not person_row:
-            logger.debug(f"Exact match not found for: {given_name} {surname}, trying SOUNDEX match")
-            cursor.execute(
-                """
-                SELECT OwnerID, Surname
-                FROM NameTable
-                WHERE SOUNDEX(Surname) = SOUNDEX(?)
-                  AND Given COLLATE RMNOCASE LIKE ?
-                  AND IsPrimary = 1
-                LIMIT 1
-                """,
-                (surname, f"{given_name}%"),
-            )
-            person_row = cursor.fetchone()
-
-            if person_row:
-                actual_surname = person_row[1]
-                logger.info(
-                    f"Found person using SOUNDEX match: '{surname}' matched '{actual_surname}'"
-                )
-            else:
-                logger.debug(f"Person not found even with SOUNDEX: {given_name} {surname}")
-                return None
+            logger.debug(f"Person not found: {given_name} {surname}")
+            return None
 
         person_id = person_row[0]
 
