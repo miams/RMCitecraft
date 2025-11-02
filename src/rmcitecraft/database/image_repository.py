@@ -156,14 +156,14 @@ class ImageRepository:
             logger.error(f"Failed to create media record: {e}")
             raise
 
-    def link_media_to_event(self, media_id: int, event_id: int, is_primary: bool = True) -> None:
+    def link_media_to_event(self, media_id: int, event_id: int, is_primary: bool = False) -> None:
         """
         Link media to census event in MediaLinkTable.
 
         Args:
             media_id: MediaID from MultimediaTable
             event_id: EventID from EventTable (census event)
-            is_primary: Whether this is the primary image for the event
+            is_primary: Whether this is the primary image for the event (default: False)
 
         Example:
             >>> repo.link_media_to_event(media_id=42, event_id=123)
@@ -317,6 +317,61 @@ class ImageRepository:
         except sqlite3.Error as e:
             self.conn.rollback()
             logger.error(f"Failed to link media to source: {e}")
+            raise
+
+    def update_citation_fields(
+        self, citation_id: int, footnote: str, short_footnote: str, bibliography: str
+    ) -> None:
+        """
+        Update citation fields in CitationTable with generated values.
+
+        Args:
+            citation_id: CitationID to update
+            footnote: Full footnote text (Evidence Explained format)
+            short_footnote: Short footnote text
+            bibliography: Bibliography entry text
+
+        Example:
+            >>> repo.update_citation_fields(
+            ...     citation_id=5130,
+            ...     footnote="1940 U.S. census, Tulsa County...",
+            ...     short_footnote="1940 U.S. census, Tulsa Co....",
+            ...     bibliography="U.S. Oklahoma. Tulsa County..."
+            ... )
+        """
+        cursor = self.conn.cursor()
+
+        try:
+            # Get current UTCModDate for the citation
+            utc_mod_date = self._get_utc_timestamp()
+
+            # Update citation fields
+            cursor.execute(
+                """
+                UPDATE CitationTable
+                SET Footnote = ?,
+                    ShortFootnote = ?,
+                    Bibliography = ?,
+                    UTCModDate = ?
+                WHERE CitationID = ?
+                """,
+                (footnote, short_footnote, bibliography, utc_mod_date, citation_id),
+            )
+
+            if cursor.rowcount == 0:
+                logger.warning(f"No citation found with CitationID={citation_id}")
+                return
+
+            self.conn.commit()
+            logger.info(
+                f"Updated citation fields for CitationID={citation_id} "
+                f"(Footnote: {len(footnote)} chars, Short: {len(short_footnote)} chars, "
+                f"Bib: {len(bibliography)} chars)"
+            )
+
+        except sqlite3.Error as e:
+            self.conn.rollback()
+            logger.error(f"Failed to update citation fields: {e}")
             raise
 
     def find_media_by_file(self, media_file: str) -> int | None:

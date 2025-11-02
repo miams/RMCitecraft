@@ -17,7 +17,9 @@ from pathlib import Path
 from loguru import logger
 
 from rmcitecraft.database.image_repository import ImageRepository
+from rmcitecraft.models.citation import ParsedCitation
 from rmcitecraft.models.image import ImageMetadata, ImageStatus
+from rmcitecraft.parsers.citation_formatter import CitationFormatter
 from rmcitecraft.services.directory_mapper import DirectoryMapper
 from rmcitecraft.services.filename_generator import FilenameGenerator
 
@@ -53,6 +55,7 @@ class ImageProcessingService:
         # Initialize services
         self.filename_gen = FilenameGenerator()
         self.dir_mapper = DirectoryMapper(media_root)
+        self.citation_formatter = CitationFormatter()
 
         # Active image tracking (in-memory)
         self._active_images: dict[str, ImageMetadata] = {}
@@ -421,6 +424,55 @@ class ImageProcessingService:
                     logger.info(f"Linked media to source: SourceID={source_id}")
                 else:
                     logger.warning(f"Could not find SourceID for CitationID={citation_id}")
+
+                # Generate and update citation fields in database
+                # Get source_name and familysearch_entry from database
+                cursor.execute(
+                    """
+                    SELECT s.Name, c.ActualText
+                    FROM CitationTable c
+                    JOIN SourceTable s ON c.SourceID = s.SourceID
+                    WHERE c.CitationID = ?
+                    """,
+                    (citation_id,),
+                )
+                citation_row = cursor.fetchone()
+                if not citation_row:
+                    logger.warning(
+                        f"Could not fetch source/citation data for CitationID={citation_id}"
+                    )
+                else:
+                    source_name = citation_row[0]
+                    familysearch_entry = citation_row[1] or ""
+
+                    # Create ParsedCitation from metadata
+                    parsed_citation = ParsedCitation(
+                        citation_id=citation_id,
+                        source_name=source_name,
+                        familysearch_entry=familysearch_entry,
+                        census_year=metadata.year,
+                        state=metadata.state,
+                        county=metadata.county,
+                        person_name=f"{metadata.given_name} {metadata.surname}",
+                        surname=metadata.surname,
+                        given_name=metadata.given_name,
+                        familysearch_url=metadata.familysearch_url,
+                        access_date=metadata.access_date,
+                    )
+
+                    # Format citations
+                    footnote, short_footnote, bibliography = self.citation_formatter.format(
+                        parsed_citation
+                    )
+
+                    # Update database
+                    image_repo.update_citation_fields(
+                        citation_id=citation_id,
+                        footnote=footnote,
+                        short_footnote=short_footnote,
+                        bibliography=bibliography,
+                    )
+                    logger.info(f"Updated citation fields in database for CitationID={citation_id}")
             else:
                 logger.warning(f"Census event not found for CitationID={citation_id}")
 
