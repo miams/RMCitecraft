@@ -482,7 +482,7 @@ Plan storage accordingly for large family trees.
 ### Documentation
 
 - **Full Architecture**: `docs/architecture/IMAGE-MANAGEMENT-ARCHITECTURE.md`
-- **Developer Guide**: `docs/development/IMAGE-IMPLEMENTATION-PLAN.md`
+- **Developer Guide**: `docs/project/IMAGE-IMPLEMENTATION-PLAN.md`
 - **General Help**: Press `F1` in RMCitecraft
 
 ### Support
