@@ -1918,6 +1918,11 @@ class CitationManagerTab:
             logger.info(f"Processed citation: {citation_id} (CitationID={rm_citation_id})")
             ui.notify("Citation saved to RootsMagic database", type="positive")
 
+            # Check if image exists, request download if missing
+            familysearch_url = data.get("familySearchUrl", "")
+            if familysearch_url:
+                self._check_and_request_image_download(rm_citation_id, familysearch_url)
+
             dialog.close()
             self._refresh_pending_citations()
 
@@ -1944,6 +1949,61 @@ class CitationManagerTab:
         """Refresh the pending citations display."""
         if self.pending_citations_container:
             self._update_pending_citations_display()
+
+    def _check_and_request_image_download(self, citation_id: int, familysearch_url: str) -> None:
+        """Check if citation has image, request download if missing.
+
+        Args:
+            citation_id: RootsMagic CitationID
+            familysearch_url: FamilySearch URL for the census record
+        """
+        try:
+            from rmcitecraft.database.connection import connect_rmtree
+            from rmcitecraft.services.command_queue import get_command_queue
+
+            # Check if citation already has linked image
+            db_conn = connect_rmtree(self.db_path)
+            cursor = db_conn.cursor()
+
+            try:
+                # Query MediaLinkTable for images linked to this citation
+                cursor.execute(
+                    """
+                    SELECT m.MediaID, m.MediaFile
+                    FROM MediaLinkTable ml
+                    JOIN MultimediaTable m ON ml.MediaID = m.MediaID
+                    WHERE ml.OwnerType = 4 AND ml.OwnerID = ?
+                    """,
+                    (citation_id,),
+                )
+
+                image = cursor.fetchone()
+
+                if image:
+                    logger.info(
+                        f"Citation {citation_id} already has image: {image[1]}, skipping download request"
+                    )
+                    return
+
+                # No image found - request download from extension
+                logger.info(f"Citation {citation_id} missing image, requesting download...")
+
+                command_queue = get_command_queue()
+                command_id = command_queue.add(
+                    "download_image",
+                    {"url": familysearch_url, "citation_id": citation_id},
+                )
+
+                logger.info(f"Queued download_image command {command_id} for CitationID={citation_id}")
+                ui.notify(
+                    "Image missing - download requested from browser extension", type="info"
+                )
+
+            finally:
+                db_conn.close()
+
+        except Exception as e:
+            logger.error(f"Failed to check/request image download: {e}")
 
     def cleanup(self) -> None:
         """Clean up resources."""

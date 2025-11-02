@@ -6,9 +6,12 @@ Provides HTTP API for:
 - Citation import from extension
 - Command queue management for extension
 - Image management and status tracking
+- WebSocket real-time communication
 """
 
-from fastapi import APIRouter, Body, HTTPException
+import asyncio
+
+from fastapi import APIRouter, Body, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
@@ -432,5 +435,109 @@ def create_api_router() -> APIRouter:
             pass  # Image service may not be initialized yet
 
         return JSONResponse(content=stats)
+
+    # -------------------------------------------------------------------------
+    # WebSocket for Real-Time Communication
+    # -------------------------------------------------------------------------
+
+    @router.websocket("/ws/extension")
+    async def websocket_extension(websocket: WebSocket):
+        """
+        WebSocket endpoint for real-time bidirectional communication with extension.
+
+        Provides instant command delivery without polling. Extension connects on startup
+        and maintains persistent connection. RMCitecraft sends commands as they're queued.
+
+        Protocol:
+            RMCitecraft → Extension:
+                {"type": "command", "data": {...}}
+
+            Extension → RMCitecraft:
+                {"type": "command_response", "command_id": "...", "status": "...", ...}
+                {"type": "citation_import", "data": {...}}
+                {"type": "ping"}
+
+        Connection lifecycle:
+            1. Extension connects
+            2. Server sends pending commands
+            3. Both sides can send messages
+            4. Extension acknowledges command completion
+            5. Connection stays open until browser closes
+        """
+        await websocket.accept()
+        logger.info("Extension WebSocket connected")
+
+        try:
+            # Send any pending commands immediately upon connection
+            command_queue = get_command_queue()
+            pending = command_queue.get_pending()
+            if pending:
+                await websocket.send_json({"type": "commands", "data": pending})
+                logger.info(f"Sent {len(pending)} pending command(s) via WebSocket")
+
+            # Main message loop
+            while True:
+                # Wait for message from extension with timeout
+                try:
+                    message = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
+                except asyncio.TimeoutError:
+                    # Send ping to keep connection alive
+                    await websocket.send_json({"type": "ping"})
+                    continue
+
+                msg_type = message.get("type")
+                logger.debug(f"WebSocket received: {msg_type}")
+
+                # Handle different message types
+                if msg_type == "command_response":
+                    # Extension completed a command
+                    command_id = message.get("command_id")
+                    status = message.get("status")
+                    response_data = message.get("data")
+
+                    if status == "error":
+                        command_queue.fail(command_id, response_data.get("error"))
+                    else:
+                        command_queue.complete(command_id, response_data)
+
+                    # Send acknowledgment
+                    await websocket.send_json({"type": "ack", "command_id": command_id})
+
+                elif msg_type == "citation_import":
+                    # Extension sending citation data
+                    citation_data = message.get("data")
+                    import_service = get_citation_import_service()
+                    citation_id = import_service.import_citation(citation_data)
+
+                    # Send confirmation
+                    await websocket.send_json(
+                        {
+                            "type": "citation_imported",
+                            "citation_id": citation_id,
+                            "status": "success",
+                        }
+                    )
+
+                elif msg_type == "ping":
+                    # Respond to ping
+                    await websocket.send_json({"type": "pong"})
+
+                elif msg_type == "check_commands":
+                    # Extension requesting pending commands
+                    pending = command_queue.get_pending()
+                    if pending:
+                        await websocket.send_json({"type": "commands", "data": pending})
+
+                else:
+                    logger.warning(f"Unknown WebSocket message type: {msg_type}")
+
+        except WebSocketDisconnect:
+            logger.info("Extension WebSocket disconnected")
+        except Exception as e:
+            logger.error(f"WebSocket error: {e}")
+            try:
+                await websocket.close()
+            except Exception:
+                pass
 
     return router

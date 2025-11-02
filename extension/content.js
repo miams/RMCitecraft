@@ -333,6 +333,113 @@ async function autoExtractAndSend() {
 }
 
 /**
+ * Download census image from FamilySearch
+ */
+async function downloadCensusImage() {
+  log('Attempting to download census image...');
+
+  // Strategy 1: Try to find the image element directly
+  const imageSelectors = [
+    'img[src*="familysearch"]',
+    'img[class*="image"]',
+    'img[class*="record"]',
+    '[data-testid="record-image"] img',
+    '.image-viewer img'
+  ];
+
+  let imageUrl = null;
+  for (const selector of imageSelectors) {
+    const img = document.querySelector(selector);
+    if (img && img.src && img.src.includes('http')) {
+      imageUrl = img.src;
+      log('Found image via selector:', selector, imageUrl);
+      break;
+    }
+  }
+
+  // Strategy 2: Try to find download link
+  if (!imageUrl) {
+    const downloadSelectors = [
+      'a[href*="download"]',
+      'a[href*="image"]',
+      '[data-testid="download-link"]',
+      'a[aria-label*="Download"]'
+    ];
+
+    for (const selector of downloadSelectors) {
+      const link = document.querySelector(selector);
+      if (link && link.href) {
+        imageUrl = link.href;
+        log('Found download link:', imageUrl);
+        break;
+      }
+    }
+  }
+
+  // Strategy 3: Click download button and intercept the download
+  if (!imageUrl) {
+    const downloadButton = document.querySelector(
+      '[aria-label="Download"], [data-testid="download-button"], button[title="Download"], button:has-text("Download")'
+    );
+
+    if (downloadButton) {
+      log('Found download button, clicking...');
+      downloadButton.click();
+
+      // Give it a moment to process
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Check if download started (user will need to have downloaded the file)
+      return {
+        method: 'button_click',
+        message: 'Download button clicked - file should download to browser default location'
+      };
+    }
+  }
+
+  if (!imageUrl) {
+    throw new Error('Could not find census image or download button on this page');
+  }
+
+  // Use chrome.downloads API to download
+  try {
+    // Request download via background script (content scripts can't use chrome.downloads directly)
+    const response = await chrome.runtime.sendMessage({
+      type: 'DOWNLOAD_FILE',
+      url: imageUrl,
+      filename: 'census-image.jpg' // Will be renamed by RMCitecraft
+    });
+
+    if (response && response.success) {
+      log('Download initiated via chrome.downloads');
+      return {
+        method: 'chrome_download',
+        downloadId: response.downloadId,
+        url: imageUrl
+      };
+    } else {
+      throw new Error(response?.error || 'Download failed');
+    }
+  } catch (error) {
+    log('Chrome download failed, falling back to direct download:', error);
+
+    // Fallback: Create temporary link and click it
+    const a = document.createElement('a');
+    a.href = imageUrl;
+    a.download = 'census-image.jpg';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    return {
+      method: 'direct_download',
+      url: imageUrl
+    };
+  }
+}
+
+/**
  * Handle messages from popup and background script
  */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -367,19 +474,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'download_image') {
-    log('Received download_image command');
+    log('Received download_image command from RMCitecraft');
 
-    // Find and click the download button on FamilySearch page
-    const downloadButton = document.querySelector('[aria-label="Download"], [data-testid="download-button"], button[title="Download"]');
-
-    if (downloadButton) {
-      downloadButton.click();
-      sendResponse({ status: 'success', message: 'Download initiated' });
-      showNotification('⬇ Downloading image...', 'info');
-    } else {
-      sendResponse({ status: 'error', error: 'Download button not found' });
-      showNotification('⚠ Download button not found', 'error');
-    }
+    // Try to find and download the image
+    downloadCensusImage()
+      .then((result) => {
+        sendResponse({ status: 'success', ...result });
+        showNotification('⬇ Image downloaded', 'success');
+      })
+      .catch((error) => {
+        sendResponse({ status: 'error', error: error.message });
+        showNotification(`⚠ Download failed: ${error.message}`, 'error');
+      });
 
     return true; // Will respond asynchronously
   }

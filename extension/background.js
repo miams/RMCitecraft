@@ -8,16 +8,134 @@
 // Configuration
 const RMCITECRAFT_PORT = 8080;
 const RMCITECRAFT_BASE_URL = `http://localhost:${RMCITECRAFT_PORT}`;
+const RMCITECRAFT_WS_URL = `ws://localhost:${RMCITECRAFT_PORT}/api/ws/extension`;
 const POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
 const HEALTH_CHECK_INTERVAL_MS = 10000; // Check health every 10 seconds
+const WS_RECONNECT_INTERVAL_MS = 5000; // Reconnect WebSocket every 5 seconds if disconnected
 
 // State
 let isConnected = false;
-let isPoll
-
-ing = false;
+let isPolling = false;
 let pollIntervalId = null;
 let healthCheckIntervalId = null;
+let websocket = null;
+let useWebSocket = true; // Prefer WebSocket over polling
+let wsReconnectTimeout = null;
+
+/**
+ * Connect to RMCitecraft via WebSocket
+ */
+function connectWebSocket() {
+  if (websocket && websocket.readyState === WebSocket.OPEN) {
+    return; // Already connected
+  }
+
+  try {
+    console.log('[RMCitecraft] Connecting to WebSocket...');
+    websocket = new WebSocket(RMCITECRAFT_WS_URL);
+
+    websocket.onopen = () => {
+      console.log('[RMCitecraft] WebSocket connected');
+      isConnected = true;
+      useWebSocket = true;
+      stopPolling(); // Stop polling if it was running
+      updateBadge('connected');
+
+      // Clear reconnect timeout if any
+      if (wsReconnectTimeout) {
+        clearTimeout(wsReconnectTimeout);
+        wsReconnectTimeout = null;
+      }
+    };
+
+    websocket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        handleWebSocketMessage(message);
+      } catch (error) {
+        console.error('[RMCitecraft] WebSocket message parse error:', error);
+      }
+    };
+
+    websocket.onerror = (error) => {
+      console.error('[RMCitecraft] WebSocket error:', error);
+    };
+
+    websocket.onclose = () => {
+      console.log('[RMCitecraft] WebSocket closed');
+      websocket = null;
+
+      // Try to reconnect after interval
+      if (isConnected) {
+        isConnected = false;
+        updateBadge('disconnected');
+
+        // Fall back to polling
+        console.log('[RMCitecraft] Falling back to polling mode');
+        useWebSocket = false;
+        startPolling();
+      }
+
+      // Schedule reconnect attempt
+      wsReconnectTimeout = setTimeout(() => {
+        if (isConnected) {
+          connectWebSocket();
+        }
+      }, WS_RECONNECT_INTERVAL_MS);
+    };
+
+  } catch (error) {
+    console.error('[RMCitecraft] WebSocket connection error:', error);
+    useWebSocket = false;
+  }
+}
+
+/**
+ * Handle WebSocket message from RMCitecraft
+ */
+async function handleWebSocketMessage(message) {
+  console.log('[RMCitecraft] WebSocket received:', message.type);
+
+  switch (message.type) {
+    case 'commands':
+      // Received pending commands
+      if (message.data && message.data.length > 0) {
+        for (const command of message.data) {
+          await handleCommand(command);
+        }
+      }
+      break;
+
+    case 'ping':
+      // Respond to ping
+      sendWebSocketMessage({ type: 'pong' });
+      break;
+
+    case 'ack':
+      // Command acknowledged
+      console.log('[RMCitecraft] Command acknowledged:', message.command_id);
+      break;
+
+    case 'citation_imported':
+      // Citation was successfully imported
+      console.log('[RMCitecraft] Citation imported:', message.citation_id);
+      break;
+
+    default:
+      console.warn('[RMCitecraft] Unknown WebSocket message type:', message.type);
+  }
+}
+
+/**
+ * Send message via WebSocket
+ */
+function sendWebSocketMessage(message) {
+  if (websocket && websocket.readyState === WebSocket.OPEN) {
+    websocket.send(JSON.stringify(message));
+    return true;
+  }
+  return false;
+}
 
 /**
  * Check if RMCitecraft is running
@@ -33,7 +151,14 @@ async function checkRMCitecraftHealth() {
       if (!isConnected) {
         console.log('[RMCitecraft] Connected to RMCitecraft');
         isConnected = true;
-        startPolling();
+
+        // Try WebSocket first, fall back to polling
+        if (useWebSocket) {
+          connectWebSocket();
+        } else {
+          startPolling();
+        }
+
         updateBadge('connected');
       }
       return true;
@@ -43,6 +168,12 @@ async function checkRMCitecraftHealth() {
       console.log('[RMCitecraft] Lost connection to RMCitecraft');
       isConnected = false;
       stopPolling();
+
+      if (websocket) {
+        websocket.close();
+        websocket = null;
+      }
+
       updateBadge('disconnected');
     }
     return false;
@@ -155,6 +286,18 @@ async function executeDownloadImage(command) {
  * Send command response back to RMCitecraft
  */
 async function respondToCommand(commandId, response) {
+  // Try WebSocket first
+  if (websocket && websocket.readyState === WebSocket.OPEN) {
+    sendWebSocketMessage({
+      type: 'command_response',
+      command_id: commandId,
+      status: response.status || 'success',
+      data: response
+    });
+    return;
+  }
+
+  // Fall back to HTTP
   try {
     await fetch(`${RMCITECRAFT_BASE_URL}/api/extension/commands/${commandId}`, {
       method: 'DELETE',
@@ -196,6 +339,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .then(connected => sendResponse({ connected }))
       .catch(() => sendResponse({ connected: false }));
     return true; // Will respond asynchronously
+  } else if (message.type === 'DOWNLOAD_FILE') {
+    // Download file using chrome.downloads API
+    chrome.downloads.download({
+      url: message.url,
+      filename: message.filename || 'download.jpg',
+      saveAs: false // Auto-save to default downloads folder
+    }, (downloadId) => {
+      if (chrome.runtime.lastError) {
+        console.error('[RMCitecraft] Download error:', chrome.runtime.lastError);
+        sendResponse({ success: false, error: chrome.runtime.lastError.message });
+      } else {
+        console.log('[RMCitecraft] Download started:', downloadId);
+        sendResponse({ success: true, downloadId });
+      }
+    });
+    return true; // Will respond asynchronously
   }
 });
 
@@ -203,6 +362,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
  * Send citation data to RMCitecraft
  */
 async function sendCitationData(citationData) {
+  // Try WebSocket first
+  if (websocket && websocket.readyState === WebSocket.OPEN) {
+    return new Promise((resolve, reject) => {
+      // Send via WebSocket
+      sendWebSocketMessage({
+        type: 'citation_import',
+        data: citationData
+      });
+
+      // Set timeout for response
+      const timeout = setTimeout(() => {
+        reject(new Error('Citation import timeout'));
+      }, 10000);
+
+      // Listen for response (handled in handleWebSocketMessage)
+      // For now, resolve immediately as WebSocket is fire-and-forget
+      clearTimeout(timeout);
+      resolve({ status: 'sent_via_websocket' });
+    });
+  }
+
+  // Fall back to HTTP
   const response = await fetch(`${RMCITECRAFT_BASE_URL}/api/citation/import`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
