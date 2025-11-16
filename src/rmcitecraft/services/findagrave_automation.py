@@ -181,6 +181,21 @@ class FindAGraveAutomation:
             except Exception as e:
                 logger.warning(f"Timeout waiting for h1: {e}")
 
+            # Click "Read More" button if it exists to expand full biography text
+            logger.info("Checking for 'Read More' button...")
+            try:
+                read_more_button = await page.query_selector('a.read-more, button.read-more, a:has-text("Read More"), button:has-text("Read More")')
+                if read_more_button:
+                    logger.info("Found 'Read More' button, clicking to expand full text...")
+                    await read_more_button.click()
+                    # Wait a moment for content to expand
+                    await page.wait_for_timeout(500)
+                    logger.info("Full biography text expanded")
+                else:
+                    logger.info("No 'Read More' button found (full text already visible)")
+            except Exception as e:
+                logger.warning(f"Error handling 'Read More' button: {e}")
+
             # Extract memorial data using JavaScript
             logger.info("Extracting memorial data...")
             memorial_data = await page.evaluate("""
@@ -238,9 +253,18 @@ class FindAGraveAutomation:
                     const citationDiv = document.querySelector('#citationInfo');
                     data.citationText = citationDiv ? citationDiv.textContent.trim() : '';
 
-                    // Extract creator information (originally created by)
-                    const createdByInput = document.querySelector('#originallyCreatedBy');
-                    data.createdBy = createdByInput ? createdByInput.value : '';
+                    // Extract creator information
+                    // Try simple "Created by:" first, then fall back to "Originally Created by:"
+                    const createdBySimple = document.querySelector('#createdBy');
+                    const createdByOriginal = document.querySelector('#originallyCreatedBy');
+
+                    if (createdBySimple && createdBySimple.value) {
+                        data.createdBy = createdBySimple.value;
+                    } else if (createdByOriginal && createdByOriginal.value) {
+                        data.createdBy = createdByOriginal.value;
+                    } else {
+                        data.createdBy = '';
+                    }
 
                     // Extract maintainer information (maintained by)
                     const maintainedInput = document.querySelector('#maintainedBy');
@@ -248,27 +272,71 @@ class FindAGraveAutomation:
 
                     // Extract memorial text (biography, inscription, veteran info, etc.)
                     // Find a Grave stores this in #partBio or #fullBio elements
+
+                    // Helper function to extract text while preserving paragraph breaks
+                    const extractTextWithLineBreaks = (element) => {
+                        if (!element) return '';
+
+                        // Get innerHTML and convert block elements to text with newlines
+                        let html = element.innerHTML;
+
+                        // Replace closing tags of block elements with blank line separator
+                        // Using newline + space + newline to ensure RootsMagic shows blank line
+                        html = html.replace(/<\/(p|div|h1|h2|h3|h4|h5|h6)>/gi, '\\n \\n');
+
+                        // Replace <br> tags with single newline
+                        html = html.replace(/<br\\s*\/?>/gi, '\\n');
+
+                        // Replace list items with newline
+                        html = html.replace(/<\/li>/gi, '\\n');
+
+                        // Remove all remaining HTML tags
+                        html = html.replace(/<[^>]+>/g, '');
+
+                        // Decode HTML entities
+                        const textarea = document.createElement('textarea');
+                        textarea.innerHTML = html;
+                        let text = textarea.value;
+
+                        // Normalize whitespace: collapse multiple spaces/tabs to single space
+                        text = text.replace(/[ \\t]+/g, ' ');
+
+                        // Remove leading/trailing spaces from each line, BUT preserve lines with just a space (blank line markers)
+                        const lines = text.split('\\n');
+                        text = lines.map(line => {
+                            // Keep single-space lines as-is (our blank line markers)
+                            if (line === ' ') return line;
+                            // Trim all other lines
+                            return line.trim();
+                        }).join('\\n');
+
+                        // Remove excessive consecutive newlines (3+ becomes 2)
+                        text = text.replace(/\\n{3,}/g, '\\n\\n');
+
+                        return text.trim();
+                    };
+
                     let memorialText = '';
 
-                    // Primary: Extract from #partBio (visible biography/memorial text)
-                    const partBio = document.querySelector('#partBio');
-                    if (partBio) {
-                        memorialText = partBio.textContent.trim();
+                    // Primary: Try #fullBio first (contains complete text without truncation)
+                    const fullBio = document.querySelector('#fullBio');
+                    if (fullBio) {
+                        memorialText = extractTextWithLineBreaks(fullBio);
                     }
 
-                    // Fallback: Try #fullBio (print version, same content)
+                    // Fallback 1: Extract from #partBio (visible biography, may be truncated)
                     if (!memorialText) {
-                        const fullBio = document.querySelector('#fullBio');
-                        if (fullBio) {
-                            memorialText = fullBio.textContent.trim();
+                        const partBio = document.querySelector('#partBio');
+                        if (partBio) {
+                            memorialText = extractTextWithLineBreaks(partBio);
                         }
                     }
 
-                    // Alternative fallback: .bio-min class
+                    // Fallback 2: .bio-min class
                     if (!memorialText) {
                         const bioMin = document.querySelector('.bio-min');
                         if (bioMin) {
-                            memorialText = bioMin.textContent.trim();
+                            memorialText = extractTextWithLineBreaks(bioMin);
                         }
                     }
 
@@ -315,6 +383,9 @@ class FindAGraveAutomation:
 
             # Extract access date
             memorial_data['accessDate'] = datetime.now().strftime("%B %d, %Y")
+
+            # Extract source comment data (biographical summary, photos, family)
+            memorial_data['sourceComment'] = await self._extract_source_comment(page, memorial_data)
 
             logger.info(f"Extracted memorial data for: {memorial_data.get('personName')}")
             logger.debug(f"Memorial data: {memorial_data}")
@@ -584,6 +655,303 @@ class FindAGraveAutomation:
             logger.warning(f"Could not extract captions from JSON data: {e}")
             # Return photos unchanged - Phase 1 metadata is still valid
             return photos
+
+    async def _extract_source_comment(self, page: Page, memorial_data: dict) -> str:
+        """
+        Extract data for Source Comment field.
+
+        Formats three sections:
+        1. Biographical Summary (Birth, Death, Burial)
+        2. Photo Summary (list of photos with types)
+        3. Family Members (Parents, Spouse, Siblings, Children)
+
+        Args:
+            page: Playwright page
+            memorial_data: Memorial data with basic info
+
+        Returns:
+            Formatted source comment text
+        """
+        try:
+            # Extract biographical and family data from page
+            comment_data = await page.evaluate("""
+                () => {
+                    const data = {
+                        birth: { date: '', location: '' },
+                        death: { date: '', location: '' },
+                        burial: { cemetery: '', location: '' },
+                        family: {
+                            parents: [],
+                            spouse: [],
+                            siblings: [],
+                            children: []
+                        }
+                    };
+
+                    // === Extract Birth/Death/Burial Info ===
+                    // Find all dl/dt/dd elements which contain vital info
+                    const vitals = document.querySelectorAll('dl');
+                    for (const dl of vitals) {
+                        const items = dl.querySelectorAll('dt, dd');
+                        let currentLabel = '';
+
+                        for (const item of items) {
+                            const text = item.textContent.trim();
+
+                            if (item.tagName === 'DT') {
+                                currentLabel = text.toLowerCase();
+                            } else if (item.tagName === 'DD') {
+                                if (currentLabel.includes('birth')) {
+                                    // Extract birth date and location
+                                    const parts = text.split('\\n').map(p => p.trim()).filter(p => p);
+                                    if (parts.length >= 1) data.birth.date = parts[0];
+                                    if (parts.length >= 2) data.birth.location = parts.slice(1).join(', ');
+                                } else if (currentLabel.includes('death')) {
+                                    // Extract death date and location
+                                    const parts = text.split('\\n').map(p => p.trim()).filter(p => p);
+                                    if (parts.length >= 1) {
+                                        // Remove "(aged XX)" from date
+                                        data.death.date = parts[0].replace(/\\s*\\(aged \\d+\\)\\s*/i, '').trim();
+                                    }
+                                    if (parts.length >= 2) data.death.location = parts.slice(1).join(', ');
+                                } else if (currentLabel.includes('burial')) {
+                                    // Extract burial cemetery and location
+                                    const cemeteryLink = item.querySelector('a[href*="/cemetery/"]');
+                                    if (cemeteryLink) {
+                                        data.burial.cemetery = cemeteryLink.textContent.trim();
+                                    }
+
+                                    // Get location from specific spans, avoiding duplicates and GPS data
+                                    const locationParts = [];
+                                    const citySpan = item.querySelector('#cemeteryCityName, [itemprop="addressLocality"]');
+                                    const countySpan = item.querySelector('#cemeteryCountyName');
+                                    const stateSpan = item.querySelector('#cemeteryStateName, [itemprop="addressRegion"]');
+                                    const countrySpan = item.querySelector('#cemeteryCountryName');
+
+                                    if (citySpan && citySpan.textContent.trim()) locationParts.push(citySpan.textContent.trim());
+                                    if (countySpan && countySpan.textContent.trim()) locationParts.push(countySpan.textContent.trim());
+                                    if (stateSpan && stateSpan.textContent.trim()) locationParts.push(stateSpan.textContent.trim());
+                                    if (countrySpan && countrySpan.textContent.trim()) locationParts.push(countrySpan.textContent.trim());
+
+                                    data.burial.location = locationParts.join(', ');
+                                }
+                            }
+                        }
+                    }
+
+                    // === Extract Family Members ===
+                    // Find all family member lists
+                    const familyLists = document.querySelectorAll('.member-family');
+
+                    for (const list of familyLists) {
+                        // Determine relationship type from previous heading
+                        let relationshipType = '';
+                        let sibling = list.previousElementSibling;
+                        while (sibling) {
+                            const text = sibling.textContent.trim().toLowerCase();
+                            if (text.includes('parent')) {
+                                relationshipType = 'parents';
+                                break;
+                            } else if (text.includes('spouse')) {
+                                relationshipType = 'spouse';
+                                break;
+                            } else if (text.includes('sibling')) {
+                                relationshipType = 'siblings';
+                                break;
+                            } else if (text.includes('child')) {
+                                relationshipType = 'children';
+                                break;
+                            }
+                            sibling = sibling.previousElementSibling;
+                        }
+
+                        if (!relationshipType) continue;
+
+                        // Extract members from this list
+                        const items = list.querySelectorAll('li');
+                        for (const item of items) {
+                            // Only process top-level li items (not nested ones)
+                            if (item.parentElement !== list) continue;
+
+                            // Get the name link
+                            const nameLink = item.querySelector('a[href*="/memorial/"]');
+                            if (!nameLink) continue;
+
+                            const name = nameLink.textContent.trim().replace(/\\s+/g, ' ');
+
+                            // Extract dates from the FIRST text occurrence only
+                            // Strategy: Get only the immediate text nodes near the link
+                            let datesText = '';
+
+                            // Look for text nodes and small elements directly after the link
+                            let currentNode = nameLink.nextSibling;
+                            let textParts = [];
+                            let foundDate = false;
+
+                            while (currentNode && !foundDate) {
+                                if (currentNode.nodeType === Node.TEXT_NODE) {
+                                    const text = currentNode.textContent.trim();
+                                    if (text) textParts.push(text);
+                                } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+                                    // Only examine small inline elements, skip UL/OL
+                                    if (currentNode.tagName !== 'UL' && currentNode.tagName !== 'OL') {
+                                        const text = currentNode.textContent.trim();
+                                        if (text) {
+                                            textParts.push(text);
+                                            // If we found a date pattern, we're done
+                                            if (/\\d{4}/.test(text)) {
+                                                foundDate = true;
+                                            }
+                                        }
+                                    } else {
+                                        // Hit a nested list, stop
+                                        break;
+                                    }
+                                }
+                                currentNode = currentNode.nextSibling;
+                            }
+
+                            datesText = textParts.join(' ');
+
+                            // Extract date range (birth-death)
+                            let dates = '';
+                            const dateMatch = datesText.match(/(\\d{4})\\s*[–-]\\s*(\\d{4}|)/);
+                            if (dateMatch) {
+                                const startYear = dateMatch[1];
+                                const endYear = dateMatch[2] ? dateMatch[2].trim() : '';
+                                dates = endYear ? `${startYear}–${endYear}` : startYear;
+                            }
+
+                            // Extract marriage date if present (for spouses)
+                            const marriageMatch = datesText.match(/\\(m\\.\\s*(\\d{4})\\)/);
+                            if (marriageMatch && !dates.includes('(m.')) {
+                                dates += ` (m. ${marriageMatch[1]})`;
+                            }
+
+                            if (name) {
+                                data.family[relationshipType].push({
+                                    name: name,
+                                    dates: dates
+                                });
+                            }
+                        }
+                    }
+
+                    return data;
+                }
+            """)
+
+            # Format the source comment with three sections
+            sections = []
+
+            # === Section 1: Biographical Details ===
+            bio_lines = ["<b>Biographical Details</b>"]
+            has_bio_data = False
+
+            if comment_data.get('birth', {}).get('date'):
+                birth = comment_data['birth']
+                bio_lines.append("Birth  " + birth['date'])
+                if birth.get('location'):
+                    bio_lines.append("       " + birth['location'])
+                has_bio_data = True
+
+            if comment_data.get('death', {}).get('date'):
+                death = comment_data['death']
+                if has_bio_data:
+                    bio_lines.append("")
+                bio_lines.append("Death  " + death['date'])
+                if death.get('location'):
+                    bio_lines.append("       " + death['location'])
+                has_bio_data = True
+
+            if comment_data.get('burial', {}).get('cemetery'):
+                burial = comment_data['burial']
+                if has_bio_data:
+                    bio_lines.append("")
+                bio_lines.append("Burial")
+                bio_lines.append("       " + burial['cemetery'])
+                if burial.get('location'):
+                    bio_lines.append("       " + burial['location'])
+                has_bio_data = True
+
+            if not has_bio_data:
+                bio_lines.append("none")
+
+            sections.append("\n".join(bio_lines))
+
+            # === Section 2: Photo Summary ===
+            photo_lines = ["<b>Photo Summary</b>"]
+            photos = memorial_data.get('photos', [])
+            if photos:
+                for i, photo in enumerate(photos, 1):
+                    photo_type = photo.get('photoType', 'Photo')
+                    if not photo_type:
+                        photo_type = 'Photo'
+                    photo_lines.append(f"{i}. {photo_type} Photo")
+            else:
+                photo_lines.append("none")
+
+            sections.append("\n".join(photo_lines))
+
+            # === Section 3: Identified Family ===
+            family_lines = ["<b>Identified Family</b>"]
+            family = comment_data.get('family', {})
+            has_family_data = False
+
+            if family.get('parents'):
+                family_lines.append("Parents")
+                for member in family['parents']:
+                    name_dates = f"  {member['name']}"
+                    if member.get('dates'):
+                        name_dates += f" {member['dates']}"
+                    family_lines.append(name_dates)
+                family_lines.append("")
+                has_family_data = True
+
+            if family.get('spouse'):
+                family_lines.append("Spouse")
+                for member in family['spouse']:
+                    name_dates = f"  {member['name']}"
+                    if member.get('dates'):
+                        name_dates += f" {member['dates']}"
+                    family_lines.append(name_dates)
+                family_lines.append("")
+                has_family_data = True
+
+            if family.get('siblings'):
+                family_lines.append("Siblings")
+                for member in family['siblings']:
+                    name_dates = f"  {member['name']}"
+                    if member.get('dates'):
+                        name_dates += f" {member['dates']}"
+                    family_lines.append(name_dates)
+                family_lines.append("")
+                has_family_data = True
+
+            if family.get('children'):
+                family_lines.append("Children")
+                for member in family['children']:
+                    name_dates = f"  {member['name']}"
+                    if member.get('dates'):
+                        name_dates += f" {member['dates']}"
+                    family_lines.append(name_dates)
+                has_family_data = True
+
+            # Remove trailing empty line if present
+            while family_lines and family_lines[-1] == "":
+                family_lines.pop()
+
+            if not has_family_data:
+                family_lines.append("none")
+
+            sections.append("\n".join(family_lines))
+
+            # Combine all sections with double newlines
+            return "\n\n".join(sections)
+
+        except Exception as e:
+            logger.warning(f"Could not extract source comment data: {e}")
+            return ""
 
     def _extract_maiden_name(self, person_name: str) -> str:
         """

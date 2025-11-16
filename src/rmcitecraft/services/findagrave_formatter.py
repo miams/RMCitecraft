@@ -74,15 +74,23 @@ def format_findagrave_citation(
 
     contributor_parts = []
 
-    # Parse "Originally Created by: Tim Gruber (47185765)" format
+    # Parse creator info - handle both "Created by:" and "Originally Created by:" formats
     if created_by:
-        creator_match = created_by.replace("Originally Created by:", "").replace("Originally created by:", "").strip()
+        # Remove prefixes to get the name
+        creator_match = created_by
+        for prefix in ["Originally Created by:", "Originally created by:", "Created by:", "Created By:"]:
+            creator_match = creator_match.replace(prefix, "").strip()
+
         if creator_match:
-            contributor_parts.append(f"originally created by {creator_match}")
+            # Use "created by" (without "originally") for simpler format
+            if "Originally" in created_by:
+                contributor_parts.append(f"originally created by {creator_match}")
+            else:
+                contributor_parts.append(f"created by {creator_match}")
 
     # Parse "Maintained by: Debbie Day (47210776)" format
     if maintained_by:
-        maintainer_match = maintained_by.replace("Maintained by:", "").strip()
+        maintainer_match = maintained_by.replace("Maintained by:", "").replace("Maintained By:", "").strip()
         if maintainer_match:
             contributor_parts.append(f"maintained by {maintainer_match}")
 

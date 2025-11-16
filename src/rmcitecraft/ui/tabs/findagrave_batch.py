@@ -594,6 +594,7 @@ class FindAGraveBatchTab:
                         short_footnote=citation['short_footnote'],
                         bibliography=citation['bibliography'],
                         memorial_text=memorial_data.get('memorialText', ''),
+                        source_comment=memorial_data.get('sourceComment', ''),
                     )
 
                     # Mark as complete

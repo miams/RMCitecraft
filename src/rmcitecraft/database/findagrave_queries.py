@@ -202,6 +202,7 @@ def create_findagrave_source_and_citation(
     short_footnote: str,
     bibliography: str,
     memorial_text: str = '',
+    source_comment: str = '',
 ) -> dict[str, int]:
     """
     Create Find a Grave source and citation in database.
@@ -215,6 +216,7 @@ def create_findagrave_source_and_citation(
         short_footnote: Formatted short footnote
         bibliography: Formatted bibliography
         memorial_text: Memorial text from Find a Grave (biography, veteran info, etc.)
+        source_comment: Source comment (biographical summary, photos, family members)
 
     Returns:
         Dictionary with created IDs:
@@ -251,7 +253,7 @@ def create_findagrave_source_and_citation(
             source_name,
             '',  # RefNumber (blank - URL is in footnote)
             memorial_text,  # ActualText (memorial biography/veteran info)
-            '',  # Comments (reserved for future use)
+            source_comment,  # Comments (biographical summary, photos, family)
             source_fields_xml.encode('utf-8'),  # Fields BLOB
             utc_mod_date,
         ))
