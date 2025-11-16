@@ -18,7 +18,10 @@ from rmcitecraft.services.findagrave_formatter import (
     generate_source_name,
     generate_image_filename,
 )
-from rmcitecraft.database.findagrave_queries import create_findagrave_source_and_citation
+from rmcitecraft.database.findagrave_queries import (
+    create_findagrave_source_and_citation,
+    create_burial_event_and_link_citation,
+)
 from rmcitecraft.services.message_log import get_message_log
 
 
@@ -597,12 +600,45 @@ class FindAGraveBatchTab:
                         source_comment=memorial_data.get('sourceComment', ''),
                     )
 
+                    burial_event_id = None
+
+                    # Create burial event if cemetery information is available
+                    cemetery_name = memorial_data.get('cemeteryName', '')
+                    if cemetery_name:
+                        try:
+                            burial_result = create_burial_event_and_link_citation(
+                                db_path=self.config.rm_database_path,
+                                person_id=item.person_id,
+                                citation_id=result['citation_id'],
+                                cemetery_name=cemetery_name,
+                                cemetery_city=memorial_data.get('cemeteryCity', ''),
+                                cemetery_county=memorial_data.get('cemeteryCounty', ''),
+                                cemetery_state=memorial_data.get('cemeteryState', ''),
+                                cemetery_country=memorial_data.get('cemeteryCountry', ''),
+                            )
+
+                            if burial_result['needs_approval']:
+                                logger.warning(
+                                    f"Burial event for {item.full_name} requires user approval "
+                                    "(no close place match found)"
+                                )
+                                item.note = "Burial location needs approval"
+                            else:
+                                burial_event_id = burial_result['burial_event_id']
+                                logger.info(
+                                    f"Created burial event {burial_event_id} for {item.full_name}"
+                                )
+
+                        except Exception as burial_error:
+                            logger.error(f"Failed to create burial event: {burial_error}")
+                            # Don't fail the entire item, just log the error
+
                     # Mark as complete
                     self.controller.mark_item_complete(
                         item,
                         source_id=result['source_id'],
                         citation_id=result['citation_id'],
-                        burial_event_id=None,  # Burial event creation deferred
+                        burial_event_id=burial_event_id,
                     )
 
                     status_label.text = f"{processed + 1} saved to database"

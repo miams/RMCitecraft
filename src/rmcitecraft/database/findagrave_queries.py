@@ -365,3 +365,235 @@ def _build_citation_fields_xml() -> str:
     ET.SubElement(root, 'Fields')  # Empty Fields element
 
     return ET.tostring(root, encoding='unicode')
+
+
+def create_burial_event_and_link_citation(
+    db_path: str,
+    person_id: int,
+    citation_id: int,
+    cemetery_name: str,
+    cemetery_city: str,
+    cemetery_county: str,
+    cemetery_state: str,
+    cemetery_country: str,
+) -> dict[str, int | None]:
+    """
+    Create burial event for Find a Grave memorial and link citation to it.
+
+    Args:
+        db_path: Path to RootsMagic database
+        person_id: Person ID
+        citation_id: Citation ID to link to burial event
+        cemetery_name: Cemetery name (e.g., "Mentor Municipal Cemetery")
+        cemetery_city: City name
+        cemetery_county: County name
+        cemetery_state: State name
+        cemetery_country: Country name
+
+    Returns:
+        Dictionary with created IDs:
+            - 'burial_event_id': Created EventID or None if skipped
+            - 'place_id': PlaceID for location (PlaceType=0)
+            - 'cemetery_id': PlaceID for cemetery (PlaceType=2) or None
+            - 'needs_approval': True if new place creation requires user approval
+    """
+    from rmcitecraft.database.connection import connect_rmtree
+    from datetime import datetime, timezone
+    from difflib import SequenceMatcher
+
+    conn = connect_rmtree(db_path)
+    cursor = conn.cursor()
+
+    try:
+        # Get current UTC timestamp
+        utc_now = datetime.now(timezone.utc)
+        utc_mod_date = int(utc_now.timestamp())
+
+        # 1. Build normalized location name (city, county, state, country)
+        location_parts = []
+        if cemetery_city:
+            location_parts.append(cemetery_city)
+        if cemetery_county:
+            location_parts.append(cemetery_county)
+        if cemetery_state:
+            location_parts.append(cemetery_state)
+        if cemetery_country:
+            location_parts.append(cemetery_country)
+
+        location_name = ", ".join(location_parts)
+
+        if not location_name:
+            logger.warning("No location information provided for burial event")
+            return {
+                'burial_event_id': None,
+                'place_id': None,
+                'cemetery_id': None,
+                'needs_approval': False,
+            }
+
+        # 2. Find or flag for creation of location place (PlaceType=0)
+        cursor.execute("""
+            SELECT PlaceID, Name, Normalized
+            FROM PlaceTable
+            WHERE PlaceType = 0
+            AND Normalized LIKE ?
+        """, (f"%{cemetery_state}%",))  # Pre-filter by state
+
+        place_id = None
+        best_match_ratio = 0.0
+        best_place_id = None
+
+        for row in cursor.fetchall():
+            existing_place_id, existing_name, existing_normalized = row
+            # Use normalized name for comparison
+            compare_name = existing_normalized if existing_normalized else existing_name
+
+            # Calculate similarity ratio
+            ratio = SequenceMatcher(None, location_name.lower(), compare_name.lower()).ratio()
+
+            if ratio > best_match_ratio:
+                best_match_ratio = ratio
+                best_place_id = existing_place_id
+
+        # Require >95% match to use existing place
+        if best_match_ratio >= 0.95:
+            place_id = best_place_id
+            logger.info(f"Found existing place: PlaceID {place_id} (match: {best_match_ratio:.2%})")
+        else:
+            logger.warning(
+                f"No close match for location '{location_name}' "
+                f"(best: {best_match_ratio:.2%}). Requires user approval."
+            )
+            return {
+                'burial_event_id': None,
+                'place_id': None,
+                'cemetery_id': None,
+                'needs_approval': True,
+            }
+
+        # 3. Find or create cemetery (PlaceType=2)
+        cemetery_id = None
+        if cemetery_name:
+            # Search for existing cemetery
+            cursor.execute("""
+                SELECT PlaceID
+                FROM PlaceTable
+                WHERE PlaceType = 2
+                AND Name = ?
+                AND MasterID = ?
+            """, (cemetery_name, place_id))
+
+            existing_cemetery = cursor.fetchone()
+
+            if existing_cemetery:
+                cemetery_id = existing_cemetery[0]
+                logger.info(f"Found existing cemetery: PlaceID {cemetery_id}")
+            else:
+                # Create new cemetery
+                cursor.execute("""
+                    INSERT INTO PlaceTable (
+                        PlaceType,
+                        Name,
+                        Normalized,
+                        MasterID,
+                        UTCModDate
+                    ) VALUES (?, ?, ?, ?, ?)
+                """, (
+                    2,  # PlaceType=2 for cemetery
+                    cemetery_name,
+                    cemetery_name,  # Same as Name for cemeteries
+                    place_id,  # Link to parent location
+                    utc_mod_date,
+                ))
+
+                cemetery_id = cursor.lastrowid
+                logger.info(f"Created cemetery: PlaceID {cemetery_id} - {cemetery_name}")
+
+        # 4. Get death date for burial "after" date
+        cursor.execute("""
+            SELECT Date
+            FROM EventTable
+            WHERE OwnerID = ?
+            AND OwnerType = 0
+            AND EventType = 2
+        """, (person_id,))
+
+        death_event = cursor.fetchone()
+        burial_date = ""
+
+        if death_event and death_event[0]:
+            # Extract date from death event (format: D.+YYYYMMDD..)
+            death_date_str = death_event[0]
+            if '+' in death_date_str:
+                # Extract YYYYMMDD portion
+                date_part = death_date_str.split('+')[1].split('.')[0]
+                if date_part and len(date_part) >= 8:
+                    # Check if death date is precise (has day, not just year or year-month)
+                    # Format: YYYYMMDD
+                    month = date_part[4:6]
+                    day = date_part[6:8]
+
+                    # Only use date if both month and day are specified (non-zero)
+                    if month != "00" and day != "00":
+                        burial_date = f"DA+{date_part}..+00000000.."
+                        logger.info(f"Burial date (after death): {burial_date}")
+                    else:
+                        logger.info(f"Death date not precise (YYYY-MM-DD: {date_part[:4]}-{month}-{day}), leaving burial date blank")
+
+        # 5. Create burial event
+        cursor.execute("""
+            INSERT INTO EventTable (
+                EventType,
+                OwnerType,
+                OwnerID,
+                Date,
+                PlaceID,
+                SiteID,
+                Details,
+                UTCModDate
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            4,  # EventType=4 for Burial
+            0,  # OwnerType=0 for Person
+            person_id,
+            burial_date,
+            place_id,
+            cemetery_id if cemetery_id else 0,
+            "",  # Details (empty per user request)
+            utc_mod_date,
+        ))
+
+        burial_event_id = cursor.lastrowid
+        logger.info(f"Created burial event: EventID {burial_event_id}")
+
+        # 6. Link citation to burial event
+        cursor.execute("""
+            INSERT INTO CitationLinkTable (
+                OwnerType,
+                OwnerID,
+                CitationID
+            ) VALUES (?, ?, ?)
+        """, (
+            2,  # OwnerType=2 for Event
+            burial_event_id,
+            citation_id,
+        ))
+
+        logger.info(f"Linked CitationID {citation_id} to burial EventID {burial_event_id}")
+
+        conn.commit()
+
+        return {
+            'burial_event_id': burial_event_id,
+            'place_id': place_id,
+            'cemetery_id': cemetery_id,
+            'needs_approval': False,
+        }
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Failed to create burial event: {e}", exc_info=True)
+        raise
+
+    finally:
+        conn.close()
