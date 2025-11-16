@@ -230,17 +230,18 @@ class FindAGraveAutomation:
                             const valueText = value.textContent.trim();
 
                             if (labelText.includes('burial') || labelText.includes('cemetery')) {
-                                // Extract cemetery name
+                                // Extract cemetery name from link within the value cell
                                 const cemeteryLink = value.querySelector('a[href*="/cemetery/"]');
                                 if (cemeteryLink) {
                                     data.cemeteryName = cemeteryLink.textContent.trim();
                                 }
 
                                 // Extract location (city, county, state, country)
-                                const cityElem = value.querySelector('#cemeteryCityName, [itemprop="addressLocality"]');
-                                const countyElem = value.querySelector('#cemeteryCountyName');
-                                const stateElem = value.querySelector('#cemeteryStateName, [itemprop="addressRegion"]');
-                                const countryElem = value.querySelector('#cemeteryCountryName');
+                                // IDs are document-wide, so use document.querySelector
+                                const cityElem = document.querySelector('#cemeteryCityName, [itemprop="addressLocality"]');
+                                const countyElem = document.querySelector('#cemeteryCountyName');
+                                const stateElem = document.querySelector('#cemeteryStateName, [itemprop="addressRegion"]');
+                                const countryElem = document.querySelector('#cemeteryCountryName');
 
                                 data.cemeteryCity = cityElem ? cityElem.textContent.trim() : '';
                                 data.cemeteryCounty = countyElem ? countyElem.textContent.trim() : '';
