@@ -618,11 +618,47 @@ class FindAGraveBatchTab:
                             )
 
                             if burial_result['needs_approval']:
+                                match_info = burial_result.get('match_info', {})
+                                cemetery_name = match_info.get('cemetery_name', 'Unknown')
+                                findagrave_loc = match_info.get('findagrave_location', 'Unknown')
+                                best_match = match_info.get('best_match_name') or 'No matches found'
+                                best_match_id = match_info.get('best_match_id')
+                                similarity = match_info.get('similarity', 0)
+
+                                # Format match details
+                                if best_match_id:
+                                    match_detail = f"{best_match} (PlaceID {best_match_id}, {similarity:.1%})"
+                                else:
+                                    match_detail = "No matches found"
+
                                 logger.warning(
-                                    f"Burial event for {item.full_name} requires user approval "
-                                    "(no close place match found)"
+                                    f"Burial event for {item.full_name} requires user approval:\n"
+                                    f"  Cemetery: {cemetery_name}\n"
+                                    f"  Find a Grave: {findagrave_loc}\n"
+                                    f"  Best Match: {match_detail}"
                                 )
-                                item.note = "Burial location needs approval"
+
+                                # Create detailed note for user
+                                item.note = (
+                                    f"⚠️ Burial place needs approval\n"
+                                    f"Cemetery: {cemetery_name}\n"
+                                    f"Location: {findagrave_loc}\n"
+                                    f"Best match: {match_detail}"
+                                )
+
+                                # Notify user during batch processing
+                                if best_match_id:
+                                    ui.notify(
+                                        f"⚠️ {item.full_name}: Burial place needs approval "
+                                        f"({similarity:.1%} match to PlaceID {best_match_id})",
+                                        type="warning",
+                                    )
+                                else:
+                                    ui.notify(
+                                        f"⚠️ {item.full_name}: Burial place needs approval "
+                                        f"(no existing matches)",
+                                        type="warning",
+                                    )
                             else:
                                 burial_event_id = burial_result['burial_event_id']
                                 logger.info(

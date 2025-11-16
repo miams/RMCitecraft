@@ -449,6 +449,7 @@ def create_burial_event_and_link_citation(
         place_id = None
         best_match_ratio = 0.0
         best_place_id = None
+        best_place_name = None
 
         for row in cursor.fetchall():
             existing_place_id, existing_name, existing_normalized = row
@@ -461,21 +462,43 @@ def create_burial_event_and_link_citation(
             if ratio > best_match_ratio:
                 best_match_ratio = ratio
                 best_place_id = existing_place_id
+                best_place_name = existing_name
 
         # Require >95% match to use existing place
         if best_match_ratio >= 0.95:
             place_id = best_place_id
             logger.info(f"Found existing place: PlaceID {place_id} (match: {best_match_ratio:.2%})")
         else:
+            # Log detailed information for user decision
+            if best_place_id:
+                match_details = f"{best_place_name} (PlaceID {best_place_id})"
+                decision_text = f"Use existing place (PlaceID {best_place_id}) or create new place?"
+            else:
+                match_details = "No matches found in database"
+                decision_text = "Create new place?"
+
             logger.warning(
-                f"No close match for location '{location_name}' "
-                f"(best: {best_match_ratio:.2%}). Requires user approval."
+                f"BURIAL EVENT REQUIRES USER APPROVAL - Insufficient place match\n"
+                f"  Cemetery: {cemetery_name}\n"
+                f"  Find a Grave Location: {location_name}\n"
+                f"  Best Database Match: {match_details}\n"
+                f"  Similarity: {best_match_ratio:.1%} (threshold: 95%)\n"
+                f"  Person ID: {person_id}\n"
+                f"  Citation ID: {citation_id}\n"
+                f"  Decision: {decision_text}"
             )
             return {
                 'burial_event_id': None,
-                'place_id': None,
+                'place_id': best_place_id,  # Include best match for user reference (may be None)
                 'cemetery_id': None,
                 'needs_approval': True,
+                'match_info': {
+                    'cemetery_name': cemetery_name,
+                    'findagrave_location': location_name,
+                    'best_match_name': best_place_name,
+                    'best_match_id': best_place_id,
+                    'similarity': best_match_ratio,
+                },
             }
 
         # 3. Find or create cemetery (PlaceType=2)
