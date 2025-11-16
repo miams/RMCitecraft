@@ -410,15 +410,22 @@ def create_burial_event_and_link_citation(
         utc_mod_date = int(utc_now.timestamp())
 
         # 1. Build normalized location name (city, county, state, country)
+        # Normalize format to match RootsMagic conventions
         location_parts = []
         if cemetery_city:
             location_parts.append(cemetery_city)
         if cemetery_county:
-            location_parts.append(cemetery_county)
+            # Remove "County" suffix for matching (RootsMagic uses "Mercer" not "Mercer County")
+            county_normalized = cemetery_county.replace(' County', '').replace(' Parish', '')
+            location_parts.append(county_normalized)
         if cemetery_state:
             location_parts.append(cemetery_state)
         if cemetery_country:
-            location_parts.append(cemetery_country)
+            # Normalize country name (USA → United States)
+            country_normalized = cemetery_country
+            if cemetery_country in ('USA', 'US', 'U.S.A.', 'U.S.'):
+                country_normalized = 'United States'
+            location_parts.append(country_normalized)
 
         location_name = ", ".join(location_parts)
 

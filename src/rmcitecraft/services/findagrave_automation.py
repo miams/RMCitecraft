@@ -283,7 +283,7 @@ class FindAGraveAutomation:
 
                         // Replace closing tags of block elements with blank line separator
                         // Using newline + space + newline to ensure RootsMagic shows blank line
-                        html = html.replace(/<\/(p|div|h1|h2|h3|h4|h5|h6)>/gi, '\\n \\n');
+                        html = html.replace(/<\\/(p|div|h1|h2|h3|h4|h5|h6)>/gi, '\\n \\n');
 
                         // Replace <br> tags with single newline
                         html = html.replace(/<br\\s*\/?>/gi, '\\n');
