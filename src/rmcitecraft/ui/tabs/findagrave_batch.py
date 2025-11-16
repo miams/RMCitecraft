@@ -558,10 +558,11 @@ class FindAGraveBatchTab:
                 # Update item with extracted data
                 self.controller.update_item_extracted_data(item, memorial_data)
 
-                # Format citation
+                # Format citation using Find a Grave name (not database name)
+                # Source name uses database name, but citations use Find a Grave name
                 citation = format_findagrave_citation(
                     memorial_data=memorial_data,
-                    person_name=item.full_name,
+                    person_name=memorial_data.get('personName', item.full_name),
                     birth_year=item.birth_year,
                     death_year=item.death_year,
                     maiden_name=memorial_data.get('maidenName'),
@@ -592,6 +593,7 @@ class FindAGraveBatchTab:
                         footnote=citation['footnote'],
                         short_footnote=citation['short_footnote'],
                         bibliography=citation['bibliography'],
+                        memorial_text=memorial_data.get('memorialText', ''),
                     )
 
                     # Mark as complete
@@ -626,6 +628,12 @@ class FindAGraveBatchTab:
         # Close progress dialog
         progress_dialog.close()
 
+        # Show completion notification BEFORE UI refresh
+        ui.notify(
+            f"Processed {processed} of {total} items",
+            type="positive" if processed == total else "warning"
+        )
+
         # Clear checkbox selections after processing
         self.selected_item_ids.clear()
 
@@ -634,11 +642,6 @@ class FindAGraveBatchTab:
         with self.container:
             self._render_header()
             self._render_batch_view()
-
-        ui.notify(
-            f"Processed {processed} of {total} items",
-            type="positive" if processed == total else "warning"
-        )
 
     def _on_item_click(self, item: FindAGraveBatchItem) -> None:
         """Handle item click."""

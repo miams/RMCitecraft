@@ -201,6 +201,7 @@ def create_findagrave_source_and_citation(
     footnote: str,
     short_footnote: str,
     bibliography: str,
+    memorial_text: str = '',
 ) -> dict[str, int]:
     """
     Create Find a Grave source and citation in database.
@@ -209,10 +210,11 @@ def create_findagrave_source_and_citation(
         db_path: Path to RootsMagic database
         person_id: Person ID
         source_name: Source name (e.g., "Find a Grave: Surname, GivenName...")
-        memorial_url: Find a Grave memorial URL
+        memorial_url: Find a Grave memorial URL (stored in footnote, not in ref fields)
         footnote: Formatted footnote citation
         short_footnote: Formatted short footnote
         bibliography: Formatted bibliography
+        memorial_text: Memorial text from Find a Grave (biography, veteran info, etc.)
 
     Returns:
         Dictionary with created IDs:
@@ -247,9 +249,9 @@ def create_findagrave_source_and_citation(
         """, (
             0,  # TemplateID=0 for free-form sources
             source_name,
-            memorial_url,  # Store memorial URL in RefNumber
-            '',  # ActualText (not used for Find a Grave)
-            '',  # Comments
+            '',  # RefNumber (blank - URL is in footnote)
+            memorial_text,  # ActualText (memorial biography/veteran info)
+            '',  # Comments (reserved for future use)
             source_fields_xml.encode('utf-8'),  # Fields BLOB
             utc_mod_date,
         ))
@@ -257,8 +259,8 @@ def create_findagrave_source_and_citation(
         source_id = cursor.lastrowid
         logger.info(f"Created SourceID {source_id}: {source_name}")
 
-        # Create XML for CitationTable.Fields (contains "Page" field with URL)
-        citation_fields_xml = _build_citation_fields_xml(memorial_url)
+        # Create XML for CitationTable.Fields (empty for Find a Grave)
+        citation_fields_xml = _build_citation_fields_xml()
 
         # Insert Citation record
         cursor.execute("""
@@ -278,7 +280,7 @@ def create_findagrave_source_and_citation(
             source_id,
             '',  # Comments
             '',  # ActualText (not used for free-form)
-            memorial_url,  # RefNumber (memorial URL)
+            '',  # RefNumber (blank - URL is in footnote)
             '',  # Footnote (stored in SourceTable.Fields for TemplateID=0)
             '',  # ShortFootnote (stored in SourceTable.Fields)
             '',  # Bibliography (stored in SourceTable.Fields)
@@ -347,24 +349,17 @@ def _build_source_fields_xml(footnote: str, short_footnote: str, bibliography: s
     return ET.tostring(root, encoding='unicode')
 
 
-def _build_citation_fields_xml(memorial_url: str) -> str:
+def _build_citation_fields_xml() -> str:
     """
-    Build XML for CitationTable.Fields (contains Page field with URL).
+    Build XML for CitationTable.Fields (empty for Find a Grave citations).
 
-    Args:
-        memorial_url: Find a Grave memorial URL
+    Find a Grave citations store all information in the footnote text.
+    The URL is not stored in reference fields.
 
     Returns:
-        XML string for Fields BLOB
+        XML string for Fields BLOB (empty fields structure)
     """
     root = ET.Element('Root')
-    fields = ET.SubElement(root, 'Fields')
-
-    # Page field (contains memorial URL)
-    page_field = ET.SubElement(fields, 'Field')
-    page_name = ET.SubElement(page_field, 'Name')
-    page_name.text = 'Page'
-    page_value = ET.SubElement(page_field, 'Value')
-    page_value.text = memorial_url
+    ET.SubElement(root, 'Fields')  # Empty Fields element
 
     return ET.tostring(root, encoding='unicode')

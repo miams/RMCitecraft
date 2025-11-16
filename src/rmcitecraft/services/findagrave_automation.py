@@ -1,15 +1,45 @@
 r"""
 Find a Grave Automation Service using Playwright
 
-Connects to user's existing Chrome browser to:
+Connects to user's existing Chrome browser via Chrome DevTools Protocol (CDP) to:
 - Extract memorial data from Find a Grave pages
-- Automate image downloads
+- Download photos with metadata
 - Format Evidence Explained citations
 
+BROWSER CONNECTION:
 Requires Chrome to be launched with remote debugging:
     /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
         --remote-debugging-port=9222 \
         --user-data-dir="$HOME/Library/Application Support/Google/Chrome-RMCitecraft"
+
+PHOTO EXTRACTION ARCHITECTURE:
+Find a Grave uses a complex data structure with:
+- HTML elements for photo metadata (type, contributor, date)
+- JSON data structures for photo captions
+- Navigation elements that must be filtered out
+
+Photo extraction happens in TWO PHASES:
+1. _extract_photo_metadata() - Extract from HTML (type, contributor, date, URL)
+2. _extract_captions_from_json() - Extract captions from JSON (window.__INITIAL_STATE__ or script tags)
+
+WHY TWO PHASES:
+- Metadata is in rendered HTML and easy to extract with DOM queries
+- Captions are in JSON data and NOT reliably in HTML
+- Rendered HTML contains navigation text ("Now Showing", "View original") that looks like captions
+- Using JSON avoids false positives from navigation elements
+
+PHOTO TYPES (Find a Grave Classification):
+- "Person": Photo of the individual
+- "Grave": Headstone/gravesite photo
+- "Family": Photo with family members
+- "Other": Documents, records, etc.
+- Empty/undefined: Type not specified by contributor
+
+FILE ORGANIZATION BY TYPE:
+- Person → ~/Genealogy/RootsMagic/Files/Pictures - People
+- Grave → ~/Genealogy/RootsMagic/Files/Pictures - Cemetaries
+- Family → ~/Genealogy/RootsMagic/Files/Pictures - People
+- Other → ~/Genealogy/RootsMagic/Files/Pictures - Other
 """
 
 import asyncio
@@ -208,9 +238,41 @@ class FindAGraveAutomation:
                     const citationDiv = document.querySelector('#citationInfo');
                     data.citationText = citationDiv ? citationDiv.textContent.trim() : '';
 
-                    // Extract maintained by information
+                    // Extract creator information (originally created by)
+                    const createdByInput = document.querySelector('#originallyCreatedBy');
+                    data.createdBy = createdByInput ? createdByInput.value : '';
+
+                    // Extract maintainer information (maintained by)
                     const maintainedInput = document.querySelector('#maintainedBy');
                     data.maintainedBy = maintainedInput ? maintainedInput.value : '';
+
+                    // Extract memorial text (biography, inscription, veteran info, etc.)
+                    // Find a Grave stores this in #partBio or #fullBio elements
+                    let memorialText = '';
+
+                    // Primary: Extract from #partBio (visible biography/memorial text)
+                    const partBio = document.querySelector('#partBio');
+                    if (partBio) {
+                        memorialText = partBio.textContent.trim();
+                    }
+
+                    // Fallback: Try #fullBio (print version, same content)
+                    if (!memorialText) {
+                        const fullBio = document.querySelector('#fullBio');
+                        if (fullBio) {
+                            memorialText = fullBio.textContent.trim();
+                        }
+                    }
+
+                    // Alternative fallback: .bio-min class
+                    if (!memorialText) {
+                        const bioMin = document.querySelector('.bio-min');
+                        if (bioMin) {
+                            memorialText = bioMin.textContent.trim();
+                        }
+                    }
+
+                    data.memorialText = memorialText;
 
                     // Extract photo information
                     data.photos = [];
@@ -245,6 +307,9 @@ class FindAGraveAutomation:
                 logger.info(f"Found {len(memorial_data['photos'])} photo(s), extracting metadata...")
                 memorial_data['photos'] = await self._extract_photo_metadata(page, memorial_data)
 
+                # Try to extract captions from page JSON data
+                memorial_data['photos'] = await self._extract_captions_from_json(page, memorial_data['photos'])
+
             # Extract maiden name (if italicized in name)
             memorial_data['maidenName'] = self._extract_maiden_name(memorial_data.get('personName', ''))
 
@@ -262,55 +327,77 @@ class FindAGraveAutomation:
 
     async def _extract_photo_metadata(self, page: Page, memorial_data: dict) -> list[dict]:
         """
-        Extract detailed metadata for each photo.
+        Extract detailed metadata for each photo from rendered HTML.
+
+        This is phase 1 of photo extraction. It extracts metadata from the rendered
+        HTML elements (photo type, contributor, added date, image URL). Photo captions
+        are extracted separately in phase 2 (_extract_captions_from_json) because
+        Find a Grave stores them in JSON data structures, not rendered HTML.
+
+        Find a Grave Photo Structure:
+        - Photos are rendered in viewer-item containers with data-photo-id attribute
+        - Metadata (type, contributor, date) is in HTML elements
+        - Captions are stored in JSON (window.__INITIAL_STATE__ or script tags)
+        - Navigation text ("Now Showing", "View original") must be filtered out
+
+        Photo Types (from Find a Grave):
+        - "Person": Photo of the individual
+        - "Grave": Headstone/gravesite photo
+        - "Family": Photo with family members
+        - "Other": Documents, records, etc.
+        - Empty/undefined: Type not specified by contributor
 
         Args:
             page: Playwright page
             memorial_data: Memorial data with basic photo info
 
         Returns:
-            List of photo dictionaries with metadata
+            List of photo dictionaries with metadata (excluding captions)
         """
         photos = []
 
         try:
-            # Extract photo metadata from page
+            # Extract photo metadata from rendered HTML
+            # Note: This extracts everything EXCEPT captions (see _extract_captions_from_json)
             photo_metadata = await page.evaluate("""
                 () => {
                     const photos = [];
 
-                    // Find all photo viewer items
+                    // Find all photo viewer items (Find a Grave's photo carousel containers)
                     const photoViewers = document.querySelectorAll('[class*="viewer-item"]');
 
                     for (const viewer of photoViewers) {
                         const photoId = viewer.getAttribute('data-photo-id');
                         if (!photoId) continue;
 
-                        // Extract "Added by" info - get full name and user ID
+                        // ===== Extract Contributor Info =====
+                        // Format: "Bill LaBach (46539089)" - full name + user ID
+                        // Find a Grave displays this in .added-by element with profile link
                         const addedByElem = viewer.querySelector('.added-by, [class*="added-by"]');
                         let addedBy = '';
                         let addedDate = '';
                         if (addedByElem) {
                             const text = addedByElem.textContent;
-                            // Look for link with user profile
+                            // Preferred: Extract from profile link to get user ID
                             const userLink = addedByElem.querySelector('a[href*="/user/profile/"]');
                             if (userLink) {
-                                // Extract user ID from URL
                                 const userIdMatch = userLink.href.match(/\\/user\\/profile\\/(\\d+)/);
                                 const userId = userIdMatch ? userIdMatch[1] : '';
                                 const userName = userLink.textContent.trim();
                                 addedBy = userId ? `${userName} (${userId})` : userName;
                             } else {
-                                // Fallback: extract text between "by" and "on"
+                                // Fallback: Parse text format "Added by: Name on Date"
                                 const userMatch = text.match(/by[:\\s]+(.+?)\\s+on/);
                                 addedBy = userMatch ? userMatch[1].trim() : '';
                             }
-                            // Extract date
+                            // Extract date added
                             const dateMatch = text.match(/on\\s+(.+?)$/);
                             addedDate = dateMatch ? dateMatch[1].trim() : '';
                         }
 
-                        // Extract photo type - find all paragraphs and check content
+                        // ===== Extract Photo Type =====
+                        // Values: "Person", "Grave", "Family", "Other", or empty
+                        // Displayed as "Photo type: <value>" in a paragraph element
                         let photoType = '';
                         const paragraphs = viewer.querySelectorAll('p');
                         for (const p of paragraphs) {
@@ -322,39 +409,51 @@ class FindAGraveAutomation:
                             }
                         }
 
-                        // Extract image URL
+                        // ===== Extract Image URL =====
+                        // Find a Grave uses data-src for lazy loading, falls back to src
                         const imgElem = viewer.querySelector('img[data-src], img[src]');
                         let imageUrl = '';
                         if (imgElem) {
                             imageUrl = imgElem.getAttribute('data-src') || imgElem.getAttribute('src') || '';
                         }
 
-                        // Extract photo description/caption
+                        // ===== Extract Photo Caption/Description =====
+                        // NOTE: This is a fallback attempt. Captions are actually stored in
+                        // JSON data (see _extract_captions_from_json method) and not reliably
+                        // in rendered HTML. This code handles edge cases where caption might
+                        // appear in HTML elements, but the JSON extraction is the primary method.
                         let photoDescription = '';
 
-                        // Look for description in multiple places
-                        // 1. Check for explicit caption/description elements
-                        const descriptionElem = viewer.querySelector('.photo-description, .photo-caption, [class*="description"], [class*="caption"]');
-                        if (descriptionElem) {
-                            photoDescription = descriptionElem.textContent.trim();
+                        // Check for caption in data attribute (rare but possible)
+                        if (viewer.dataset && viewer.dataset.caption) {
+                            photoDescription = viewer.dataset.caption;
                         }
 
-                        // 2. If not found, look through all text elements
+                        // Try to find caption in dedicated elements
                         if (!photoDescription) {
-                            const textElements = viewer.querySelectorAll('p, div, span');
-                            for (const elem of textElements) {
-                                const text = elem.textContent.trim();
-                                // Skip empty, "Added by", "Photo type", and short texts
-                                if (!text || text.length < 5) continue;
-                                if (text.includes('Added by') || text.includes('Photo type:')) continue;
-                                if (text.includes('photo was taken')) continue;  // Skip metadata
+                            const captionElement = viewer.querySelector(
+                                '.photo-caption, .caption, .description, ' +
+                                '[data-caption], [class*="caption"], ' +
+                                'p.caption, div.caption'
+                            );
 
-                                // This might be a description - check if it's meaningful text
-                                // and not just a number or single word
-                                const words = text.split(/\\s+/);
-                                if (words.length >= 2) {
+                            if (captionElement) {
+                                const text = captionElement.textContent.trim();
+                                // Filter out navigation/metadata text that isn't actual captions
+                                // These are UI elements that might be mistaken for descriptions:
+                                // - "Added by: ..." - contributor info
+                                // - "Photo type: ..." - photo categorization
+                                // - "Now Showing X of Y" - carousel navigation
+                                // - "View original" - link to full-size image
+                                // - "Photo Updated" / "actualizada" - status messages
+                                if (text &&
+                                    !text.includes('Added by') &&
+                                    !text.includes('Photo type:') &&
+                                    !text.includes('Now Showing') &&
+                                    !text.includes('View original') &&
+                                    !text.includes('Photo Updated') &&
+                                    !text.includes('actualizada')) {
                                     photoDescription = text;
-                                    break;
                                 }
                             }
                         }
@@ -387,6 +486,104 @@ class FindAGraveAutomation:
             photos = memorial_data.get('photos', [])
 
         return photos
+
+    async def _extract_captions_from_json(self, page: Page, photos: list[dict]) -> list[dict]:
+        """
+        Extract photo captions from Find a Grave's JSON data structures (Phase 2).
+
+        WHY THIS METHOD EXISTS:
+        Find a Grave stores photo captions in JavaScript/JSON data, NOT in rendered
+        HTML elements. The rendered HTML contains navigation text ("Now Showing 2 of 3",
+        "View original", "Photo Updated") which are easily confused with actual captions.
+
+        FIND A GRAVE DATA STRUCTURE:
+        Find a Grave embeds photo data in one of these locations:
+        1. window.__INITIAL_STATE__.memorial.photos - Global state object
+        2. <script type="application/json"> - JSON-LD or data islands
+        3. <script type="application/ld+json"> - Structured data
+
+        CAPTION FIELD VALUES:
+        - caption: "Elizabeth (Lizzie) Davis Ijames" - User-provided photo description
+        - caption: null - Photo has no caption (intentionally blank)
+        - caption: <missing> - Field doesn't exist (treat as blank)
+
+        EXTRACTION STRATEGY:
+        1. Search window.__INITIAL_STATE__ for memorial.photos array
+        2. Parse JSON from script tags looking for photos array
+        3. Build dictionary mapping photo.id → photo.caption
+        4. Overlay captions onto photos list from Phase 1 (_extract_photo_metadata)
+
+        Args:
+            page: Playwright page (already navigated to memorial)
+            photos: List of photo dictionaries from _extract_photo_metadata
+
+        Returns:
+            Updated list of photo dictionaries with 'description' field populated
+        """
+        try:
+            # Execute JavaScript in browser context to extract caption data
+            captions_data = await page.evaluate("""
+                () => {
+                    // Build map of photoId → caption text
+                    const captions = {};
+
+                    // ===== Strategy 1: Check window.__INITIAL_STATE__ =====
+                    // This is Find a Grave's global state object for React/Next.js
+                    if (window.__INITIAL_STATE__?.memorial?.photos) {
+                        window.__INITIAL_STATE__.memorial.photos.forEach(photo => {
+                            // photo.id is the unique photo identifier
+                            // photo.caption is the user-provided description (or null)
+                            if (photo.id && photo.caption) {
+                                captions[photo.id] = photo.caption;
+                            }
+                        });
+                    }
+
+                    // ===== Strategy 2: Parse JSON from script tags =====
+                    // Find a Grave may embed photo data in JSON-LD or data islands
+                    const scripts = document.querySelectorAll('script[type="application/json"], script[type="application/ld+json"]');
+                    for (const script of scripts) {
+                        try {
+                            const data = JSON.parse(script.textContent);
+                            // Look for photos array at any depth in the JSON structure
+                            if (data.photos && Array.isArray(data.photos)) {
+                                data.photos.forEach(photo => {
+                                    if (photo.id && photo.caption) {
+                                        captions[photo.id] = photo.caption;
+                                    }
+                                });
+                            }
+                            // Also check nested memorial.photos path
+                            if (data.memorial?.photos && Array.isArray(data.memorial.photos)) {
+                                data.memorial.photos.forEach(photo => {
+                                    if (photo.id && photo.caption) {
+                                        captions[photo.id] = photo.caption;
+                                    }
+                                });
+                            }
+                        } catch (e) {
+                            // Not valid JSON or doesn't have photos - skip this script tag
+                        }
+                    }
+
+                    return captions;
+                }
+            """)
+
+            # Overlay captions from JSON data onto photos from Phase 1
+            for photo in photos:
+                photo_id = photo.get('photoId')
+                if photo_id and photo_id in captions_data:
+                    # Replace any HTML-extracted description with authoritative JSON caption
+                    photo['description'] = captions_data[photo_id]
+                    logger.debug(f"Found caption for photo {photo_id}: {captions_data[photo_id]}")
+
+            return photos
+
+        except Exception as e:
+            logger.warning(f"Could not extract captions from JSON data: {e}")
+            # Return photos unchanged - Phase 1 metadata is still valid
+            return photos
 
     def _extract_maiden_name(self, person_name: str) -> str:
         """
