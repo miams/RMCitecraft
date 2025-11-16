@@ -219,48 +219,28 @@ class FindAGraveAutomation:
                         data.deathYear = dateMatch[2];
                     }
 
-                    // Extract cemetery information from table
-                    const rows = document.querySelectorAll('tr, dl');
-                    console.log(`Found ${rows.length} rows/dl elements to check for burial info`);
-
-                    for (const row of rows) {
-                        const label = row.querySelector('dt, th');
-                        const value = row.querySelector('dd, td');
-
-                        if (label && value) {
-                            const labelText = label.textContent.trim().toLowerCase();
-                            const valueText = value.textContent.trim();
-
-                            if (labelText.includes('burial') || labelText.includes('cemetery')) {
-                                console.log(`Found burial/cemetery row with label: ${labelText}`);
-
-                                // Extract cemetery name from link within the value cell
-                                const cemeteryLink = value.querySelector('a[href*="/cemetery/"]');
-                                if (cemeteryLink) {
-                                    data.cemeteryName = cemeteryLink.textContent.trim();
-                                    console.log(`Cemetery name: ${data.cemeteryName}`);
-                                } else {
-                                    console.log('No cemetery link found in value cell');
-                                }
-
-                                // Extract location (city, county, state, country)
-                                // IDs are document-wide, so use document.querySelector
-                                const cityElem = document.querySelector('#cemeteryCityName, [itemprop="addressLocality"]');
-                                const countyElem = document.querySelector('#cemeteryCountyName');
-                                const stateElem = document.querySelector('#cemeteryStateName, [itemprop="addressRegion"]');
-                                const countryElem = document.querySelector('#cemeteryCountryName');
-
-                                data.cemeteryCity = cityElem ? cityElem.textContent.trim() : '';
-                                data.cemeteryCounty = countyElem ? countyElem.textContent.trim() : '';
-                                data.cemeteryState = stateElem ? stateElem.textContent.trim() : '';
-                                data.cemeteryCountry = countryElem ? countryElem.textContent.trim() : '';
-
-                                console.log(`Cemetery location: ${data.cemeteryCity}, ${data.cemeteryCounty}, ${data.cemeteryState}, ${data.cemeteryCountry}`);
-                            }
-                        }
+                    // Extract cemetery information directly (not from table rows)
+                    // Cemetery link exists on page but not in structured table format
+                    const cemeteryLink = document.querySelector('a[href*="/cemetery/"]');
+                    if (cemeteryLink) {
+                        data.cemeteryName = cemeteryLink.textContent.trim();
+                        console.log(`Cemetery name: ${data.cemeteryName}`);
+                    } else {
+                        console.log('No cemetery link found');
                     }
 
-                    console.log(`Cemetery extraction complete. Name: ${data.cemeteryName || 'NOT FOUND'}`);
+                    // Extract location (city, county, state, country)
+                    const cityElem = document.querySelector('#cemeteryCityName, [itemprop="addressLocality"]');
+                    const countyElem = document.querySelector('#cemeteryCountyName');
+                    const stateElem = document.querySelector('#cemeteryStateName, [itemprop="addressRegion"]');
+                    const countryElem = document.querySelector('#cemeteryCountryName');
+
+                    data.cemeteryCity = cityElem ? cityElem.textContent.trim() : '';
+                    data.cemeteryCounty = countyElem ? countyElem.textContent.trim() : '';
+                    data.cemeteryState = stateElem ? stateElem.textContent.trim() : '';
+                    data.cemeteryCountry = countryElem ? countryElem.textContent.trim() : '';
+
+                    console.log(`Cemetery location: ${data.cemeteryCity}, ${data.cemeteryCounty}, ${data.cemeteryState}, ${data.cemeteryCountry}`);
 
 
                     // Extract citation text if available
