@@ -181,18 +181,19 @@ class FindAGraveAutomation:
             except Exception as e:
                 logger.warning(f"Timeout waiting for h1: {e}")
 
-            # Click "Read More" button if it exists to expand full biography text
+            # Click "Read More" button if it exists and is visible to expand full biography text
             logger.info("Checking for 'Read More' button...")
             try:
                 read_more_button = await page.query_selector('a.read-more, button.read-more, a:has-text("Read More"), button:has-text("Read More")')
-                if read_more_button:
-                    logger.info("Found 'Read More' button, clicking to expand full text...")
-                    await read_more_button.click()
+                if read_more_button and await read_more_button.is_visible():
+                    logger.info("Found visible 'Read More' button, clicking to expand full text...")
+                    # Use shorter timeout (5 seconds) for click
+                    await read_more_button.click(timeout=5000)
                     # Wait a moment for content to expand
                     await page.wait_for_timeout(500)
                     logger.info("Full biography text expanded")
                 else:
-                    logger.info("No 'Read More' button found (full text already visible)")
+                    logger.info("No visible 'Read More' button (full text already visible)")
             except Exception as e:
                 logger.warning(f"Error handling 'Read More' button: {e}")
 
