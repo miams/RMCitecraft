@@ -1,39 +1,4 @@
 {
-  "import_counter": 8,
-  "citations": [
-    {
-      "id": "import_1761469846_8",
-      "data": {
-        "familySearchUrl": "https://www.familysearch.org/ark:/61903/1:1:XH3Z-FB6?lang=en",
-        "extractedAt": "2025-10-26T09:10:46.218Z",
-        "censusYear": 1930,
-        "name": "Allen A Iams",
-        "sex": "Male",
-        "age": "45 years",
-        "birthYear": "1885",
-        "race": "White",
-        "relationship": "Head",
-        "maritalStatus": "Married",
-        "occupation": null,
-        "industry": null,
-        "eventDate": "1930",
-        "eventPlace": "Morris, Greene, Pennsylvania, United States",
-        "eventPlaceOriginal": "Morris, Greene, Pennsylvania, United States",
-        "enumerationDistrict": null,
-        "lineNumber": "75",
-        "pageNumber": null,
-        "sheetNumber": "7",
-        "familyNumber": null,
-        "dwellingNumber": null,
-        "filmNumber": null,
-        "imageNumber": "243",
-        "birthplace": "Pennsylvania",
-        "eventType": "Census",
-        "sheetLetter": "B",
-        "affiliatePublicationNumber": "T626"
-      },
-      "imported_at": 1761469846.256753,
-      "status": "pending"
-    }
-  ]
+  "import_counter": 40,
+  "citations": []
 }

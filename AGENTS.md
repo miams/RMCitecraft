@@ -283,12 +283,20 @@ docs: update AGENTS.md with commit guidelines
 
 ### Database Safety
 
-- **Read-only by default** - warn before writes
-- **Use transactions** for all write operations
+**Working Copy Architecture:**
+- RMCitecraft operates on a **working copy** at `/Users/miams/Code/RMCitecraft/data/`
+- Production database remains untouched during batch processing
+- Users manually copy working database to production when satisfied
+- Census images written to final locations: `~/Genealogy/RootsMagic/Files/Records - Census/`
+
+**Write Safety:**
+- **Use `DatabaseConnection.transaction()`** for all write operations (read-write mode)
+- **Connection defaults to `read_only=True`** for safety (must explicitly use `transaction()` for writes)
 - **Check `UTCModDate`** before updates (detect conflicts)
 - **Validate schema version** before operations
-- **Never modify without user confirmation**
-- **Log all database modifications**
+- **Atomic transactions** ensure all-or-nothing updates (no partial citations)
+- **Log all database modifications** with timestamps
+- **Validate data completeness** before writing (missing required fields = error)
 
 ### Critical Database Architecture
 

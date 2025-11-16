@@ -18,6 +18,7 @@ let isConnected = false;
 let isPolling = false;
 let pollIntervalId = null;
 let healthCheckIntervalId = null;
+let commandCheckIntervalId = null;
 let websocket = null;
 let useWebSocket = true; // Prefer WebSocket over polling
 let wsReconnectTimeout = null;
@@ -46,6 +47,9 @@ function connectWebSocket() {
         clearTimeout(wsReconnectTimeout);
         wsReconnectTimeout = null;
       }
+
+      // Start periodic command checking via WebSocket
+      startCommandChecking();
     };
 
     websocket.onmessage = (event) => {
@@ -64,6 +68,7 @@ function connectWebSocket() {
     websocket.onclose = () => {
       console.log('[RMCitecraft] WebSocket closed');
       websocket = null;
+      stopCommandChecking(); // Stop command checking
 
       // Try to reconnect after interval
       if (isConnected) {
@@ -226,6 +231,35 @@ function stopPolling() {
 }
 
 /**
+ * Start periodic command checking via WebSocket
+ */
+function startCommandChecking() {
+  if (commandCheckIntervalId) return; // Already running
+
+  console.log('[RMCitecraft] Starting periodic command checking via WebSocket');
+
+  commandCheckIntervalId = setInterval(() => {
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      sendWebSocketMessage({ type: 'check_commands' });
+    }
+  }, POLL_INTERVAL_MS); // Check every 2 seconds
+}
+
+/**
+ * Stop command checking
+ */
+function stopCommandChecking() {
+  if (!commandCheckIntervalId) return;
+
+  console.log('[RMCitecraft] Stopping command checking');
+
+  if (commandCheckIntervalId) {
+    clearInterval(commandCheckIntervalId);
+    commandCheckIntervalId = null;
+  }
+}
+
+/**
  * Handle command from RMCitecraft
  */
 async function handleCommand(command) {
@@ -258,28 +292,39 @@ async function handleCommand(command) {
  * Execute download_image command
  */
 async function executeDownloadImage(command) {
-  // Send message to content script on the active tab
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  // Find ANY FamilySearch tab (not just active one)
+  // User may have switched to RMCitecraft window, making FS tab inactive
+  const familySearchTabs = await chrome.tabs.query({ url: '*://www.familysearch.org/*' });
 
-  if (tab && tab.url && tab.url.includes('familysearch.org')) {
-    chrome.tabs.sendMessage(tab.id, {
-      type: 'download_image',
-      commandId: command.id,
-      data: command.data
-    }, async (response) => {
-      if (chrome.runtime.lastError) {
-        console.error('[RMCitecraft] Error sending message to content script:', chrome.runtime.lastError);
-        await respondToCommand(command.id, { status: 'error', error: chrome.runtime.lastError.message });
-      } else {
-        await respondToCommand(command.id, response);
-      }
-    });
-  } else {
+  if (familySearchTabs.length === 0) {
     await respondToCommand(command.id, {
       status: 'error',
-      error: 'No active FamilySearch tab found'
+      error: 'No FamilySearch tabs found. Please keep the FamilySearch page open.'
     });
+    return;
   }
+
+  // Prefer the most recently accessed FamilySearch tab
+  const tab = familySearchTabs.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+
+  console.log('[RMCitecraft] Found FamilySearch tab:', tab.id, tab.url);
+
+  // Send message to content script
+  chrome.tabs.sendMessage(tab.id, {
+    type: 'download_image',
+    commandId: command.id,
+    data: command.data
+  }, async (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('[RMCitecraft] Error sending message to content script:', chrome.runtime.lastError);
+      await respondToCommand(command.id, {
+        status: 'error',
+        error: `Failed to communicate with FamilySearch tab: ${chrome.runtime.lastError.message}`
+      });
+    } else {
+      await respondToCommand(command.id, response);
+    }
+  });
 }
 
 /**
@@ -339,6 +384,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .then(connected => sendResponse({ connected }))
       .catch(() => sendResponse({ connected: false }));
     return true; // Will respond asynchronously
+  } else if (message.type === 'PORT_CHANGED') {
+    // Port change notification from popup (informational only)
+    console.log('[RMCitecraft] Port changed to:', message.port);
+    sendResponse({ status: 'acknowledged' });
+  } else if (message.type === 'AUTO_ACTIVATE_CHANGED') {
+    // Auto-activate setting change from popup (informational only)
+    console.log('[RMCitecraft] Auto-activate changed to:', message.enabled);
+    sendResponse({ status: 'acknowledged' });
   } else if (message.type === 'DOWNLOAD_FILE') {
     // Download file using chrome.downloads API
     chrome.downloads.download({

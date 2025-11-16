@@ -221,6 +221,8 @@ class FindAGraveAutomation:
 
                     // Extract cemetery information from table
                     const rows = document.querySelectorAll('tr, dl');
+                    console.log(`Found ${rows.length} rows/dl elements to check for burial info`);
+
                     for (const row of rows) {
                         const label = row.querySelector('dt, th');
                         const value = row.querySelector('dd, td');
@@ -230,10 +232,15 @@ class FindAGraveAutomation:
                             const valueText = value.textContent.trim();
 
                             if (labelText.includes('burial') || labelText.includes('cemetery')) {
+                                console.log(`Found burial/cemetery row with label: ${labelText}`);
+
                                 // Extract cemetery name from link within the value cell
                                 const cemeteryLink = value.querySelector('a[href*="/cemetery/"]');
                                 if (cemeteryLink) {
                                     data.cemeteryName = cemeteryLink.textContent.trim();
+                                    console.log(`Cemetery name: ${data.cemeteryName}`);
+                                } else {
+                                    console.log('No cemetery link found in value cell');
                                 }
 
                                 // Extract location (city, county, state, country)
@@ -247,9 +254,14 @@ class FindAGraveAutomation:
                                 data.cemeteryCounty = countyElem ? countyElem.textContent.trim() : '';
                                 data.cemeteryState = stateElem ? stateElem.textContent.trim() : '';
                                 data.cemeteryCountry = countryElem ? countryElem.textContent.trim() : '';
+
+                                console.log(`Cemetery location: ${data.cemeteryCity}, ${data.cemeteryCounty}, ${data.cemeteryState}, ${data.cemeteryCountry}`);
                             }
                         }
                     }
+
+                    console.log(`Cemetery extraction complete. Name: ${data.cemeteryName || 'NOT FOUND'}`);
+
 
                     // Extract citation text if available
                     const citationDiv = document.querySelector('#citationInfo');
@@ -390,6 +402,14 @@ class FindAGraveAutomation:
             memorial_data['sourceComment'] = await self._extract_source_comment(page, memorial_data)
 
             logger.info(f"Extracted memorial data for: {memorial_data.get('personName')}")
+            logger.info(
+                f"Cemetery extraction result:\n"
+                f"  Name: {memorial_data.get('cemeteryName', 'NOT FOUND')}\n"
+                f"  City: {memorial_data.get('cemeteryCity', 'NOT FOUND')}\n"
+                f"  County: {memorial_data.get('cemeteryCounty', 'NOT FOUND')}\n"
+                f"  State: {memorial_data.get('cemeteryState', 'NOT FOUND')}\n"
+                f"  Country: {memorial_data.get('cemeteryCountry', 'NOT FOUND')}"
+            )
             logger.debug(f"Memorial data: {memorial_data}")
 
             return memorial_data

@@ -147,12 +147,21 @@ Last updated: 2025-10-25 16:59:28
 - `PlaceID` - FK to PlaceTable
 
 ### Database Safety Protocol
-- Always use transactions for write operations
+
+**Working Copy Architecture:**
+- RMCitecraft operates on a database **working copy** located at `/Users/miams/Code/RMCitecraft/data/`
+- Production database (in RootsMagic's document folder) remains untouched during processing
+- Users manually copy the updated working database back to production when satisfied with results
+- Census images are written directly to final locations in `~/Genealogy/RootsMagic/Files/Records - Census/`
+
+**Write Safety Measures:**
+- Always use `DatabaseConnection.transaction()` context manager for all database writes
 - Check if RootsMagic is running before write operations (warn user if detected)
-- Never modify the database without user confirmation
-- Log all database modifications
+- Log all database modifications with timestamps
 - Validate database schema version before operations
-- Use read-only mode by default
+- Use atomic transactions to ensure all-or-nothing updates (no partial/corrupt citations)
+- Validate data completeness before writing (missing required fields = validation error)
+- Database connection defaults to `read_only=True` for safety, but batch export uses `read_only=False`
 
 ## Citation Formatting Rules
 

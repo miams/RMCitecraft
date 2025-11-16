@@ -22,6 +22,7 @@ from rmcitecraft.services.citation_import import get_citation_import_service
 from rmcitecraft.services.command_queue import get_command_queue
 from rmcitecraft.services.image_processing import get_image_processing_service
 from rmcitecraft.services.pending_request import get_pending_request_service
+from rmcitecraft.ui.components.error_panel import show_error_notification, show_warning_notification
 from rmcitecraft.ui.components.image_viewer import create_census_image_viewer
 from rmcitecraft.utils.media_resolver import MediaPathResolver
 
@@ -58,6 +59,11 @@ class CitationManagerTab:
         self.status_label: ui.label | None = None
         self.pending_citations_container: ui.column | None = None
         self.pending_badge: ui.badge | None = None
+        self.chrome_status_label: ui.label | None = None
+        self.chrome_connect_button: ui.button | None = None
+
+        # Chrome connection state
+        self.chrome_connected: bool = False
 
         # Services
         self.citation_import_service = get_citation_import_service()
@@ -73,6 +79,9 @@ class CitationManagerTab:
     def render(self) -> None:
         """Render the citation manager tab."""
         with ui.column().classes("w-full h-full gap-2"):
+            # Chrome Browser Connection
+            self._render_chrome_connection_panel()
+
             # Top: Pending Citations from Extension (if any)
             self._render_pending_citations_section()
 
@@ -89,6 +98,120 @@ class CitationManagerTab:
         # Auto-refresh pending citations every 5 seconds
         # Store timer reference so we can pause it when dialog is open
         self._refresh_timer = ui.timer(5.0, self._refresh_pending_citations)
+
+    def _render_chrome_connection_panel(self) -> None:
+        """Render Chrome browser connection panel."""
+        with ui.card().classes("w-full p-4"):
+            with ui.row().classes("w-full items-center gap-4"):
+                ui.icon("web_asset", size="lg").classes("text-blue-600")
+
+                with ui.column().classes("flex-grow gap-1"):
+                    ui.label("Chrome Browser Connection").classes("text-lg font-bold")
+                    self.chrome_status_label = ui.label("Not connected").classes("text-sm text-gray-600")
+
+                self.chrome_connect_button = ui.button(
+                    "Connect to Chrome",
+                    icon="link",
+                    on_click=self._on_connect_chrome
+                ).props("outline")
+
+                ui.button(
+                    "?",
+                    icon="help_outline",
+                    on_click=self._show_chrome_instructions
+                ).props("flat dense round")
+
+    async def _on_connect_chrome(self) -> None:
+        """Handle Connect to Chrome button click."""
+        try:
+            from rmcitecraft.services.familysearch_automation import get_automation_service
+            from rmcitecraft.utils.chrome_launcher import is_chrome_running_with_debugging, launch_chrome_with_debugging
+
+            # Check if Chrome is already running with debugging
+            if not is_chrome_running_with_debugging():
+                logger.info("Chrome not running with debugging, attempting to launch...")
+
+                if self.chrome_status_label:
+                    self.chrome_status_label.set_text("Launching Chrome...")
+
+                # Try to launch Chrome
+                process = launch_chrome_with_debugging()
+                if not process:
+                    ui.notify("Failed to launch Chrome. Please launch manually (see instructions).", type="warning")
+                    if self.chrome_status_label:
+                        self.chrome_status_label.set_text("Launch failed - see instructions")
+                    return
+
+                # Wait a moment for Chrome to start
+                import asyncio
+                await asyncio.sleep(2)
+
+            # Try to connect
+            if self.chrome_status_label:
+                self.chrome_status_label.set_text("Connecting...")
+
+            automation = get_automation_service()
+            success = await automation.connect_to_chrome()
+
+            if success:
+                self.chrome_connected = True
+                if self.chrome_status_label:
+                    self.chrome_status_label.set_text("✓ Connected")
+                    self.chrome_status_label.classes("text-green-600")
+                if self.chrome_connect_button:
+                    self.chrome_connect_button.set_text("Disconnect")
+                    self.chrome_connect_button.props("color=positive")
+                ui.notify("Connected to Chrome successfully", type="positive")
+                logger.info("Successfully connected to Chrome via Playwright")
+            else:
+                if self.chrome_status_label:
+                    self.chrome_status_label.set_text("Connection failed")
+                ui.notify("Failed to connect to Chrome. See instructions.", type="negative")
+
+        except Exception as e:
+            logger.error(f"Failed to connect to Chrome: {e}", exc_info=True)
+            if self.chrome_status_label:
+                self.chrome_status_label.set_text("Connection error")
+            show_error_notification(
+                "Chrome connection failed",
+                details=str(e),
+                context="Citation Manager",
+                timeout=0,
+            )
+
+    def _show_chrome_instructions(self) -> None:
+        """Show instructions for Chrome connection."""
+        from rmcitecraft.utils.chrome_launcher import get_launch_instructions
+
+        instructions = get_launch_instructions()
+
+        with ui.dialog() as dialog, ui.card().classes("w-full max-w-2xl"):
+            ui.label("Chrome Browser Setup").classes("text-xl font-bold")
+            ui.separator()
+
+            ui.markdown("""
+**Why Chrome Connection is Needed:**
+
+RMCitecraft uses Playwright to automate FamilySearch interactions:
+- Extract citation data from FamilySearch pages
+- Download census images automatically
+- Handle FamilySearch dialogs
+
+**Setup Steps:**
+
+1. Close all Chrome windows
+2. Launch Chrome with remote debugging enabled
+3. Log into FamilySearch manually
+4. Click "Connect to Chrome" in RMCitecraft
+
+**Manual Launch Command:**
+            """)
+
+            ui.code(instructions).classes("w-full")
+
+            ui.button("Close", on_click=dialog.close).props("flat")
+
+        dialog.open()
 
     def _render_citation_manager_panel(self) -> None:
         """Render citation manager panel with list."""
@@ -856,8 +979,13 @@ class CitationManagerTab:
             self._show_citation_processing_dialog(citation_id, data)
 
         except Exception as e:
-            logger.error(f"Failed to process pending citation: {e}")
-            ui.notify(f"Failed to process: {str(e)}", type="negative")
+            logger.error(f"Failed to process pending citation: {e}", exc_info=True)
+            show_error_notification(
+                f"Failed to process citation",
+                details=str(e),
+                context="Citation Manager",
+                timeout=0,
+            )
 
     def _show_citation_processing_dialog(self, citation_id: str, data: dict) -> None:
         """Show dialog for processing a citation with missing data input and preview.
@@ -1755,7 +1883,7 @@ class CitationManagerTab:
             from rmcitecraft.database.connection import connect_rmtree
             from rmcitecraft.database.image_repository import ImageRepository
 
-            db_conn = connect_rmtree(self.db_path)
+            db_conn = connect_rmtree(self.config.rm_database_path)
             image_repo = ImageRepository(db_conn)
 
             try:
@@ -1819,8 +1947,13 @@ class CitationManagerTab:
             self._refresh_pending_citations()
 
         except Exception as e:
-            logger.error(f"Failed to save processed citation: {e}")
-            ui.notify(f"Failed to save: {str(e)}", type="negative")
+            logger.error(f"Failed to save processed citation: {e}", exc_info=True)
+            show_error_notification(
+                f"Failed to save citation",
+                details=str(e),
+                context="Citation Manager",
+                timeout=0,  # Never dismiss - requires manual close
+            )
 
     def _on_dismiss_pending_citation(self, citation_id: str) -> None:
         """Dismiss a pending citation.
@@ -1834,16 +1967,21 @@ class CitationManagerTab:
             ui.notify("Citation dismissed", type="positive")
             self._refresh_pending_citations()
         except Exception as e:
-            logger.error(f"Failed to dismiss citation: {e}")
-            ui.notify(f"Failed to dismiss: {str(e)}", type="negative")
+            logger.error(f"Failed to dismiss citation: {e}", exc_info=True)
+            show_error_notification(
+                f"Failed to dismiss citation",
+                details=str(e),
+                context="Citation Manager",
+                timeout=10,
+            )
 
     def _refresh_pending_citations(self) -> None:
         """Refresh the pending citations display."""
         if self.pending_citations_container:
             self._update_pending_citations_display()
 
-    def _check_and_request_image_download(self, citation_id: int, familysearch_url: str) -> None:
-        """Check if citation has image, request download if missing.
+    async def _check_and_request_image_download(self, citation_id: int, familysearch_url: str) -> None:
+        """Check if citation has image, download if missing using Playwright.
 
         Args:
             citation_id: RootsMagic CitationID
@@ -1851,10 +1989,10 @@ class CitationManagerTab:
         """
         try:
             from rmcitecraft.database.connection import connect_rmtree
-            from rmcitecraft.services.command_queue import get_command_queue
+            from rmcitecraft.services.familysearch_automation import get_automation_service
 
             # Check if citation already has linked image
-            db_conn = connect_rmtree(self.db_path)
+            db_conn = connect_rmtree(self.config.rm_database_path)
             cursor = db_conn.cursor()
 
             try:
@@ -1873,29 +2011,53 @@ class CitationManagerTab:
 
                 if image:
                     logger.info(
-                        f"Citation {citation_id} already has image: {image[1]}, skipping download request"
+                        f"Citation {citation_id} already has image: {image[1]}, skipping download"
                     )
                     return
 
-                # No image found - request download from extension
-                logger.info(f"Citation {citation_id} missing image, requesting download...")
+                # No image found - download directly using Playwright
+                logger.info(f"Citation {citation_id} missing image, downloading via Playwright...")
 
-                command_queue = get_command_queue()
-                command_id = command_queue.add(
-                    "download_image",
-                    {"url": familysearch_url, "citation_id": citation_id},
+                # Get automation service
+                automation = get_automation_service()
+
+                # Extract citation data (includes image viewer URL)
+                citation_data = await automation.extract_citation_data(familysearch_url)
+
+                if not citation_data or not citation_data.get("imageViewerUrl"):
+                    logger.warning(f"No image viewer URL found for {familysearch_url}")
+                    ui.notify("No image found for this citation", type="warning")
+                    return
+
+                # Generate download path
+                download_dir = Path.home() / "Downloads"
+                temp_filename = f"census_{citation_id}.jpg"
+                download_path = download_dir / temp_filename
+
+                # Download the image
+                success = await automation.download_census_image(
+                    citation_data["imageViewerUrl"], download_path
                 )
 
-                logger.info(f"Queued download_image command {command_id} for CitationID={citation_id}")
-                ui.notify(
-                    "Image missing - download requested from browser extension", type="info"
-                )
+                if success:
+                    logger.info(f"Downloaded image for CitationID={citation_id}")
+                    ui.notify("Census image downloaded successfully", type="positive")
+                    # TODO: Process and rename image, link to database
+                else:
+                    logger.error(f"Failed to download image for CitationID={citation_id}")
+                    ui.notify("Failed to download census image", type="negative")
 
             finally:
                 db_conn.close()
 
         except Exception as e:
-            logger.error(f"Failed to check/request image download: {e}")
+            logger.error(f"Failed to check/download image: {e}", exc_info=True)
+            show_error_notification(
+                "Image download failed",
+                details=str(e),
+                context="Citation Manager",
+                timeout=0,
+            )
 
     def cleanup(self) -> None:
         """Clean up resources."""

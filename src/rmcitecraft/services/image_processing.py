@@ -111,7 +111,7 @@ class ImageProcessingService:
             f"for {metadata.given_name} {metadata.surname} ({metadata.year})"
         )
 
-    def process_downloaded_file(self, file_path: Path) -> ImageMetadata | None:
+    def process_downloaded_file(self, file_path: str | Path) -> ImageMetadata | None:
         """
         Process a newly downloaded census image file.
 
@@ -127,7 +127,7 @@ class ImageProcessingService:
         7. Update status
 
         Args:
-            file_path: Path to downloaded file in downloads folder
+            file_path: Path to downloaded file in downloads folder (str or Path)
 
         Returns:
             Updated ImageMetadata if successful, None if failed
@@ -138,6 +138,8 @@ class ImageProcessingService:
             >>> if result:
             ...     print(f"Processed: {result.final_filename}")
         """
+        # Convert to Path if string
+        file_path = Path(file_path) if isinstance(file_path, str) else file_path
         logger.info(f"Processing downloaded file: {file_path.name}")
 
         try:
@@ -511,6 +513,248 @@ class ImageProcessingService:
         finally:
             # Always close connection
             db_conn.close()
+
+    def update_citation_fields_only(self, metadata: ImageMetadata) -> bool:
+        """
+        Update citation fields (Footnote, ShortFootnote, Bibliography) without processing image.
+
+        Used when media already exists but citation fields need updating.
+        Thread-safe: Creates new database connection for this operation.
+
+        Args:
+            metadata: Image metadata with citation information
+
+        Returns:
+            bool: True if citation fields were updated successfully
+
+        Raises:
+            sqlite3.Error: If database operations fail
+        """
+        db_conn = self._get_db_connection()
+
+        try:
+            image_repo = ImageRepository(db_conn)
+
+            # Get CitationID
+            try:
+                citation_id = int(metadata.citation_id)
+                logger.debug(f"Updating citation fields for CitationID={citation_id}")
+            except ValueError:
+                logger.error(f"Invalid CitationID: {metadata.citation_id}")
+                return False
+
+            # Get source_name, familysearch_entry, and TemplateID from database
+            cursor = db_conn.cursor()
+            cursor.execute(
+                """
+                SELECT s.SourceID, s.Name, c.ActualText, s.TemplateID
+                FROM CitationTable c
+                JOIN SourceTable s ON c.SourceID = s.SourceID
+                WHERE c.CitationID = ?
+                """,
+                (citation_id,),
+            )
+            citation_row = cursor.fetchone()
+
+            if not citation_row:
+                logger.warning(f"Citation not found in database: CitationID={citation_id}")
+                return False
+
+            source_id, source_name, familysearch_entry, template_id = citation_row
+
+            # Only update for Free Form citations (TemplateID=0)
+            if template_id != 0:
+                logger.info(
+                    f"Skipping citation update for non-Free Form citation "
+                    f"(TemplateID={template_id}, CitationID={citation_id})"
+                )
+                return False
+
+            # Use FamilySearch name for citations (as it appears in record)
+            citation_name = (
+                metadata.familysearch_name
+                if metadata.familysearch_name
+                else f"{metadata.given_name} {metadata.surname}"
+            )
+
+            # Create ParsedCitation from metadata with all census fields
+            parsed_citation = ParsedCitation(
+                citation_id=citation_id,
+                source_name=source_name,
+                familysearch_entry=familysearch_entry or "",
+                census_year=metadata.year,
+                state=metadata.state,
+                county=metadata.county,
+                person_name=citation_name,
+                surname=metadata.surname,
+                given_name=metadata.given_name,
+                familysearch_url=metadata.familysearch_url,
+                access_date=metadata.access_date,
+                town_ward=metadata.town_ward,
+                enumeration_district=metadata.enumeration_district,
+                sheet=metadata.sheet,
+                line=metadata.line,
+                family_number=metadata.family_number,
+                dwelling_number=metadata.dwelling_number,
+            )
+
+            # Format citations
+            footnote, short_footnote, bibliography = self.citation_formatter.format(
+                parsed_citation
+            )
+
+            # Update SourceTable.Fields BLOB (for Free Form citations)
+            image_repo.update_source_fields(
+                source_id=source_id,
+                footnote=footnote,
+                short_footnote=short_footnote,
+                bibliography=bibliography,
+            )
+            logger.info(
+                f"Updated source fields (Free Form) for SourceID={source_id} "
+                f"(CitationID={citation_id})"
+            )
+
+            # Update SourceTable.Name to replace empty brackets []
+            bracket_content = self.citation_formatter.generate_source_name_bracket(
+                parsed_citation
+            )
+            image_repo.update_source_name_brackets(source_id, bracket_content)
+
+            # Check if existing media files need renaming (missing state/county)
+            self._rename_incomplete_media_files(citation_id, metadata, image_repo)
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to update citation fields: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+        finally:
+            db_conn.close()
+
+    def _rename_incomplete_media_files(
+        self, citation_id: int, metadata: ImageMetadata, image_repo
+    ) -> None:
+        """
+        Rename existing media files that have incomplete filenames (missing state/county).
+
+        Checks for filenames with pattern "YYYY, , " and renames to "YYYY, State, County".
+
+        Args:
+            citation_id: Citation ID to check for linked media
+            metadata: Image metadata with correct state/county
+            image_repo: Image repository instance
+        """
+        try:
+            import shutil
+
+            # Find media linked to this citation
+            cursor = image_repo.conn.cursor()
+            cursor.execute(
+                """
+                SELECT m.MediaID, m.MediaFile, m.MediaPath
+                FROM MultimediaTable m
+                JOIN MediaLinkTable ml ON m.MediaID = ml.MediaID
+                WHERE ml.OwnerID = ? AND ml.OwnerType = 4
+                """,
+                (citation_id,),
+            )
+            media_rows = cursor.fetchall()
+
+            for media_id, media_file, media_path in media_rows:
+                # Check if filename is missing state/county (has ", , " pattern)
+                if not media_file or ", , " not in media_file:
+                    continue  # Filename is complete
+
+                logger.info(
+                    f"Found incomplete media filename: {media_file} (MediaID={media_id})"
+                )
+
+                # Generate correct filename
+                # Extract file extension from existing filename
+                extension = Path(media_file).suffix
+                correct_filename = self.filename_gen.generate_filename(
+                    year=metadata.year,
+                    state=metadata.state,
+                    county=metadata.county,
+                    surname=metadata.surname,
+                    given_name=metadata.given_name,
+                    extension=extension,
+                )
+
+                # Skip if same as current (shouldn't happen but safety check)
+                if correct_filename == media_file:
+                    continue
+
+                # Resolve full paths
+                old_path = self._resolve_media_path(media_path, media_file)
+                new_path = old_path.parent / correct_filename
+
+                # Check if file exists
+                if not old_path.exists():
+                    logger.warning(
+                        f"Media file not found, skipping rename: {old_path}"
+                    )
+                    continue
+
+                # Check if target already exists
+                if new_path.exists():
+                    logger.warning(
+                        f"Target filename already exists, skipping rename: {new_path}"
+                    )
+                    continue
+
+                # Rename physical file
+                logger.info(f"Renaming media file: {old_path.name} → {correct_filename}")
+                shutil.move(str(old_path), str(new_path))
+
+                # Update database
+                cursor.execute(
+                    """
+                    UPDATE MultimediaTable
+                    SET MediaFile = ?
+                    WHERE MediaID = ?
+                    """,
+                    (correct_filename, media_id),
+                )
+                image_repo.conn.commit()
+                logger.info(
+                    f"Updated MediaFile in database (MediaID={media_id}): {correct_filename}"
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to rename incomplete media files: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _resolve_media_path(self, media_path: str, media_file: str) -> Path:
+        """
+        Resolve RootsMagic media path to absolute path.
+
+        Handles symbols: ? (media folder), ~ (home), * (database folder)
+        """
+        if not media_path:
+            # No path specified, use media root from dir_mapper
+            return self.dir_mapper.media_root / media_file
+
+        # Replace symbols
+        if media_path.startswith("?"):
+            # ? = Media Folder
+            path = media_path.replace("?", str(self.dir_mapper.media_root), 1)
+        elif media_path.startswith("~"):
+            # ~ = Home directory
+            path = media_path.replace("~", str(Path.home()), 1)
+        elif media_path.startswith("*"):
+            # * = Database folder (same dir as database file)
+            db_folder = self.db_path.parent
+            path = media_path.replace("*", str(db_folder), 1)
+        else:
+            # Absolute path
+            path = media_path
+
+        return Path(path) / media_file
 
     def _link_existing_media(self, metadata: ImageMetadata) -> None:
         """

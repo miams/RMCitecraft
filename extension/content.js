@@ -19,6 +19,36 @@ function log(...args) {
 }
 
 /**
+ * Simulate keyboard key press
+ */
+function simulateKey(key) {
+  const keyCode = key === 'Tab' ? 9 : key === 'Enter' ? 13 : key === 'ArrowDown' ? 40 : 0;
+
+  const eventDown = new KeyboardEvent('keydown', {
+    key: key,
+    code: key,
+    keyCode: keyCode,
+    which: keyCode,
+    bubbles: true,
+    cancelable: true
+  });
+
+  document.activeElement?.dispatchEvent(eventDown);
+
+  // Also dispatch keyup
+  const eventUp = new KeyboardEvent('keyup', {
+    key: key,
+    code: key,
+    keyCode: keyCode,
+    which: keyCode,
+    bubbles: true,
+    cancelable: true
+  });
+
+  document.activeElement?.dispatchEvent(eventUp);
+}
+
+/**
  * Check if this is a census record page
  */
 function isCensusRecordPage() {
@@ -338,13 +368,124 @@ async function autoExtractAndSend() {
 async function downloadCensusImage() {
   log('Attempting to download census image...');
 
-  // Strategy 1: Try to find the image element directly
+  // Check if we're on the image viewer page (ark:/61903/3:1:...)
+  const currentUrl = window.location.href;
+  const isImageViewerPage = currentUrl.includes('/ark:/61903/3:1:');
+  const isRecordPage = currentUrl.includes('/ark:/61903/1:1:');
+
+  log('Current page type:', { isImageViewerPage, isRecordPage, url: currentUrl });
+
+  // STRATEGY 1: If on record page, navigate to image viewer first
+  if (isRecordPage && !isImageViewerPage) {
+    log('On record page - looking for link to image viewer...');
+
+    // Look for image thumbnails or "View Image" links
+    const imageLinks = document.querySelectorAll('a[href*="/ark:/61903/3:1:"]');
+
+    if (imageLinks.length > 0) {
+      const imageLink = imageLinks[0];
+      log('Found image viewer link, will navigate and auto-download:', imageLink.href);
+
+      // Store in sessionStorage for after page reload
+      sessionStorage.setItem('rmcitecraft_auto_download', 'pending');
+      sessionStorage.setItem('rmcitecraft_target_url', imageLink.href);
+
+      // Navigate - download will happen automatically on new page
+      setTimeout(() => {
+        window.location.href = imageLink.href;
+      }, 100);
+
+      // Return immediately - actual download will be reported by new page
+      return {
+        method: 'navigating_to_viewer',
+        message: 'Navigating to image viewer... (download will auto-trigger)'
+      };
+    }
+  }
+
+  // STRATEGY 2: If on image viewer page, click the download button
+  if (isImageViewerPage) {
+    log('On image viewer page - looking for download button...');
+
+    // FamilySearch uses this specific test ID
+    const downloadButton = document.querySelector('button[data-testid="download-image-button"]');
+
+    if (downloadButton) {
+      log('Found download button, focusing and clicking...');
+      downloadButton.focus();
+      downloadButton.click();
+
+      // Wait for download options dialog to appear
+      log('Waiting for download options dialog...');
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Use keyboard automation to select JPG Only and download
+      // Keyboard sequence: tab down down tab tab enter
+      // - Tab: move to first radio button
+      // - Down Down: move to 3rd option (JPG Only)
+      // - Tab Tab: move to DOWNLOAD button
+      // - Enter: click DOWNLOAD
+      log('Using keyboard automation: tab down down tab tab enter');
+
+      // Tab (move to first radio button)
+      simulateKey('Tab');
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Down arrow twice (move to 3rd option - JPG Only)
+      simulateKey('ArrowDown');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      simulateKey('ArrowDown');
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Tab twice (move to Download button)
+      simulateKey('Tab');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      simulateKey('Tab');
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Enter (click Download)
+      simulateKey('Enter');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      log('Keyboard sequence completed - download should start');
+
+      return {
+        method: 'keyboard_automation',
+        message: 'Used keyboard to select JPG Only and initiate download'
+      };
+    }
+
+    // Fallback: Try other download button selectors
+    const fallbackSelectors = [
+      'button[aria-label="Download"]',
+      'button[aria-label*="Download"]',
+      '[data-testid="download-button"]'
+    ];
+
+    for (const selector of fallbackSelectors) {
+      const button = document.querySelector(selector);
+      if (button) {
+        log('Found download button via fallback selector:', selector);
+        button.click();
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        return {
+          method: 'button_click_fallback',
+          message: 'Download button clicked via fallback method'
+        };
+      }
+    }
+  }
+
+  // STRATEGY 3: Try to find image URL directly (last resort)
+  log('Trying direct image URL extraction...');
+
   const imageSelectors = [
     'img[src*="familysearch"]',
     'img[class*="image"]',
-    'img[class*="record"]',
-    '[data-testid="record-image"] img',
-    '.image-viewer img'
+    'canvas', // FamilySearch sometimes uses canvas for images
+    '[data-testid*="image"] img'
   ];
 
   let imageUrl = null;
@@ -357,86 +498,29 @@ async function downloadCensusImage() {
     }
   }
 
-  // Strategy 2: Try to find download link
-  if (!imageUrl) {
-    const downloadSelectors = [
-      'a[href*="download"]',
-      'a[href*="image"]',
-      '[data-testid="download-link"]',
-      'a[aria-label*="Download"]'
-    ];
+  if (imageUrl) {
+    try {
+      // Request download via background script
+      const response = await chrome.runtime.sendMessage({
+        type: 'DOWNLOAD_FILE',
+        url: imageUrl,
+        filename: 'census-image.jpg'
+      });
 
-    for (const selector of downloadSelectors) {
-      const link = document.querySelector(selector);
-      if (link && link.href) {
-        imageUrl = link.href;
-        log('Found download link:', imageUrl);
-        break;
+      if (response && response.success) {
+        log('Download initiated via chrome.downloads');
+        return {
+          method: 'chrome_download',
+          downloadId: response.downloadId,
+          url: imageUrl
+        };
       }
+    } catch (error) {
+      log('Chrome download failed:', error);
     }
   }
 
-  // Strategy 3: Click download button and intercept the download
-  if (!imageUrl) {
-    const downloadButton = document.querySelector(
-      '[aria-label="Download"], [data-testid="download-button"], button[title="Download"], button:has-text("Download")'
-    );
-
-    if (downloadButton) {
-      log('Found download button, clicking...');
-      downloadButton.click();
-
-      // Give it a moment to process
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Check if download started (user will need to have downloaded the file)
-      return {
-        method: 'button_click',
-        message: 'Download button clicked - file should download to browser default location'
-      };
-    }
-  }
-
-  if (!imageUrl) {
-    throw new Error('Could not find census image or download button on this page');
-  }
-
-  // Use chrome.downloads API to download
-  try {
-    // Request download via background script (content scripts can't use chrome.downloads directly)
-    const response = await chrome.runtime.sendMessage({
-      type: 'DOWNLOAD_FILE',
-      url: imageUrl,
-      filename: 'census-image.jpg' // Will be renamed by RMCitecraft
-    });
-
-    if (response && response.success) {
-      log('Download initiated via chrome.downloads');
-      return {
-        method: 'chrome_download',
-        downloadId: response.downloadId,
-        url: imageUrl
-      };
-    } else {
-      throw new Error(response?.error || 'Download failed');
-    }
-  } catch (error) {
-    log('Chrome download failed, falling back to direct download:', error);
-
-    // Fallback: Create temporary link and click it
-    const a = document.createElement('a');
-    a.href = imageUrl;
-    a.download = 'census-image.jpg';
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
-    return {
-      method: 'direct_download',
-      url: imageUrl
-    };
-  }
+  throw new Error('Could not find census image or download button on this page. Please ensure you are on the image viewer page (URL should contain ark:/61903/3:1:)');
 }
 
 /**
@@ -491,14 +575,135 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+/**
+ * Check if we should auto-download after navigation
+ */
+async function checkAutoDownload() {
+  // Check if auto-download flag is set (from navigation)
+  const autoDownload = sessionStorage.getItem('rmcitecraft_auto_download');
+  const targetUrl = sessionStorage.getItem('rmcitecraft_target_url');
+
+  if (autoDownload === 'pending') {
+    log('Auto-download pending - verifying we arrived at correct page...');
+
+    const currentUrl = window.location.href;
+    const isImageViewerPage = currentUrl.includes('/ark:/61903/3:1:');
+
+    // Verify we're on the expected page
+    if (isImageViewerPage) {
+      log('Confirmed on image viewer page - preparing auto-download...');
+
+      // Clear flags
+      sessionStorage.removeItem('rmcitecraft_auto_download');
+      sessionStorage.removeItem('rmcitecraft_target_url');
+
+      // Wait for download button to appear (FamilySearch is slow to render)
+      log('Waiting for download button to appear...');
+
+      let downloadButton = null;
+      const maxAttempts = 15; // Try for up to 15 seconds
+
+      // Multiple selectors to try
+      const buttonSelectors = [
+        'button[data-testid="download-image-button"]',
+        'button[aria-label="Download"]',
+        'button[aria-label*="Download"]',
+        'button:has-text("Download")',
+        '[data-testid*="download"]'
+      ];
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        // Try each selector
+        for (const selector of buttonSelectors) {
+          try {
+            downloadButton = document.querySelector(selector);
+            if (downloadButton) {
+              log(`Download button found using selector: ${selector}`);
+              break;
+            }
+          } catch (e) {
+            // Ignore selector errors (like :has-text which may not work)
+          }
+        }
+
+        // If still not found, try finding any button with "Download" text
+        if (!downloadButton) {
+          const allButtons = document.querySelectorAll('button');
+          for (const btn of allButtons) {
+            if (btn.getAttribute('aria-label')?.toLowerCase().includes('download') ||
+                btn.textContent?.toLowerCase().includes('download')) {
+              downloadButton = btn;
+              log('Download button found by searching all buttons');
+              break;
+            }
+          }
+        }
+
+        if (downloadButton) {
+          log(`Download button found after ${attempt} second(s)`);
+          break;
+        }
+
+        log(`Attempt ${attempt}/${maxAttempts}: button not found yet, waiting...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      if (!downloadButton) {
+        log('ERROR: Download button never appeared after 15 seconds');
+        showNotification('⚠ Timeout: Download button did not appear', 'error');
+        return;
+      }
+
+      try {
+        log('Starting auto-download...');
+        const result = await downloadCensusImage();
+        log('Auto-download SUCCESS:', result);
+        showNotification('✅ Census image downloaded automatically', 'success');
+
+        // Notify background script of success (for logging/monitoring)
+        try {
+          await chrome.runtime.sendMessage({
+            type: 'AUTO_DOWNLOAD_SUCCESS',
+            result: result
+          });
+        } catch (e) {
+          log('Failed to notify background script:', e);
+        }
+
+      } catch (error) {
+        log('Auto-download FAILED:', error);
+        showNotification(`⚠ Auto-download failed: ${error.message}`, 'error');
+
+        // Notify background script of failure
+        try {
+          await chrome.runtime.sendMessage({
+            type: 'AUTO_DOWNLOAD_FAILED',
+            error: error.message
+          });
+        } catch (e) {
+          log('Failed to notify background script:', e);
+        }
+      }
+    } else {
+      log('NOT on image viewer page after navigation - clearing flags');
+      sessionStorage.removeItem('rmcitecraft_auto_download');
+      sessionStorage.removeItem('rmcitecraft_target_url');
+    }
+  }
+}
+
 // Log that content script is loaded
 log('Content script loaded on:', window.location.href);
 
 // Initialize when page loads
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', autoExtractAndSend);
+  document.addEventListener('DOMContentLoaded', () => {
+    autoExtractAndSend();
+    checkAutoDownload();
+  });
 } else {
   autoExtractAndSend();
+  checkAutoDownload();
 }
 
 log('Content script initialized');

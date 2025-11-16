@@ -604,7 +604,22 @@ class FindAGraveBatchTab:
 
                     # Create burial event if cemetery information is available
                     cemetery_name = memorial_data.get('cemeteryName', '')
+                    cemetery_city = memorial_data.get('cemeteryCity', '')
+                    cemetery_county = memorial_data.get('cemeteryCounty', '')
+                    cemetery_state = memorial_data.get('cemeteryState', '')
+                    cemetery_country = memorial_data.get('cemeteryCountry', '')
+
+                    logger.info(
+                        f"Burial event check for {item.full_name}:\n"
+                        f"  Cemetery: {cemetery_name or 'NOT FOUND'}\n"
+                        f"  City: {cemetery_city or 'NOT FOUND'}\n"
+                        f"  County: {cemetery_county or 'NOT FOUND'}\n"
+                        f"  State: {cemetery_state or 'NOT FOUND'}\n"
+                        f"  Country: {cemetery_country or 'NOT FOUND'}"
+                    )
+
                     if cemetery_name:
+                        logger.info(f"Creating burial event for {item.full_name}...")
                         try:
                             burial_result = create_burial_event_and_link_citation(
                                 db_path=self.config.rm_database_path,
@@ -666,8 +681,12 @@ class FindAGraveBatchTab:
                                 )
 
                         except Exception as burial_error:
-                            logger.error(f"Failed to create burial event: {burial_error}")
+                            logger.error(f"Failed to create burial event: {burial_error}", exc_info=True)
                             # Don't fail the entire item, just log the error
+                    else:
+                        logger.warning(
+                            f"No cemetery name found for {item.full_name}, skipping burial event creation"
+                        )
 
                     # Mark as complete
                     self.controller.mark_item_complete(

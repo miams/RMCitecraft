@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from rmcitecraft.models.image import ImageMetadata, ImageStatus
 from rmcitecraft.services.citation_import import get_citation_import_service
 from rmcitecraft.services.command_queue import get_command_queue
+from rmcitecraft.services.error_log import get_error_log_service
 
 
 class HealthResponse(BaseModel):
@@ -496,7 +497,16 @@ def create_api_router() -> APIRouter:
                     response_data = message.get("data")
 
                     if status == "error":
-                        command_queue.fail(command_id, response_data.get("error"))
+                        error_msg = response_data.get("error", "Unknown error")
+                        command_queue.fail(command_id, error_msg)
+
+                        # Log error for user visibility
+                        error_service = get_error_log_service()
+                        error_service.add_warning(
+                            f"Image download failed: {error_msg}",
+                            details=f"Command ID: {command_id}",
+                            context="Extension Command",
+                        )
                     else:
                         command_queue.complete(command_id, response_data)
 
@@ -521,6 +531,10 @@ def create_api_router() -> APIRouter:
                 elif msg_type == "ping":
                     # Respond to ping
                     await websocket.send_json({"type": "pong"})
+
+                elif msg_type == "pong":
+                    # Keepalive response - no action needed
+                    logger.debug("Received pong (keepalive)")
 
                 elif msg_type == "check_commands":
                     # Extension requesting pending commands

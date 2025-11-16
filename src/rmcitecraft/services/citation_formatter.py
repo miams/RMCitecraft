@@ -262,3 +262,64 @@ def format_census_citation(
         person_id=person_id,
         event_id=event_id,
     )
+
+
+def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
+    """Generate quick citation preview for live UI (no database queries required).
+
+    This is a simplified formatter for the live preview in the data entry form.
+    It generates approximate citations from incomplete data without requiring
+    PlaceDetails from the database or full validation.
+
+    For final citation generation, use format_census_citation() instead.
+
+    Args:
+        data: Dictionary with census data (may be incomplete)
+        year: Census year
+
+    Returns:
+        Dictionary with 'footnote', 'short_footnote', 'bibliography' keys
+    """
+    # Get data with fallbacks for preview
+    state = data.get('state', '[State]')
+    county = data.get('county', '[County]')
+    locality = data.get('town_ward', data.get('locality', ''))
+    ed = data.get('enumeration_district', '[ED]')
+    sheet = data.get('sheet', '[sheet]')
+    line = data.get('line', '[line]')
+    person = data.get('person_name', '[Person Name]')
+    url = data.get('familysearch_url', '[URL]')
+    access_date = data.get('access_date', '[date]')
+
+    # Footnote
+    locality_str = f", {locality}" if locality else ""
+    footnote = (
+        f"{year} U.S. census, {county} County, {state}{locality_str}, "
+        f"enumeration district (ED) {ed}, sheet {sheet}, line {line}, {person}; "
+        f"imaged, \"United States Census, {year},\" <i>FamilySearch</i> "
+        f"({url} : accessed {access_date})."
+    )
+
+    # Short Footnote
+    state_abbr = STATE_ABBREVIATIONS.get(state, state)
+    # For 1910-1940: Omit "pop. sch." (only population schedules survived)
+    pop_sch_str = "" if 1910 <= year <= 1940 else "pop. sch., "
+    short_footnote = (
+        f"{year} U.S. census, {county} Co., {state_abbr}, {pop_sch_str}"
+        f"{locality or '[locality]'}, E.D. {ed}, sheet {sheet}, {person}."
+    )
+
+    # Bibliography
+    # For 1910-1940: Omit "Population Schedule" (only schedules that survived)
+    schedule_str = "" if 1910 <= year <= 1940 else "Population Schedule. "
+    bibliography = (
+        f"U.S. {state}. {county} County. {year} U.S Census. {schedule_str}"
+        f"Imaged. \"United States Census, {year}\". <i>FamilySearch</i> "
+        f"{url} : [year]."
+    )
+
+    return {
+        'footnote': footnote,
+        'short_footnote': short_footnote,
+        'bibliography': bibliography,
+    }

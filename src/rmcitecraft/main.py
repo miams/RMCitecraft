@@ -11,7 +11,10 @@ from rmcitecraft.api import create_api_router
 from rmcitecraft.config import get_config
 from rmcitecraft.services.file_watcher import FileWatcher
 from rmcitecraft.services.image_processing import get_image_processing_service
+from rmcitecraft.ui.components.error_panel import create_error_panel
 from rmcitecraft.ui.tabs.citation_manager import CitationManagerTab
+from rmcitecraft.ui.tabs.batch_processing import BatchProcessingTab
+from rmcitecraft.ui.tabs.findagrave_batch import FindAGraveBatchTab
 
 
 def _cleanup_services(file_watcher: FileWatcher | None) -> None:
@@ -85,24 +88,47 @@ def setup_app() -> None:
 
         ui.page_title("RMCitecraft - Census Citation Assistant")
 
-        # Header
+        # Container for current view
+        view_container = ui.column().classes("w-full h-full")
+
+        # Header with integrated navigation
         with ui.header().classes("items-center justify-between bg-primary text-white"):
-            ui.label("RMCitecraft").classes("text-2xl font-bold")
+            with ui.row().classes("items-center gap-6"):
+                # RMCitecraft as home link (using button styled as text)
+                ui.button(
+                    "RMCitecraft",
+                    on_click=lambda: show_home()
+                ).props("flat").classes("text-2xl font-bold text-white hover:bg-blue-700")
+
+                # Navigation buttons integrated into header
+                ui.button(
+                    "Census Batch",
+                    icon="playlist_add_check",
+                    on_click=lambda: show_batch_processing()
+                ).props("flat").classes("text-white")
+
+                ui.button(
+                    "Find a Grave",
+                    icon="account_box",
+                    on_click=lambda: show_findagrave_batch()
+                ).props("flat").classes("text-white")
+
+                ui.button(
+                    "Citation Manager",
+                    icon="format_quote",
+                    on_click=lambda: show_citation_manager()
+                ).props("flat").classes("text-white")
+
             with ui.row().classes("items-center gap-4"):
-                ui.label("Census Citation Assistant for RootsMagic").classes("text-sm")
+                ui.label("Citation Assistant for RootsMagic").classes("text-sm")
                 ui.button(icon="settings", on_click=lambda: settings_dialog()).props(
                     "flat round dense"
                 )
 
-        # Main content with tabs
-        with ui.tabs().classes("w-full") as tabs:
-            tab_home = ui.tab("Home", icon="home")
-            tab_citations = ui.tab("Citation Manager", icon="format_quote")
-            tab_images = ui.tab("Image Manager", icon="image")
-
-        with ui.tab_panels(tabs, value=tab_home).classes("w-full h-full"):
-            # Home tab
-            with ui.tab_panel(tab_home), ui.column().classes("w-full items-center p-8"):
+        def show_home() -> None:
+            """Show home view."""
+            view_container.clear()
+            with view_container, ui.column().classes("w-full items-center p-8"):
                 with ui.card().classes("w-full max-w-4xl p-6"):
                     ui.markdown("""
                         ## Welcome to RMCitecraft
@@ -128,7 +154,7 @@ def setup_app() -> None:
 
                         ### Get Started
 
-                        Click on **Citation Manager** to begin processing your citations.
+                        Click on **Batch Processing** or **Citation Manager** to begin.
 
                         """)
 
@@ -137,17 +163,33 @@ def setup_app() -> None:
                     ui.label(f"LLM Provider: {config.default_llm_provider}").classes("text-sm")
                     ui.label(f"Log Level: {config.log_level}").classes("text-sm")
 
-            # Citation Manager tab
-            with ui.tab_panel(tab_citations).classes("w-full h-full"):
+        def show_batch_processing() -> None:
+            """Show census batch processing view."""
+            view_container.clear()
+            with view_container:
+                batch_processing = BatchProcessingTab()
+                batch_processing.render()
+
+        def show_findagrave_batch() -> None:
+            """Show Find a Grave batch processing view."""
+            view_container.clear()
+            with view_container:
+                findagrave_batch = FindAGraveBatchTab()
+                findagrave_batch.render()
+
+        def show_citation_manager() -> None:
+            """Show citation manager view."""
+            nonlocal citation_manager
+            view_container.clear()
+            with view_container:
                 citation_manager = CitationManagerTab()
                 citation_manager.render()
 
-            # Image Manager tab (placeholder)
-            with ui.tab_panel(tab_images):
-                with ui.column().classes("w-full h-full items-center justify-center"):
-                    ui.icon("image").classes("text-6xl text-gray-400")
-                    ui.label("Image Manager").classes("text-2xl font-bold text-gray-600")
-                    ui.label("Coming in Phase 3").classes("text-gray-500")
+        # Show home by default
+        show_home()
+
+        # Global error panel (floating button in bottom-right)
+        create_error_panel()
 
     def settings_dialog() -> None:
         """Show settings dialog."""
