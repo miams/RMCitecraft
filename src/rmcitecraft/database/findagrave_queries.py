@@ -565,9 +565,9 @@ def create_burial_event_and_link_citation(
 
                     # Only use date if both month and day are specified (non-zero)
                     if month != "00" and day != "00":
-                        # RootsMagic "after" date format: D.+YYYYMMDD.A+00000000..
-                        # NOT DA+YYYYMMDD..+00000000.. (period placement matters!)
-                        burial_date = f"D.+{date_part}.A+00000000.."
+                        # RootsMagic "after" date format: DA+YYYYMMDD..+00000000..
+                        # Position 2 'A' = After modifier (not Position 13 'A' = About qualifier)
+                        burial_date = f"DA+{date_part}..+00000000.."
                         logger.info(f"Burial date (after death): {burial_date}")
                     else:
                         logger.info(f"Death date not precise (YYYY-MM-DD: {date_part[:4]}-{month}-{day}), leaving burial date blank")

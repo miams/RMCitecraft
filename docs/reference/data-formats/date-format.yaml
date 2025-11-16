@@ -1,0 +1,373 @@
+# RootsMagic 11 Date Format - Structured Data
+# This file provides machine-readable date format specifications
+
+format:
+  name: RootsMagic 11 Date Format
+  version: 11.0.0
+  length: 24
+  description: Fixed-width 24-character format for dates with modifiers and qualifiers
+
+positions:
+  - position: 1
+    name: Date Type
+    description: Fundamental type of date being stored
+    values:
+      - code: "."
+        meaning: NULL
+        description: Empty/null date, all following positions are null
+      - code: D
+        meaning: Standard Date
+        description: Non-Quaker standard or recognized date
+      - code: Q
+        meaning: Quaker Date
+        description: Date in Quaker format
+      - code: T
+        meaning: Text Date
+        description: Free-form text date (variable length follows)
+
+  - position: 2
+    name: Date Modifier
+    description: Directional or range modifiers for the date
+    values:
+      - code: "."
+        meaning: None
+        keyword: ""
+        description: Complete or partial date without modifier
+      - code: "-"
+        meaning: Range
+        keyword: "–"
+        description: "Date range using en dash"
+      - code: A
+        meaning: After
+        keyword: Aft
+        description: After the specified date
+      - code: B
+        meaning: Before
+        keyword: Bef
+        description: Before the specified date
+      - code: F
+        meaning: From
+        keyword: From
+        description: Starting from the specified date
+      - code: I
+        meaning: Since
+        keyword: Since
+        description: Since the specified date
+      - code: O
+        meaning: Or
+        keyword: Or
+        description: Alternative dates
+      - code: R
+        meaning: Between/And
+        keyword: "Bet...and"
+        description: Between two dates
+      - code: S
+        meaning: From/To
+        keyword: "From...to"
+        description: From one date to another
+      - code: T
+        meaning: To
+        keyword: To
+        description: Up to the specified date
+      - code: U
+        meaning: Until
+        keyword: Until
+        description: Until the specified date
+      - code: Y
+        meaning: By
+        keyword: By
+        description: By the specified date
+
+  - position: 3
+    name: First Date Era
+    description: Era indicator for the first date
+    values:
+      - code: "+"
+        meaning: AD
+        description: Anno Domini (after year 0)
+      - code: "-"
+        meaning: BC
+        description: Before Christ (before year 0)
+
+  - position: "4-7"
+    name: First Date Year
+    description: Four-digit year (0000-9999)
+    format: yyyy
+    special_values:
+      - value: "0000"
+        description: Partial date without year specified
+
+  - position: "8-9"
+    name: First Date Month
+    description: Two-digit month (00-12)
+    format: mm
+    range: "00-12"
+    special_values:
+      - value: "00"
+        description: Partial date without month specified
+
+  - position: "10-11"
+    name: First Date Day
+    description: Two-digit day (00-31)
+    format: dd
+    range: "00-31"
+    special_values:
+      - value: "00"
+        description: Partial date without day specified
+
+  - position: 12
+    name: First Date Double Date Indicator
+    description: Indicator for double dates during calendar transitions
+    values:
+      - code: "/"
+        meaning: Double Date
+        description: "Used for calendar transitions (e.g., 1583/84)"
+      - code: "."
+        meaning: Not Double Date
+        description: Regular date
+
+  - position: 13
+    name: First Date Qualifier
+    description: Date qualifiers and certainty modifiers
+    values:
+      - code: "."
+        meaning: None
+        display: ""
+        description: No qualifier
+      - code: "?"
+        meaning: Maybe
+        display: Maybe
+        certainty: unknown
+      - code: "1"
+        meaning: Perhaps
+        display: Prhps
+        certainty: low
+      - code: "2"
+        meaning: Apparently
+        display: Appar
+        certainty: low-medium
+      - code: "3"
+        meaning: Likely
+        display: Lkly
+        certainty: medium
+      - code: "4"
+        meaning: Possibly
+        display: Poss
+        certainty: medium
+      - code: "5"
+        meaning: Probably
+        display: Prob
+        certainty: medium-high
+      - code: "6"
+        meaning: Certainly
+        display: Cert
+        certainty: high
+      - code: A
+        meaning: About
+        display: Abt
+        type: approximation
+      - code: C
+        meaning: Circa
+        display: Ca
+        type: approximation
+      - code: E
+        meaning: Estimated
+        display: Est
+        type: estimate
+      - code: L
+        meaning: Calculated
+        display: Calc
+        type: calculation
+      - code: S
+        meaning: Say
+        display: Say
+        type: approximation
+
+  - position: 14
+    name: Second Date Era
+    description: Era indicator for the second date in ranges
+    values:
+      - code: "+"
+        meaning: AD or N/A
+        description: AD for range, N/A for single dates
+      - code: "-"
+        meaning: BC
+        description: BC for range
+
+  - position: "15-18"
+    name: Second Date Year
+    description: Four-digit year for second date in range
+    format: yyyy
+    special_values:
+      - value: "0000"
+        description: Not a range
+
+  - position: "19-20"
+    name: Second Date Month
+    description: Two-digit month for second date in range
+    format: mm
+    range: "00-12"
+    special_values:
+      - value: "00"
+        description: Not a range
+
+  - position: "21-22"
+    name: Second Date Day
+    description: Two-digit day for second date in range
+    format: dd
+    range: "00-31"
+    special_values:
+      - value: "00"
+        description: Not a range
+
+  - position: 23
+    name: Second Date Double Date Indicator
+    description: Double date indicator for range end date
+    values:
+      - code: "/"
+        meaning: Double Date
+        description: Double date on range end
+      - code: "."
+        meaning: Not Double Date
+        description: Regular date
+
+  - position: 24
+    name: Second Date Qualifier
+    description: Date qualifiers for second date in range
+    note: Uses same values as Position 13
+
+examples:
+  simple_dates:
+    - display: "1 Jan 1900"
+      encoded: "D.+19000101..+00000000.."
+      description: Complete date
+    - display: "Jan 1900"
+      encoded: "D.+19000100..+00000000.."
+      description: Month and year only
+    - display: "1900"
+      encoded: "D.+19000000..+00000000.."
+      description: Year only
+    - display: "1 Jan"
+      encoded: "D.+00000101..+00000000.."
+      description: Day and month only
+    - display: "Jan"
+      encoded: "D.+00000100..+00000000.."
+      description: Month only
+    - display: "1 ??? 1900"
+      encoded: "D.+19000001..+00000000.."
+      description: Day and year, unknown month
+
+  bc_dates:
+    - display: "1 Jan 1900 BC"
+      encoded: "D.-19000101..+00000000.."
+      description: BC date
+
+  double_dates:
+    - display: "1 Jan 1583/84"
+      encoded: "D.+15830101/.+00000000.."
+      description: Calendar transition double date
+
+  quaker_dates:
+    - display: "12da 5mo 1588"
+      encoded: "Q.+15880512..+00000000.."
+      description: Quaker date format
+
+  directional_single:
+    - display: "Bef 1 Jan 1900"
+      encoded: "DB+19000101..+00000000.."
+      description: Before
+    - display: "By 1 Jan 1900"
+      encoded: "DY+19000101..+00000000.."
+      description: By
+    - display: "To 1 Jan 1900"
+      encoded: "DT+19000101..+00000000.."
+      description: To
+    - display: "Until 1 Jan 1900"
+      encoded: "DU+19000101..+00000000.."
+      description: Until
+    - display: "From 1 Jan 1900"
+      encoded: "DF+19000101..+00000000.."
+      description: From
+    - display: "Since 1 Jan 1900"
+      encoded: "DI+19000101..+00000000.."
+      description: Since
+    - display: "Aft 1 Jan 1900"
+      encoded: "DA+19000101..+00000000.."
+      description: After
+
+  ranges:
+    - display: "Bet 1 Jan 1900 and 5 Jan 1900"
+      encoded: "DR+19000101..+19000105.."
+      description: Between...and
+    - display: "From 1 Jan 1900 to 5 Jan 1900"
+      encoded: "DS+19000101..+19000105.."
+      description: From...to
+    - display: "1 Jan 1900–5 Jan 1900"
+      encoded: "D-+19000101..+19000105.."
+      description: Range with en dash
+    - display: "1 Jan 1900 or 5 Jan 1900"
+      encoded: "DO+19000101..+19000105.."
+      description: Alternative dates
+
+  qualifiers:
+    - display: "Abt 1 Jan 1900"
+      encoded: "D.+19000101.A+00000000.."
+      description: About
+    - display: "Est 1 Jan 1900"
+      encoded: "D.+19000101.E+00000000.."
+      description: Estimated
+    - display: "Calc 1 Jan 1900"
+      encoded: "D.+19000101.L+00000000.."
+      description: Calculated
+    - display: "Ca 1 Jan 1900"
+      encoded: "D.+19000101.C+00000000.."
+      description: Circa
+    - display: "Say 1 Jan 1900"
+      encoded: "D.+19000101.S+00000000.."
+      description: Say
+
+  qualitative:
+    - display: "Cert 1 Jan 1900"
+      encoded: "D.+19000101.6+00000000.."
+      description: Certainly
+    - display: "Prob 1 Jan 1900"
+      encoded: "D.+19000101.5+00000000.."
+      description: Probably
+    - display: "Poss 1 Jan 1900"
+      encoded: "D.+19000101.4+00000000.."
+      description: Possibly
+    - display: "Lkly 1 Jan 1900"
+      encoded: "D.+19000101.3+00000000.."
+      description: Likely
+    - display: "Appar 1 Jan 1900"
+      encoded: "D.+19000101.2+00000000.."
+      description: Apparently
+    - display: "Prhps 1 Jan 1900"
+      encoded: "D.+19000101.1+00000000.."
+      description: Perhaps
+    - display: "Maybe 1 Jan 1900"
+      encoded: "D.+19000101.?+00000000.."
+      description: Maybe
+
+  special:
+    - display: "NULL"
+      encoded: "."
+      description: Empty/null date
+    - display: "the first Wednesday after the big fire in 1900"
+      encoded: "Tthe first Wednesday after the big fire in 1900"
+      description: Free-text date
+
+rules:
+  - Fixed-width 24 characters for standard/Quaker dates
+  - Text dates are variable length starting with T
+  - All numeric fields use zero-padding
+  - Format supports nested qualifiers (qualifier on both dates in a range)
+  - Partial dates use 00 or 0000 for unspecified components
+  - Format is case-sensitive
+
+metadata:
+  source: RootsMagic 11 Data Definition
+  source_file: RM11DataDef-V11_0_0-20250914.xlsx
+  worksheet: Date
+  version: 11.0.0
+  date: 2025-09-14
