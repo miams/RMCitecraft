@@ -366,7 +366,9 @@ class FamilySearchParser:
         """Identify missing required fields based on census year."""
         missing = []
 
-        # All years need sheet (town_ward is optional)
+        # All years require town_ward and sheet
+        if not town:
+            missing.append("town_ward")
         if not sheet:
             missing.append("sheet")
 
