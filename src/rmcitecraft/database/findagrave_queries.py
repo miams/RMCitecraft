@@ -575,17 +575,9 @@ def create_findagrave_source_and_citation(
         citation_id = cursor.lastrowid
         logger.info(f"Created Find a Grave citation ID {citation_id}")
 
-        # Link citation directly to person
-        cursor.execute("""
-            INSERT INTO CitationLinkTable (
-                CitationID, OwnerType, OwnerID, UTCModDate
-            ) VALUES (?, ?, ?, ?)
-        """, (
-            citation_id,
-            0,  # OwnerType = 0 for PersonTable
-            person_id,
-            utc_mod_date,
-        ))
+        # NOTE: Citation is NOT automatically linked to person here.
+        # Linking is done separately via create_burial_event_and_link_citation()
+        # or link_citation_to_families() depending on workflow.
 
         conn.commit()
         logger.info(f"Successfully created Find a Grave source and citation for person ID {person_id}")
