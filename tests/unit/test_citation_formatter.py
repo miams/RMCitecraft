@@ -253,12 +253,13 @@ class TestCitationFormatter:
         assert "sheet 5" in footnote
 
     def test_state_abbreviations(self, formatter: CitationFormatter) -> None:
-        """Test state abbreviation in short footnote."""
+        """Test state abbreviation in short footnote (Evidence Explained style)."""
+        # Evidence Explained uses traditional abbreviations, not postal codes
         states_to_test = [
-            ("Ohio", "OH"),
-            ("Maryland", "MD"),
-            ("California", "CA"),
-            ("New York", "NY"),
+            ("Ohio", "Oh."),
+            ("Maryland", "Md."),
+            ("California", "Calif."),
+            ("New York", "N.Y."),
         ]
 
         for state_name, expected_abbrev in states_to_test:
@@ -278,5 +279,6 @@ class TestCitationFormatter:
             )
 
             _, short_footnote, _ = formatter.format(citation)
-            # Check for state abbreviation (with period)
-            assert f"{expected_abbrev}." in short_footnote or f"{expected_abbrev.title()}." in short_footnote
+            # Check for Evidence Explained style abbreviation
+            assert expected_abbrev in short_footnote, \
+                f"Expected '{expected_abbrev}' in short footnote for {state_name}, got: {short_footnote}"

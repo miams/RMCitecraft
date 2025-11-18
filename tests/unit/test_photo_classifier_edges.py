@@ -143,7 +143,7 @@ class TestPhotoClassifierEdgeCases:
             ("family gathering", "Family"),
             ("death certificate", "Document"),
             ("cemetery view", "Cemetery"),
-            ("memorial flowers", "Flowers"),  # Changed from "flowers on grave" (grave matches first)
+            ("bouquet of roses", "Flowers"),  # Avoid keywords that match other categories first
             ("random stuff", "Other"),
         ]
 
