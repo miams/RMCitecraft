@@ -5,6 +5,7 @@ Tests provider initialization, configuration validation, and error handling.
 """
 
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -121,22 +122,34 @@ class TestProviderErrorHandling:
     Tests need to be rewritten with proper mocking.
     """
 
-    @pytest.mark.xfail(reason="Test has bug - patches _llm with None then tries to set attributes on it")
     def test_model_not_found_error(self):
         """Verify ModelNotFoundError raised for unknown models."""
+        # Create a provider with the llm package installed
         config = {"provider": "llm"}
 
-        with patch("rmcitecraft.llm.llm_datasette.LLMDatasette._llm", None, create=True) as mock_llm:
-            mock_llm.get_model.return_value = MagicMock()
-            mock_llm.get_models.return_value = [MagicMock(name="test-model")]
+        # Mock the llm package that gets imported in LLMDatasette.__init__
+        mock_llm_module = MagicMock()
 
+        # Create a mock model for initial setup
+        mock_model = MagicMock()
+        mock_model.name = "test-model"
+        mock_llm_module.get_models.return_value = [mock_model]
+        mock_llm_module.get_model.return_value = mock_model
+
+        # Create UnknownModelError exception class
+        class MockUnknownModelError(Exception):
+            pass
+
+        mock_llm_module.UnknownModelError = MockUnknownModelError
+
+        # Patch the llm package import
+        with patch.dict('sys.modules', {'llm': mock_llm_module}):
             provider = create_provider(config)
-            provider._llm = mock_llm
 
-            # Set up UnknownModelError
-            mock_llm.UnknownModelError = Exception
-            mock_llm.get_model.side_effect = mock_llm.UnknownModelError("Unknown model")
+            # Now configure get_model to raise UnknownModelError for unknown models
+            mock_llm_module.get_model.side_effect = MockUnknownModelError("Unknown model")
 
+            # Should convert UnknownModelError to ModelNotFoundError
             with pytest.raises(ModelNotFoundError):
                 provider.complete("Test prompt", model="unknown-model")
 
@@ -241,28 +254,37 @@ class TestModelCapabilities:
 class TestProviderDefaults:
     """Test provider default settings."""
 
-    @pytest.mark.xfail(reason="Test has bug - patches _llm with None then tries to set attributes on it")
     def test_default_model_fallback(self):
         """Verify default model used when not specified."""
         config = {"provider": "llm"}
 
-        with patch("rmcitecraft.llm.llm_datasette.LLMDatasette._llm", None, create=True) as mock_llm:
-            mock_model = MagicMock()
-            mock_response = MagicMock()
-            mock_response.text.return_value = "Response"
-            mock_model.prompt.return_value = mock_response
+        # Mock the llm package that gets imported in LLMDatasette.__init__
+        mock_llm_module = MagicMock()
 
-            mock_llm.get_model.return_value = mock_model
-            mock_llm.get_models.return_value = [MagicMock(name="test-model")]
+        # Create a mock model
+        mock_model = MagicMock()
+        mock_model.name = "gpt-3.5-turbo"
 
+        # Create mock response
+        mock_response = MagicMock()
+        mock_response.text.return_value = "Response"
+        mock_model.prompt.return_value = mock_response
+
+        mock_llm_module.get_model.return_value = mock_model
+        mock_llm_module.get_models.return_value = [mock_model]
+
+        # Patch the llm package import
+        with patch.dict('sys.modules', {'llm': mock_llm_module}):
             provider = create_provider(config)
-            provider._llm = mock_llm
 
-            # Call without model parameter
+            # Call without model parameter - should use default
             response = provider.complete("Test")
 
-            # Should use default model
-            mock_llm.get_model.assert_called()
+            # Verify response
+            assert response.text == "Response"
+
+            # Should have called get_model (for default model)
+            mock_llm_module.get_model.assert_called()
 
     def test_default_temperature(self):
         """Verify default temperature applied."""
@@ -323,7 +345,6 @@ class TestEnvironmentConfiguration:
 class TestProviderSwitching:
     """Test switching between providers."""
 
-    @pytest.mark.xfail(reason="Test has bug - patches _llm with None then tries to set attributes on it")
     def test_can_create_multiple_providers(self):
         """Verify multiple providers can be created."""
         config_openrouter = {
@@ -333,14 +354,20 @@ class TestProviderSwitching:
 
         config_llm = {"provider": "llm"}
 
+        # Create first provider (OpenRouter)
         with patch("openai.OpenAI"):
             provider1 = create_provider(config_openrouter)
             assert provider1.name == "OpenRouter"
 
-        with patch("rmcitecraft.llm.llm_datasette.LLMDatasette._llm", None, create=True) as mock_llm:
-            mock_llm.get_model.return_value = MagicMock()
-            mock_llm.get_models.return_value = [MagicMock(name="test-model")]
+        # Create second provider (LLM Datasette)
+        mock_llm_module = MagicMock()
+        mock_model = MagicMock()
+        mock_model.name = "test-model"
+        mock_llm_module.get_model.return_value = mock_model
+        mock_llm_module.get_models.return_value = [mock_model]
 
+        # Patch the llm package import
+        with patch.dict('sys.modules', {'llm': mock_llm_module}):
             provider2 = create_provider(config_llm)
             assert provider2.name == "LLM (Datasette)"
 
