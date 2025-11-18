@@ -561,16 +561,19 @@ class FindAGraveBatchTab:
                     try:
                         from rmcitecraft.database.findagrave_queries import create_findagrave_image_record
 
-                        # Extract contributor info from photo metadata
+                        # Extract contributor and photo ID from photo metadata
                         contributor = photo.get('addedBy', '')
+                        photo_id = photo.get('photoId', '')
 
                         # Create the media record and links
                         media_info = create_findagrave_image_record(
                             db_path=self.config.rm_database_path,
                             citation_id=item.citation_id,
+                            person_id=item.person_id,
                             image_path=str(download_path),
                             photo_type=photo_type,
                             memorial_id=item.memorial_id,
+                            photo_id=photo_id,
                             contributor=contributor,
                             person_name=item.extracted_data.get('personName', item.full_name),
                             cemetery_name=item.cemetery_name or '',
@@ -688,14 +691,17 @@ class FindAGraveBatchTab:
                     from rmcitecraft.database.findagrave_queries import create_findagrave_image_record
 
                     contributor = photo.get('addedBy', '')
+                    photo_id = photo.get('photoId', '')
 
                     # Create the media record and links
                     media_info = create_findagrave_image_record(
                         db_path=self.config.rm_database_path,
                         citation_id=citation_id,
+                        person_id=item.person_id,
                         image_path=str(download_path),
                         photo_type=photo_type,
                         memorial_id=item.memorial_id,
+                        photo_id=photo_id,
                         contributor=contributor,
                         person_name=item.extracted_data.get('personName', item.full_name),
                         cemetery_name=item.cemetery_name or '',
@@ -1235,6 +1241,20 @@ class FindAGraveBatchTab:
                         source_comment=memorial_data.get('sourceComment', ''),
                     )
 
+                    # Link citation to all families where person is parent
+                    try:
+                        from rmcitecraft.database.findagrave_queries import link_citation_to_families
+                        family_ids = link_citation_to_families(
+                            db_path=self.config.rm_database_path,
+                            person_id=item.person_id,
+                            citation_id=result['citation_id'],
+                        )
+                        if family_ids:
+                            logger.info(f"Linked citation to {len(family_ids)} parent families for {item.full_name}")
+                    except Exception as family_link_error:
+                        logger.warning(f"Failed to link citation to parent families: {family_link_error}")
+                        # Don't fail the entire item, just log the warning
+
                     # Auto-download images if enabled
                     if self.auto_download_images and item.photos:
                         logger.info(f"Auto-downloading {len(item.photos)} photo(s) for {item.full_name}...")
@@ -1273,26 +1293,16 @@ class FindAGraveBatchTab:
                     if cemetery_name:
                         logger.info(f"Creating burial event for {item.full_name}...")
 
-                        # Format cemetery location from individual fields
-                        cemetery_location_parts = []
-                        if memorial_data.get('cemeteryCity'):
-                            cemetery_location_parts.append(memorial_data['cemeteryCity'])
-                        if memorial_data.get('cemeteryCounty'):
-                            cemetery_location_parts.append(memorial_data['cemeteryCounty'])
-                        if memorial_data.get('cemeteryState'):
-                            cemetery_location_parts.append(memorial_data['cemeteryState'])
-                        if memorial_data.get('cemeteryCountry') and memorial_data['cemeteryCountry'] != 'USA':
-                            cemetery_location_parts.append(memorial_data['cemeteryCountry'])
-
-                        cemetery_location = ', '.join(cemetery_location_parts) if cemetery_location_parts else None
-
                         try:
                             burial_result = create_burial_event_and_link_citation(
                                 db_path=self.config.rm_database_path,
                                 person_id=item.person_id,
                                 citation_id=result['citation_id'],
                                 cemetery_name=cemetery_name,
-                                cemetery_location=cemetery_location,
+                                cemetery_city=cemetery_city or '',
+                                cemetery_county=cemetery_county or '',
+                                cemetery_state=cemetery_state or '',
+                                cemetery_country=cemetery_country or '',
                             )
 
                             # Successfully created burial event

@@ -229,10 +229,12 @@ class TestCreateFindAGraveImageRecord:
         result = create_findagrave_image_record(
             db_path=str(temp_db),
             citation_id=citation_id,
+            person_id=1,
             image_path=str(test_image_path),
             photo_type='Grave',
             memorial_id='123456789',
-            contributor='John Doe',
+            photo_id='251750095',
+            contributor='John Doe (51206732)',
             person_name='Test Person',
             cemetery_name='Test Cemetery',
             cemetery_city='Test City',
@@ -297,6 +299,7 @@ class TestCreateFindAGraveImageRecord:
         result = create_findagrave_image_record(
             db_path=str(temp_db),
             citation_id=citation_id,
+            person_id=1,
             image_path=str(test_image_path),
             photo_type='Person',
             memorial_id='987654321',
@@ -348,6 +351,7 @@ class TestCreateFindAGraveImageRecord:
         result = create_findagrave_image_record(
             db_path=str(temp_db),
             citation_id=citation_id,
+            person_id=1,
             image_path=str(test_image_path),
             photo_type='Grave',
             memorial_id='',  # Empty memorial ID
@@ -397,6 +401,7 @@ class TestCreateFindAGraveImageRecord:
         result = create_findagrave_image_record(
             db_path=str(temp_db),
             citation_id=citation_id,
+            person_id=1,
             image_path=str(test_image_path),
             photo_type='Family',
             memorial_id='111222333',
@@ -454,6 +459,7 @@ class TestCreateFindAGraveImageRecord:
         result = create_findagrave_image_record(
             db_path=str(temp_db),
             citation_id=citation_id,
+            person_id=1,
             image_path=str(image_path),
             photo_type='Person',
             media_root=str(media_root),
@@ -524,6 +530,7 @@ class TestMediaRecordIntegrity:
         result = create_findagrave_image_record(
             db_path=str(temp_db),
             citation_id=citation_id,
+            person_id=1,
             image_path=str(test_image_path),
             photo_type='Grave',
             media_root=str(media_root),

@@ -598,27 +598,33 @@ def create_burial_event_and_link_citation(
     db_path: str,
     person_id: int,
     citation_id: int,
-    burial_date: str | None = None,
-    cemetery_name: str | None = None,
-    cemetery_location: str | None = None,
-) -> dict[str, int]:
+    cemetery_name: str,
+    cemetery_city: str,
+    cemetery_county: str,
+    cemetery_state: str,
+    cemetery_country: str,
+) -> dict[str, int | None]:
     """
-    Create burial event for person and link Find a Grave citation to it.
+    Create burial event for Find a Grave memorial and link citation to it.
 
     Args:
         db_path: Path to RootsMagic database
         person_id: Person ID
         citation_id: Citation ID to link to burial event
-        burial_date: Burial date in format "DD MMM YYYY" or "DA+ DD MMM YYYY" for estimated
-        cemetery_name: Cemetery name
-        cemetery_location: Cemetery location (e.g., "City, County, State")
+        cemetery_name: Cemetery name (e.g., "Mentor Municipal Cemetery")
+        cemetery_city: City name
+        cemetery_county: County name
+        cemetery_state: State name
+        cemetery_country: Country name
 
     Returns:
         Dictionary with created IDs:
             - 'burial_event_id': Created EventID
-            - 'burial_place_id': Created PlaceID (if cemetery created)
+            - 'place_id': PlaceID for location (PlaceType=0)
+            - 'cemetery_id': PlaceID for cemetery (PlaceType=2) or None
     """
     from rmcitecraft.database.connection import connect_rmtree
+    from difflib import SequenceMatcher
 
     conn = connect_rmtree(db_path, read_only=False)
     cursor = conn.cursor()
@@ -626,7 +632,168 @@ def create_burial_event_and_link_citation(
     try:
         utc_mod_date = get_utc_mod_date()
 
-        # Look up Burial FactTypeID
+        # 1. Build normalized location name (city, county, state, country)
+        location_parts = []
+        if cemetery_city:
+            location_parts.append(cemetery_city)
+        if cemetery_county:
+            # Remove "County" suffix for matching (RootsMagic uses "Mercer" not "Mercer County")
+            county_normalized = cemetery_county.replace(' County', '').replace(' Parish', '')
+            location_parts.append(county_normalized)
+        if cemetery_state:
+            location_parts.append(cemetery_state)
+        if cemetery_country:
+            # Normalize country name (USA → United States)
+            country_normalized = cemetery_country
+            if cemetery_country in ('USA', 'US', 'U.S.A.', 'U.S.'):
+                country_normalized = 'United States'
+            location_parts.append(country_normalized)
+
+        location_name = ", ".join(location_parts)
+
+        if not location_name:
+            logger.warning("No location information provided for burial event")
+            return {
+                'burial_event_id': None,
+                'place_id': None,
+                'cemetery_id': None,
+            }
+
+        # 2. Find or create location place (PlaceType=0)
+        cursor.execute("""
+            SELECT PlaceID, Name, Normalized
+            FROM PlaceTable
+            WHERE PlaceType = 0
+            AND Normalized LIKE ?
+        """, (f"%{cemetery_state}%",))  # Pre-filter by state
+
+        place_id = None
+        best_match_ratio = 0.0
+        best_place_id = None
+        best_place_name = None
+
+        for row in cursor.fetchall():
+            existing_place_id, existing_name, existing_normalized = row
+            # Use normalized name for comparison
+            compare_name = existing_normalized if existing_normalized else existing_name
+
+            # Calculate similarity ratio
+            ratio = SequenceMatcher(None, location_name.lower(), compare_name.lower()).ratio()
+
+            if ratio > best_match_ratio:
+                best_match_ratio = ratio
+                best_place_id = existing_place_id
+                best_place_name = existing_name
+
+        # Require >95% match to use existing place
+        if best_match_ratio >= 0.95:
+            place_id = best_place_id
+            logger.info(f"Found existing place: PlaceID {place_id} '{best_place_name}' (match: {best_match_ratio:.2%})")
+        else:
+            # Create new place
+            # Build Reverse field (reversed hierarchy: "Country, State, County, City")
+            reverse_parts = list(reversed(location_parts))
+            reverse_name = ", ".join(reverse_parts)
+
+            cursor.execute("""
+                INSERT INTO PlaceTable (
+                    PlaceType, Name, Normalized, Reverse, Latitude, Longitude,
+                    MasterID, fsID, anID, UTCModDate
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                0,  # PlaceType=0 for location
+                location_name,
+                location_name,  # Normalized same as Name
+                reverse_name,  # Reverse hierarchy
+                0,  # Latitude (0, not NULL)
+                0,  # Longitude (0, not NULL)
+                0,  # MasterID (0 for top-level location)
+                0,  # fsID (0, not NULL)
+                0,  # anID (0, not NULL)
+                utc_mod_date,
+            ))
+
+            place_id = cursor.lastrowid
+            logger.info(f"Created new place: PlaceID {place_id} - {location_name}")
+            if best_place_name:
+                logger.info(f"  (Best existing match was '{best_place_name}' at {best_match_ratio:.1%}, below 95% threshold)")
+
+        # 3. Find or create cemetery (PlaceType=2)
+        cemetery_id = None
+        if cemetery_name:
+            # Search for existing cemetery
+            cursor.execute("""
+                SELECT PlaceID
+                FROM PlaceTable
+                WHERE PlaceType = 2
+                AND Name = ?
+                AND MasterID = ?
+            """, (cemetery_name, place_id))
+
+            existing_cemetery = cursor.fetchone()
+
+            if existing_cemetery:
+                cemetery_id = existing_cemetery[0]
+                logger.info(f"Found existing cemetery: PlaceID {cemetery_id}")
+            else:
+                # Create new cemetery linked to location
+                cursor.execute("""
+                    INSERT INTO PlaceTable (
+                        PlaceType, Name, Normalized, Reverse, Latitude, Longitude,
+                        MasterID, fsID, anID, UTCModDate
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    2,  # PlaceType=2 for cemetery
+                    cemetery_name,
+                    cemetery_name,  # Same as Name for cemeteries
+                    cemetery_name,  # Reverse same as Name for cemeteries
+                    0,  # Latitude (0, not NULL)
+                    0,  # Longitude (0, not NULL)
+                    place_id,  # Link to parent location
+                    0,  # fsID (0, not NULL)
+                    0,  # anID (0, not NULL)
+                    utc_mod_date,
+                ))
+
+                cemetery_id = cursor.lastrowid
+                logger.info(f"Created cemetery: PlaceID {cemetery_id} - {cemetery_name}")
+
+        # 4. Get death date for burial "after" date
+        cursor.execute("""
+            SELECT Date
+            FROM EventTable
+            WHERE OwnerID = ?
+            AND OwnerType = 0
+            AND EventType = 2
+        """, (person_id,))
+
+        death_event = cursor.fetchone()
+        burial_date = ""
+        sort_date = 0
+
+        if death_event and death_event[0]:
+            # Extract date from death event (format: D.+YYYYMMDD..)
+            death_date_str = death_event[0]
+            if '+' in death_date_str:
+                # Extract YYYYMMDD portion
+                date_part = death_date_str.split('+')[1].split('.')[0]
+                if date_part and len(date_part) >= 8:
+                    # Check if death date is precise (has day, not just year or year-month)
+                    # Format: YYYYMMDD
+                    month = date_part[4:6]
+                    day = date_part[6:8]
+
+                    # Only use date if both month and day are specified (non-zero)
+                    if month != "00" and day != "00":
+                        # RootsMagic "after" date format: DA+YYYYMMDD..+00000000..
+                        # Position 2 'A' = After modifier
+                        burial_date = f"DA+{date_part}..+00000000.."
+                        sort_date = int(date_part)
+                        logger.info(f"Burial date (after death): {burial_date}")
+                    else:
+                        logger.info(f"Death date not precise (YYYY-MM-DD: {date_part[:4]}-{month}-{day}), leaving burial date blank")
+
+        # 5. Look up Burial FactTypeID
         cursor.execute("""
             SELECT FactTypeID FROM FactTypeTable
             WHERE Name = 'Burial'
@@ -636,7 +803,7 @@ def create_burial_event_and_link_citation(
             raise ValueError("Burial fact type not found in database")
         burial_fact_type_id = burial_fact_type[0]
 
-        # Check if person already has a burial event
+        # 6. Check if person already has a burial event
         cursor.execute("""
             SELECT EventID FROM EventTable
             WHERE OwnerID = ? AND OwnerType = 0 AND EventType = ?
@@ -646,52 +813,35 @@ def create_burial_event_and_link_citation(
         if existing_burial:
             burial_event_id = existing_burial[0]
             logger.info(f"Person {person_id} already has burial event ID {burial_event_id}")
-            burial_place_id = None
         else:
-            # Format date for RootsMagic
-            sort_date = 0
-            if burial_date:
-                # Convert date like "3 Nov 2006" or "DA+ 3 Nov 2006" to sortable format
-                # DA+ prefix means "after" date (estimated)
-                date_str = burial_date.replace('DA+ ', '').strip()
-                try:
-                    # Parse the date
-                    from datetime import datetime
-                    dt = datetime.strptime(date_str, '%d %b %Y')
-                    # RootsMagic SortDate format: YYYYMMDD as integer
-                    sort_date = int(dt.strftime('%Y%m%d'))
-                except ValueError:
-                    logger.warning(f"Could not parse burial date: {burial_date}")
-                    sort_date = 0
-
-            # Create new burial event
+            # Create new burial event with PlaceID and SiteID
             cursor.execute("""
                 INSERT INTO EventTable (
                     EventType, OwnerType, OwnerID, Date, SortDate,
-                    IsPrimary, IsPrivate, Proof, Status, UTCModDate,
-                    Sentence
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    PlaceID, SiteID, Details, IsPrimary, IsPrivate,
+                    Proof, Status, Sentence, UTCModDate
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 burial_fact_type_id,
                 0,  # OwnerType = 0 for PersonTable
                 person_id,
-                burial_date or '',  # Date string (can include DA+ prefix)
+                burial_date,  # Date string (DA+ prefix for "after")
                 sort_date,  # SortDate for chronological sorting
+                place_id,  # PlaceID = location
+                cemetery_id if cemetery_id else 0,  # SiteID = cemetery
+                "",  # Details (empty)
                 0,  # IsPrimary
                 0,  # IsPrivate
                 0,  # Proof
                 0,  # Status
-                utc_mod_date,
                 '',  # Sentence
+                utc_mod_date,
             ))
 
             burial_event_id = cursor.lastrowid
             logger.info(f"Created burial event ID {burial_event_id} for person {person_id}")
 
-            burial_place_id = None
-            # Note: Cemetery place creation is handled separately via create_location_and_cemetery
-
-        # Link citation to burial event
+        # 7. Link citation to burial event
         cursor.execute("""
             INSERT OR IGNORE INTO CitationLinkTable (
                 CitationID, OwnerType, OwnerID, SortOrder, Quality, IsPrivate, Flags, UTCModDate
@@ -700,19 +850,22 @@ def create_burial_event_and_link_citation(
             citation_id,
             2,  # OwnerType = 2 for EventTable
             burial_event_id,
-            0,  # SortOrder: 0 for consistency with recent records
-            '~~~',  # Quality: default rating (no specific rating provided)
+            0,  # SortOrder
+            '~~~',  # Quality: default rating
             0,  # IsPrivate
             0,  # Flags
             utc_mod_date,
         ))
+
+        logger.info(f"Linked CitationID {citation_id} to burial EventID {burial_event_id}")
 
         conn.commit()
         logger.info(f"Successfully created/linked burial event {burial_event_id} with citation {citation_id}")
 
         return {
             'burial_event_id': burial_event_id,
-            'burial_place_id': burial_place_id,
+            'place_id': place_id,
+            'cemetery_id': cemetery_id,
         }
 
     except Exception as e:
@@ -1157,9 +1310,11 @@ def convert_path_to_rootsmagic_format(absolute_path: str | Path, media_root: str
 def create_findagrave_image_record(
     db_path: str,
     citation_id: int,
+    person_id: int,
     image_path: str,
     photo_type: str = '',
     memorial_id: str = '',
+    photo_id: str = '',
     contributor: str = '',
     person_name: str = '',
     cemetery_name: str = '',
@@ -1174,10 +1329,12 @@ def create_findagrave_image_record(
     Args:
         db_path: Path to RootsMagic database
         citation_id: Citation ID to link image to
+        person_id: Person ID to link image to (for Person/Family types)
         image_path: Absolute path to downloaded image file
         photo_type: Type of photo (Person, Grave, Family, Document, Cemetery, Other)
         memorial_id: Find a Grave memorial ID
-        contributor: Photo contributor name from Find a Grave
+        photo_id: Find a Grave photo ID (for photo-specific URL)
+        contributor: Photo contributor name and ID from Find a Grave (e.g., "Joseph Testerman (51206732)")
         person_name: Person name as displayed on FindaGrave (for caption)
         cemetery_name: Cemetery name (for Grave/Cemetery captions)
         cemetery_city: Cemetery city (for Grave/Cemetery captions)
@@ -1287,6 +1444,22 @@ def create_findagrave_image_record(
                 logger.error(error_msg)
                 raise RuntimeError(error_msg)
 
+        # Generate description field with FindaGrave attribution
+        # Format: Photo courtesy of Findagrave and Joseph Testerman (51206732), (https://www.findagrave.com/memorial/204551436/jack-louis-iams#view-photo=251750095 : downloaded November 18, 2025)
+        from datetime import datetime
+        download_date = datetime.now().strftime('%B %d, %Y')
+
+        # Build photo-specific URL
+        photo_url = f"https://www.findagrave.com/memorial/{memorial_id}"
+        if photo_id:
+            photo_url += f"#view-photo={photo_id}"
+
+        # Build description with contributor attribution
+        description = f"Photo courtesy of Findagrave"
+        if contributor:
+            description += f" and {contributor}"
+        description += f", ({photo_url} : downloaded {download_date})"
+
         # Create media record
         media_id = img_repo.create_media_record(
             media_path=directory_path,
@@ -1294,26 +1467,36 @@ def create_findagrave_image_record(
             caption=caption,
             ref_number=f"https://www.findagrave.com/memorial/{memorial_id}" if memorial_id else '',
             census_date='',  # Find a Grave photos don't have census dates
+            description=description,
         )
 
-        # Link to citation
+        # Link to citation (always)
         media_link_id = img_repo.link_media_to_citation(media_id, citation_id)
 
-        # Also get the burial event ID to link there too
+        # Conditional linking based on photo type
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT cl.OwnerID
-            FROM CitationLinkTable cl
-            WHERE cl.CitationID = ? AND cl.OwnerType = 2
-            LIMIT 1
-        """, (citation_id,))
-        row = cursor.fetchone()
 
-        if row:
-            burial_event_id = row[0]
-            # Link to burial event as well
-            img_repo.link_media_to_event(media_id, burial_event_id)
-            logger.info(f"Linked image to burial event ID {burial_event_id}")
+        # Link to burial event if Grave or Cemetery type
+        if photo_type in ['Grave', 'Cemetery']:
+            cursor.execute("""
+                SELECT cl.OwnerID
+                FROM CitationLinkTable cl
+                WHERE cl.CitationID = ? AND cl.OwnerType = 2
+                LIMIT 1
+            """, (citation_id,))
+            row = cursor.fetchone()
+
+            if row:
+                burial_event_id = row[0]
+                img_repo.link_media_to_event(media_id, burial_event_id)
+                logger.info(f"Linked image to burial event ID {burial_event_id}")
+            else:
+                logger.warning(f"No burial event found for citation {citation_id}, skipping event link")
+
+        # Link to person if Person or Family type
+        if photo_type in ['Person', 'Family']:
+            img_repo.link_media_to_person(media_id, person_id)
+            logger.info(f"Linked image to person ID {person_id}")
 
         conn.commit()
         logger.info(f"Created Find a Grave image record: MediaID {media_id} for {media_file}")

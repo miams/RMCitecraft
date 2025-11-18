@@ -91,6 +91,7 @@ class ImageRepository:
         caption: str,
         ref_number: str,
         census_date: str,
+        description: str = '',
     ) -> int:
         """
         Create new record in MultimediaTable.
@@ -101,6 +102,7 @@ class ImageRepository:
             caption: Auto-generated caption from census details
             ref_number: FamilySearch ARK URL
             census_date: RootsMagic date format (e.g., "D.+19300401..+00000000..")
+            description: Optional description/attribution
 
         Returns:
             MediaID of created record
@@ -112,7 +114,8 @@ class ImageRepository:
             ...     media_file="1930, Oklahoma, Tulsa - Iams, Jesse Dorsey.jpg",
             ...     caption="1930 U.S. Census - Jesse Dorsey Iams, Tulsa, Oklahoma",
             ...     ref_number="https://familysearch.org/ark:/61903/1:1:XXXX-XXX",
-            ...     census_date="D.+19300401..+00000000.."
+            ...     census_date="D.+19300401..+00000000..",
+            ...     description="Photo courtesy of FamilySearch"
             ... )
         """
         cursor = self.conn.cursor()
@@ -130,9 +133,9 @@ class ImageRepository:
                 """
                 INSERT INTO MultimediaTable (
                     MediaID, MediaType, MediaPath, MediaFile,
-                    Caption, RefNumber, Date, SortDate, UTCModDate
+                    Caption, RefNumber, Date, SortDate, Description, UTCModDate
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     media_id,
@@ -143,6 +146,7 @@ class ImageRepository:
                     ref_number,
                     census_date,
                     0,  # SortDate: 0 = no specific date (never NULL)
+                    description,
                     utc_mod_date,
                 ),
             )
@@ -278,6 +282,68 @@ class ImageRepository:
         except sqlite3.Error as e:
             self.conn.rollback()
             logger.error(f"Failed to link media to citation: {e}")
+            raise
+
+    def link_media_to_person(self, media_id: int, person_id: int, is_primary: bool = False) -> int:
+        """
+        Link media to person in MediaLinkTable.
+
+        Args:
+            media_id: MediaID from MultimediaTable
+            person_id: PersonID from PersonTable
+            is_primary: Whether this is the primary image for the person (default: False)
+
+        Returns:
+            LinkID of the created or existing link
+
+        Example:
+            >>> link_id = repo.link_media_to_person(media_id=42, person_id=123)
+        """
+        cursor = self.conn.cursor()
+
+        try:
+            # Check if link already exists
+            cursor.execute(
+                """
+                SELECT LinkID FROM MediaLinkTable
+                WHERE MediaID = ? AND OwnerType = 0 AND OwnerID = ?
+                """,
+                (media_id, person_id),
+            )
+
+            existing = cursor.fetchone()
+            if existing:
+                link_id = existing[0]
+                logger.warning(f"Media {media_id} already linked to person {person_id} (LinkID {link_id})")
+                return link_id
+
+            # Get next LinkID
+            cursor.execute("SELECT COALESCE(MAX(LinkID), 0) + 1 FROM MediaLinkTable")
+            link_id = cursor.fetchone()[0]
+
+            # Current timestamp
+            utc_mod_date = self._get_utc_timestamp()
+
+            # Insert link (OwnerType=0 for Person)
+            cursor.execute(
+                """
+                INSERT INTO MediaLinkTable (
+                    LinkID, MediaID, OwnerType, OwnerID,
+                    IsPrimary, UTCModDate
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (link_id, media_id, 0, person_id, 1 if is_primary else 0, utc_mod_date),
+            )
+
+            self.conn.commit()
+            logger.info(f"Linked media {media_id} to person {person_id} (LinkID {link_id})")
+
+            return link_id
+
+        except sqlite3.Error as e:
+            self.conn.rollback()
+            logger.error(f"Failed to link media to person: {e}")
             raise
 
     def link_media_to_source(self, media_id: int, source_id: int) -> None:
