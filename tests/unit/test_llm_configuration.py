@@ -48,21 +48,20 @@ class TestProviderConfiguration:
             provider = create_provider(config)
             assert provider.name == "OpenRouter"
 
-    @pytest.mark.xfail(reason="Test requires llm package to be uninstalled - cannot test ImportError path with llm installed")
     def test_llm_datasette_initialization_without_package(self):
         """Verify error when LLM package not installed.
 
-        NOTE: This test is xfail because llm package IS installed as an optional dependency.
-        To test the ImportError path, llm would need to be uninstalled, but that breaks
-        other tests that depend on it. This test documents the expected behavior when
-        llm is not installed, but cannot actually run in the current environment.
+        Tests that ImportError is raised when llm package is not available.
+        We simulate this by making the import fail via sys.modules manipulation.
         """
         config = {"provider": "llm"}
 
-        # This test requires llm package to NOT be installed
-        # Since llm IS installed, this test will fail
-        with pytest.raises(ConfigurationError, match="not installed"):
-            create_provider(config)
+        # Make llm import fail by setting it to None in sys.modules
+        # This simulates llm not being installed
+        with patch.dict('sys.modules', {'llm': None}):
+            # Should raise ImportError when llm package not available
+            with pytest.raises(ImportError, match="not installed"):
+                create_provider(config)
 
     def test_get_available_providers(self):
         """Verify get_available_providers returns dict of availability."""
