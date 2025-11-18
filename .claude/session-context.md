@@ -40,7 +40,7 @@ This file helps preserve context between Claude Code sessions.
    - End-to-end image download workflow
 
 ### Configuration Files
-- `config/.env` - Exists, needs API keys filled in
+- `.env` - Active configuration in project root (API keys configured)
 - `config/.env.example` - Template with all required variables
 - `.gitignore` - Already excludes `.env` and API keys
 
@@ -89,7 +89,7 @@ pytest --co -q  # Count tests
 
 ## API Key Configuration Template
 
-When ready to configure, edit `config/.env`:
+When ready to configure, edit `.env` in project root:
 
 ```env
 # Anthropic (Claude)

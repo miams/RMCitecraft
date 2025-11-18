@@ -24,7 +24,7 @@
 - ✅ LLM Architecture Documentation (docs/architecture/LLM-ARCHITECTURE.md)
 - ✅ Database Schema Documentation (docs/reference/schema-reference.md)
 - ✅ Development Guidance (CLAUDE.md)
-- ✅ Configuration Setup (config/.env.example)
+- ✅ Configuration Setup (config/.env.example → copy to root .env)
 - ✅ SQLite ICU Extension Integration (sqlite-extension/)
 - ✅ Project Structure Created
 

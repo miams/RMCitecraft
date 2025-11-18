@@ -84,7 +84,7 @@ uv sync
 
 # 4. Copy environment configuration
 cp config/.env.example .env
-# Edit .env with your API keys and paths
+# Edit .env in project root with your API keys and paths
 
 # 5. Verify database connection
 uv run python sqlite-extension/python_example.py

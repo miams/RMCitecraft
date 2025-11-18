@@ -719,14 +719,14 @@ RMCitecraft/
 - **docs/reference/schema-reference.md** - Comprehensive RootsMagic database schema
 - **docs/data-definitions.yaml** - Detailed field definitions
 - **data/Iiams.rmtree** - Sample RootsMagic database for testing
-- **config/.env.example** - Configuration template
+- **config/.env.example** - Configuration template (copy to root as `.env`)
 - **sqlite-extension/python_example.py** - Working database connection examples
 
 ## Configuration Management
 
 ### Environment Variables (.env)
 
-The application uses environment variables for configuration. See `config/.env.example` for template.
+The application uses environment variables for configuration. Copy `config/.env.example` to `.env` in the project root and fill in your values.
 
 **Key Configuration Variables:**
 
@@ -940,8 +940,8 @@ def generate_citation_with_user_input(
 
 5. **Copy configuration template:**
    ```bash
-   cp config/.env.example config/.env
-   # Edit config/.env with your API keys and paths
+   cp config/.env.example .env
+   # Edit .env with your API keys and paths
 
    # With direnv installed, environment variables will automatically load
    # when you cd into the project directory
