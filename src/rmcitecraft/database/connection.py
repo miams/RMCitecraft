@@ -11,7 +11,9 @@ from loguru import logger
 
 
 def connect_rmtree(
-    db_path: str | Path, extension_path: str | Path = "./sqlite-extension/icu.dylib"
+    db_path: str | Path,
+    extension_path: str | Path = "./sqlite-extension/icu.dylib",
+    read_only: bool = True,
 ) -> sqlite3.Connection:
     """Connect to RootsMagic database with RMNOCASE collation support.
 
@@ -21,6 +23,7 @@ def connect_rmtree(
     Args:
         db_path: Path to .rmtree database file
         extension_path: Path to ICU extension library (default: ./sqlite-extension/icu.dylib)
+        read_only: Open database in read-only mode (default: True for safety)
 
     Returns:
         sqlite3.Connection object with RMNOCASE collation registered
@@ -38,9 +41,14 @@ def connect_rmtree(
     if not extension_path.exists():
         raise FileNotFoundError(f"ICU extension not found: {extension_path}")
 
-    logger.debug(f"Connecting to RootsMagic database: {db_path}")
+    logger.debug(f"Connecting to RootsMagic database: {db_path} (read_only={read_only})")
 
-    conn = sqlite3.connect(str(db_path))
+    # Build URI for read-only mode
+    if read_only:
+        uri = f"file:{db_path}?mode=ro"
+        conn = sqlite3.connect(uri, uri=True)
+    else:
+        conn = sqlite3.connect(str(db_path))
 
     # Enable extension loading
     conn.enable_load_extension(True)
