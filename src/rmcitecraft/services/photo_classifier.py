@@ -29,8 +29,7 @@ class PhotoClassifier:
         "Family",      # Group photo
         "Document",    # Certificate, record, paper
         "Cemetery",    # Wide cemetery view
-        "Flowers",     # Memorial flowers
-        "Other",       # Anything else
+        "Other",       # Anything else (including flowers)
     ]
 
     def __init__(self, provider: Optional[LLMProvider] = None,
@@ -134,8 +133,7 @@ Classify this image into exactly ONE of these categories:
 - Family: Group photo with multiple people
 - Document: Certificate, record, newspaper clipping, or paper document
 - Cemetery: Wide view of cemetery grounds or multiple graves
-- Flowers: Memorial flowers or floral arrangements
-- Other: Anything that doesn't fit the above categories
+- Other: Anything that doesn't fit the above categories (including flowers, decorations, etc.)
 
 Respond in JSON format:
 {{
@@ -265,8 +263,10 @@ Be accurate - this will be used to organize photos in a genealogy database."""
             if keyword in description_lower:
                 return "Cemetery"
 
+        # Flowers are now categorized as "Other"
+        # (keeping flower_keywords check to explicitly return "Other" for clarity)
         for keyword in flower_keywords:
             if keyword in description_lower:
-                return "Flowers"
+                return "Other"
 
         return "Other"

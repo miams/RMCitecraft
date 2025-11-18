@@ -143,7 +143,7 @@ class TestPhotoClassifierEdgeCases:
             ("family gathering", "Family"),
             ("death certificate", "Document"),
             ("cemetery view", "Cemetery"),
-            ("bouquet of roses", "Flowers"),  # Avoid keywords that match other categories first
+            ("bouquet of roses", "Other"),  # Flowers are now categorized as "Other"
             ("random stuff", "Other"),
         ]
 
@@ -280,6 +280,6 @@ class TestPhotoClassifierEdgeCases:
         assert "Family" in PhotoClassifier.CATEGORIES
         assert "Document" in PhotoClassifier.CATEGORIES
         assert "Cemetery" in PhotoClassifier.CATEGORIES
-        assert "Flowers" in PhotoClassifier.CATEGORIES
+        assert "Flowers" not in PhotoClassifier.CATEGORIES, "Flowers category has been removed"
         assert "Other" in PhotoClassifier.CATEGORIES
-        assert len(PhotoClassifier.CATEGORIES) == 7
+        assert len(PhotoClassifier.CATEGORIES) == 6, "Should have 6 categories (Flowers removed)"

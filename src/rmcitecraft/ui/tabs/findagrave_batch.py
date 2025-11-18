@@ -47,6 +47,9 @@ class FindAGraveBatchTab:
         self.selected_item_ids: set[int] = set()
         self.ui_context = None  # Store UI context for background tasks
 
+        # Batch processing settings
+        self.auto_download_images: bool = True  # Auto-download images during batch processing
+
     def render(self) -> ui.column:
         """Render the Find a Grave batch processing tab."""
         # Store UI context for background tasks
@@ -80,6 +83,14 @@ class FindAGraveBatchTab:
 
                 # Actions
                 with ui.row().classes("gap-1"):
+                    # Batch processing options
+                    if self.controller.session:
+                        ui.checkbox(
+                            "Auto-download images",
+                            value=self.auto_download_images,
+                            on_change=lambda e: setattr(self, 'auto_download_images', e.value),
+                        ).props("dense").classes("text-sm")
+
                     ui.button(
                         "Load Batch",
                         icon="download",
@@ -561,6 +572,11 @@ class FindAGraveBatchTab:
                             photo_type=photo_type,
                             memorial_id=item.memorial_id,
                             contributor=contributor,
+                            person_name=item.extracted_data.get('personName', item.full_name),
+                            cemetery_name=item.cemetery_name or '',
+                            cemetery_city=item.extracted_data.get('cemeteryCity', ''),
+                            cemetery_county=item.extracted_data.get('cemeteryCounty', ''),
+                            cemetery_state=item.extracted_data.get('cemeteryState', ''),
                             media_root=self.config.rm_media_root_directory,
                         )
 
@@ -590,6 +606,135 @@ class FindAGraveBatchTab:
             error_msg = f"Error downloading photo: {e}"
             ui.notify(error_msg, type="negative")
             self.error_log.add_error(error_msg, context="Find a Grave Batch")
+
+    async def _download_photo_for_batch(
+        self,
+        item: FindAGraveBatchItem,
+        photo: dict,
+        citation_id: int
+    ) -> None:
+        """
+        Download a photo during batch processing (no UI notifications).
+
+        Args:
+            item: The batch item
+            photo: Photo metadata from Find a Grave
+            citation_id: Citation ID to link the image to
+        """
+        try:
+            # Determine surname for filename
+            surname = item.surname
+            if not surname or surname.strip() == '':
+                # Try to get spouse's surname
+                spouse_surname = self._get_spouse_surname(item.person_id)
+                if spouse_surname:
+                    surname = f"[{spouse_surname}]"
+                else:
+                    surname = ""
+
+            # Determine photo type
+            photo_type = photo.get('photoType', '').strip()
+            logger.info(f"Batch download - Photo type: '{photo_type}'")
+
+            # Generate filename (all photos include maiden name if female)
+            base_filename = generate_image_filename(
+                surname=surname,
+                given_name=item.given_name,
+                maiden_name=item.maiden_name,
+                birth_year=item.birth_year,
+                death_year=item.death_year,
+            )
+
+            # Determine directory based on photo type
+            if photo_type == 'Person':
+                download_dir = Path.home() / "Genealogy/RootsMagic/Files/Pictures - People"
+            elif photo_type == 'Family':
+                download_dir = Path.home() / "Genealogy/RootsMagic/Files/Pictures - People"
+            elif photo_type == 'Grave':
+                download_dir = Path.home() / "Genealogy/RootsMagic/Files/Pictures - Cemetaries"
+            else:
+                download_dir = Path.home() / "Genealogy/RootsMagic/Files/Pictures - Other"
+
+            download_dir.mkdir(parents=True, exist_ok=True)
+
+            # Check for existing files and add counter if needed (for Grave photos)
+            filename = base_filename
+            if photo_type == 'Grave':
+                base_name = base_filename.rsplit('.', 1)[0]
+                extension = base_filename.rsplit('.', 1)[1]
+                counter = 1
+                test_path = download_dir / filename
+
+                while test_path.exists():
+                    filename = f"{base_name}_{counter}.{extension}"
+                    test_path = download_dir / filename
+                    counter += 1
+
+            download_path = download_dir / filename
+
+            # Download photo using browser automation
+            image_url = photo.get('imageUrl', '')
+            success = await self.automation.download_photo(
+                image_url,
+                item.memorial_id,
+                download_path,
+            )
+
+            if success:
+                logger.info(f"Successfully downloaded: {download_path}")
+
+                # Create database record for the image and link to citation
+                try:
+                    from rmcitecraft.database.findagrave_queries import create_findagrave_image_record
+
+                    contributor = photo.get('addedBy', '')
+
+                    # Create the media record and links
+                    media_info = create_findagrave_image_record(
+                        db_path=self.config.rm_database_path,
+                        citation_id=citation_id,
+                        image_path=str(download_path),
+                        photo_type=photo_type,
+                        memorial_id=item.memorial_id,
+                        contributor=contributor,
+                        person_name=item.extracted_data.get('personName', item.full_name),
+                        cemetery_name=item.cemetery_name or '',
+                        cemetery_city=item.extracted_data.get('cemeteryCity', ''),
+                        cemetery_county=item.extracted_data.get('cemeteryCounty', ''),
+                        cemetery_state=item.extracted_data.get('cemeteryState', ''),
+                        media_root=self.config.rm_media_root_directory,
+                    )
+
+                    # Store in item's downloaded images list
+                    item.downloaded_images.append({
+                        'path': str(download_path),
+                        'media_id': media_info['media_id'],
+                        'photo_type': photo_type,
+                    })
+
+                    logger.info(f"Created media record ID {media_info['media_id']}")
+
+                except Exception as db_error:
+                    logger.error(f"Failed to create database record for image: {db_error}", exc_info=True)
+                    self.error_log.add_error(
+                        f"Failed to create database record for image: {db_error}",
+                        context="Find a Grave Batch"
+                    )
+                    # Don't fail the download itself, just log the database error
+            else:
+                logger.warning(f"Failed to download photo from {image_url}")
+                self.error_log.add_warning(
+                    f"Failed to download photo for {item.full_name}",
+                    context="Find a Grave Batch"
+                )
+
+        except Exception as e:
+            logger.error(f"Error downloading photo in batch: {e}", exc_info=True)
+            self.error_log.add_error(
+                f"Error downloading photo for {item.full_name}: {e}",
+                context="Find a Grave Batch"
+            )
+            raise
 
     async def _show_place_approval_dialog(
         self,
@@ -1090,6 +1235,23 @@ class FindAGraveBatchTab:
                         source_comment=memorial_data.get('sourceComment', ''),
                     )
 
+                    # Auto-download images if enabled
+                    if self.auto_download_images and item.photos:
+                        logger.info(f"Auto-downloading {len(item.photos)} photo(s) for {item.full_name}...")
+                        status_label.text = f"Downloading {len(item.photos)} image(s)..."
+
+                        for photo in item.photos:
+                            try:
+                                # Download photo using the same logic as manual download
+                                await self._download_photo_for_batch(item, photo, result['citation_id'])
+                            except Exception as photo_error:
+                                logger.error(f"Failed to download photo: {photo_error}", exc_info=True)
+                                self.error_log.add_warning(
+                                    f"Failed to download photo for {item.full_name}: {photo_error}",
+                                    context="Find a Grave Batch"
+                                )
+                                # Continue with other photos/processing
+
                     burial_event_id = None
 
                     # Create burial event if cemetery information is available
@@ -1133,103 +1295,11 @@ class FindAGraveBatchTab:
                                 cemetery_location=cemetery_location,
                             )
 
-                            if burial_result['needs_approval']:
-                                match_info = burial_result.get('match_info', {})
-                                cemetery_name = match_info.get('cemetery_name', 'Unknown')
-                                location_name = match_info.get('findagrave_location', 'Unknown')
-
-                                # Show approval dialog and wait for user decision
-                                logger.info(f"Showing place approval dialog for {item.full_name}")
-                                try:
-                                    decision = await self._show_place_approval_dialog(item, match_info)
-                                except Exception as dialog_error:
-                                    logger.error(f"Error showing place approval dialog: {dialog_error}", exc_info=True)
-                                    ui.notify(f"Error showing place approval dialog: {dialog_error}", type="negative")
-                                    self.error_log.add_error(
-                                        f"Failed to show place approval dialog for {item.full_name}: {dialog_error}",
-                                        context="Find a Grave Batch"
-                                    )
-                                    return  # Abort batch processing
-
-                                if not decision or decision['action'] == 'abort':
-                                    # User aborted - stop entire batch processing
-                                    logger.warning(f"User aborted batch processing at {item.full_name}")
-                                    self.error_log.add_warning(
-                                        f"Batch processing aborted by user at {item.full_name}",
-                                        context="Find a Grave Batch"
-                                    )
-                                    ui.notify("Batch processing aborted", type="warning")
-                                    return  # Exit batch processing
-
-                                elif decision['action'] == 'add_new':
-                                    # Create new location and cemetery
-                                    logger.info(f"Creating new location and cemetery for {item.full_name}")
-                                    place_result = create_location_and_cemetery(
-                                        db_path=self.config.rm_database_path,
-                                        location_name=location_name,
-                                        cemetery_name=cemetery_name,
-                                    )
-
-                                    location_id = place_result['location_id']
-                                    cemetery_id = place_result['cemetery_id']
-
-                                    logger.info(f"Created location {location_id} and cemetery {cemetery_id}")
-                                    ui.notify(f"Created new place: {location_name}", type="positive")
-
-                                    # Log to web UI
-                                    self.error_log.add_info(
-                                        f"Created new place for {item.full_name}: {location_name} (PlaceID {location_id}), "
-                                        f"Cemetery: {cemetery_name} (PlaceID {cemetery_id})",
-                                        context="Find a Grave Batch"
-                                    )
-
-                                    # Now create burial event with new places
-                                    # Re-run burial event creation but it will find the new place
-                                    burial_result_retry = create_burial_event_and_link_citation(
-                                        db_path=self.config.rm_database_path,
-                                        person_id=item.person_id,
-                                        citation_id=result['citation_id'],
-                                        cemetery_name=cemetery_name,
-                                        cemetery_location=cemetery_location,
-                                    )
-                                    burial_event_id = burial_result_retry['burial_event_id']
-
-                                elif decision['action'] == 'select_existing':
-                                    # Use selected existing location, create cemetery
-                                    selected_place_id = decision['selected_place_id']
-                                    logger.info(f"Creating cemetery for existing location {selected_place_id}")
-
-                                    cemetery_id = create_cemetery_for_existing_location(
-                                        db_path=self.config.rm_database_path,
-                                        location_id=selected_place_id,
-                                        cemetery_name=cemetery_name,
-                                    )
-
-                                    logger.info(f"Created cemetery {cemetery_id} for location {selected_place_id}")
-                                    ui.notify(f"Created cemetery for existing location", type="positive")
-
-                                    # Log to web UI
-                                    self.error_log.add_info(
-                                        f"Created cemetery for {item.full_name}: {cemetery_name} (PlaceID {cemetery_id}), "
-                                        f"using existing location PlaceID {selected_place_id}",
-                                        context="Find a Grave Batch"
-                                    )
-
-                                    # Now create burial event - it will use the selected location and new cemetery
-                                    burial_result_retry = create_burial_event_and_link_citation(
-                                        db_path=self.config.rm_database_path,
-                                        person_id=item.person_id,
-                                        citation_id=result['citation_id'],
-                                        cemetery_name=cemetery_name,
-                                        cemetery_location=cemetery_location,
-                                    )
-                                    burial_event_id = burial_result_retry['burial_event_id']
-
-                            else:
-                                burial_event_id = burial_result['burial_event_id']
-                                logger.info(
-                                    f"Created burial event {burial_event_id} for {item.full_name}"
-                                )
+                            # Successfully created burial event
+                            burial_event_id = burial_result['burial_event_id']
+                            logger.info(
+                                f"Created burial event {burial_event_id} for {item.full_name}"
+                            )
 
                         except Exception as burial_error:
                             logger.error(f"Failed to create burial event: {burial_error}", exc_info=True)

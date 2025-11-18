@@ -233,6 +233,11 @@ class TestCreateFindAGraveImageRecord:
             photo_type='Grave',
             memorial_id='123456789',
             contributor='John Doe',
+            person_name='Test Person',
+            cemetery_name='Test Cemetery',
+            cemetery_city='Test City',
+            cemetery_county='Test County',
+            cemetery_state='Test State',
             media_root=str(media_root),
         )
 
@@ -255,9 +260,11 @@ class TestCreateFindAGraveImageRecord:
         assert media_record is not None
         assert media_record[0] == 1, "MediaType should be 1 (Image)"
         assert media_record[2] == test_image_path.name, "MediaFile should match filename"
-        assert 'Find a Grave' in media_record[3], "Caption should mention Find a Grave"
-        assert 'Grave Photo' in media_record[3], "Caption should mention photo type"
-        assert 'John Doe' in media_record[3], "Caption should mention contributor"
+        assert media_record[3].startswith('FindaGrave-Grave:'), "Caption should start with FindaGrave-Grave:"
+        assert 'Test Cemetery' in media_record[3], "Caption should mention cemetery name"
+        assert 'Test City' in media_record[3], "Caption should mention cemetery city"
+        assert 'Test County' in media_record[3], "Caption should mention cemetery county"
+        assert 'Test State' in media_record[3], "Caption should mention cemetery state"
         assert '123456789' in media_record[4], "RefNumber should contain memorial ID"
 
         conn.close()
@@ -394,10 +401,15 @@ class TestCreateFindAGraveImageRecord:
             photo_type='Family',
             memorial_id='111222333',
             contributor='',  # Empty contributor
+            person_name='Test Person',
+            cemetery_name='',
+            cemetery_city='',
+            cemetery_county='',
+            cemetery_state='',
             media_root=str(media_root),
         )
 
-        # Verify caption doesn't have "(contributed by )"
+        # Verify caption uses new format without contributor
         conn = connect_rmtree(str(temp_db))
         cursor = conn.cursor()
         cursor.execute("""
@@ -408,9 +420,8 @@ class TestCreateFindAGraveImageRecord:
         caption = cursor.fetchone()[0]
         conn.close()
 
-        assert 'Find a Grave' in caption
-        assert 'Family Photo' in caption
-        assert 'contributed by' not in caption
+        assert caption.startswith('FindaGrave-Family:'), f"Expected caption to start with 'FindaGrave-Family:', got: {caption}"
+        assert 'Family of Test Person' in caption, f"Expected 'Family of Test Person' in caption, got: {caption}"
 
     def test_path_conversion_with_spaces(self, test_db_path, media_root, tmp_path):
         """Verify filename with spaces handled correctly."""

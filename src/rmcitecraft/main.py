@@ -33,7 +33,23 @@ def setup_app() -> None:
     """Set up the RMCitecraft application routes and UI."""
     config = get_config()
 
+    # Configure file logging
+    log_path = Path(config.log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Add file sink for all logs (rotation at 10 MB, keep 5 old files)
+    logger.add(
+        log_path,
+        rotation="10 MB",
+        retention=5,
+        level=config.log_level,
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        backtrace=True,
+        diagnose=True,
+    )
+
     logger.info("Starting RMCitecraft application")
+    logger.info(f"Logging to file: {log_path}")
 
     # Configure CORS for browser extension communication
     app.add_middleware(

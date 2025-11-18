@@ -527,7 +527,7 @@ def create_findagrave_source_and_citation(
         """, (
             source_name,
             '',  # RefNumber empty (URL is in footnote)
-            '',  # ActualText empty (memorial text in citation)
+            memorial_text,  # ActualText = memorial biography (displays as "Source Text" in RM)
             source_comment,
             0,  # IsPrivate
             0,  # TemplateID = 0 for free-form source
@@ -539,10 +539,8 @@ def create_findagrave_source_and_citation(
         logger.info(f"Created Find a Grave source ID {source_id}: {source_name}")
 
         # Now update the source with formatted citations in Fields XML
-        # Add URL as first line of footnote (with blank line after)
-        footnote_with_url = f"{memorial_url}\n\n{footnote}" if memorial_url else footnote
-
-        xml_content = _build_source_fields_xml(footnote_with_url, short_footnote, bibliography)
+        # URL is already embedded in the formatted footnote, don't prepend it
+        xml_content = _build_source_fields_xml(footnote, short_footnote, bibliography)
 
         cursor.execute("""
             UPDATE SourceTable
@@ -1163,6 +1161,11 @@ def create_findagrave_image_record(
     photo_type: str = '',
     memorial_id: str = '',
     contributor: str = '',
+    person_name: str = '',
+    cemetery_name: str = '',
+    cemetery_city: str = '',
+    cemetery_county: str = '',
+    cemetery_state: str = '',
     media_root: str | None = None,
 ) -> dict[str, int]:
     """
@@ -1172,9 +1175,14 @@ def create_findagrave_image_record(
         db_path: Path to RootsMagic database
         citation_id: Citation ID to link image to
         image_path: Absolute path to downloaded image file
-        photo_type: Type of photo (Person, Grave, Family, Other)
+        photo_type: Type of photo (Person, Grave, Family, Document, Cemetery, Other)
         memorial_id: Find a Grave memorial ID
         contributor: Photo contributor name from Find a Grave
+        person_name: Person name as displayed on FindaGrave (for caption)
+        cemetery_name: Cemetery name (for Grave/Cemetery captions)
+        cemetery_city: Cemetery city (for Grave/Cemetery captions)
+        cemetery_county: Cemetery county (for Grave/Cemetery captions)
+        cemetery_state: Cemetery state (for Grave/Cemetery captions)
         media_root: RootsMagic media root directory (for path conversion)
 
     Returns:
@@ -1196,24 +1204,92 @@ def create_findagrave_image_record(
 
         # Convert absolute path to RootsMagic format
         image_path = Path(image_path)
-        rm_path = convert_path_to_rootsmagic_format(image_path, media_root)
+
+        # Get the directory path (without filename) in RootsMagic format
+        directory_path = convert_path_to_rootsmagic_format(image_path.parent, media_root)
 
         # Extract just the filename for MediaFile field
         media_file = image_path.name
 
-        # Generate caption
-        caption = f"Find a Grave"
-        if photo_type:
-            caption += f" - {photo_type} Photo"
-        if contributor:
-            caption += f" (contributed by {contributor})"
+        # Remap "Flower" to "Other" (legacy category removal)
+        if photo_type and photo_type.lower() in ['flower', 'flowers']:
+            photo_type = 'Other'
+            logger.warning(f"Remapped deprecated 'Flower' photo type to 'Other' for {media_file}")
+
+        # Generate caption based on photo type
+        if photo_type == 'Grave':
+            # FindaGrave-Grave: Forest Lawn Cemetery, Detroit, Wayne, Michigan
+            location_parts = [cemetery_name]
+            if cemetery_city:
+                location_parts.append(cemetery_city)
+            if cemetery_county:
+                location_parts.append(cemetery_county)
+            if cemetery_state:
+                location_parts.append(cemetery_state)
+            caption = f"FindaGrave-Grave: {', '.join(filter(None, location_parts))}"
+
+        elif photo_type == 'Person':
+            # FindaGrave-Person: I Walter Iams
+            caption = f"FindaGrave-Person: {person_name}"
+
+        elif photo_type == 'Family':
+            # FindaGrave-Family: Family of I Walter Iams
+            caption = f"FindaGrave-Family: Family of {person_name}"
+
+        elif photo_type == 'Document':
+            # FindaGrave-Document: Document of I Walter Iams
+            caption = f"FindaGrave-Document: Document of {person_name}"
+
+        elif photo_type == 'Cemetery':
+            # FindaGrave-Cemetery: Forest Lawn Cemetery, Detroit, Wayne, Michigan
+            location_parts = [cemetery_name]
+            if cemetery_city:
+                location_parts.append(cemetery_city)
+            if cemetery_county:
+                location_parts.append(cemetery_county)
+            if cemetery_state:
+                location_parts.append(cemetery_state)
+            caption = f"FindaGrave-Cemetery: {', '.join(filter(None, location_parts))}"
+
+        elif photo_type == 'Other' or not photo_type:
+            # FindaGrave-Other
+            caption = "FindaGrave-Other"
+
+        else:
+            # Unknown type - default to Other
+            logger.warning(f"Unknown photo type '{photo_type}' for {media_file}, defaulting to Other")
+            caption = "FindaGrave-Other"
 
         # Create image repository
         img_repo = ImageRepository(conn)
 
+        # Check for existing images with old caption format
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT MediaID, Caption, MediaFile
+            FROM MultimediaTable
+            WHERE MediaFile = ?
+        """, (media_file,))
+
+        existing_image = cursor.fetchone()
+        if existing_image:
+            existing_id, existing_caption, existing_file = existing_image
+            # Check if existing caption uses old format
+            if existing_caption and not existing_caption.startswith('FindaGrave-'):
+                error_msg = (
+                    f"ERROR: Existing image found with old caption format!\n"
+                    f"  File: {existing_file}\n"
+                    f"  Media ID: {existing_id}\n"
+                    f"  Old Caption: {existing_caption}\n"
+                    f"  New Caption: {caption}\n"
+                    f"  Action: This image will be skipped. Please manually update the caption in RootsMagic."
+                )
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
+
         # Create media record
         media_id = img_repo.create_media_record(
-            media_path=rm_path,
+            media_path=directory_path,
             media_file=media_file,
             caption=caption,
             ref_number=f"https://www.findagrave.com/memorial/{memorial_id}" if memorial_id else '',
