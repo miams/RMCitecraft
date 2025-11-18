@@ -44,6 +44,19 @@ async def automation_service():
 
     logger.info("E2E Test: Successfully connected to Chrome")
 
+    # Check if logged into FamilySearch
+    logger.info("E2E Test: Checking FamilySearch login status...")
+    is_logged_in = await automation.check_login_status()
+
+    if not is_logged_in:
+        await automation.disconnect()
+        pytest.skip(
+            "FamilySearch login required. "
+            "Please log into https://www.familysearch.org in Chrome (port 9222) and re-run tests."
+        )
+
+    logger.info("E2E Test: FamilySearch login verified")
+
     yield automation
 
     # Cleanup

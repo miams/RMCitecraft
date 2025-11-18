@@ -73,6 +73,87 @@ class FamilySearchAutomation:
 
         logger.info("Disconnected from Chrome")
 
+    async def check_login_status(self) -> bool:
+        """
+        Check if user is logged into FamilySearch.
+
+        Returns:
+            True if logged in, False if not logged in or cannot determine
+
+        Strategy:
+            1. Look for FamilySearch page in Chrome tabs
+            2. Check for login indicators (sign in button vs user menu)
+            3. Return False if on signin page or no user elements found
+        """
+        try:
+            page = await self.get_or_create_page()
+            if not page:
+                logger.warning("Cannot check login status - no browser page available")
+                return False
+
+            # If not on FamilySearch domain, navigate to homepage
+            if "familysearch.org" not in page.url:
+                logger.info("Navigating to FamilySearch homepage to check login status...")
+                try:
+                    await asyncio.wait_for(
+                        page.goto("https://www.familysearch.org", wait_until="domcontentloaded"),
+                        timeout=10.0
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to navigate to FamilySearch: {e}")
+                    return False
+
+            # Wait for page to render
+            await asyncio.sleep(1)
+
+            # Check if on signin page (indicates not logged in)
+            if "/auth/signin" in page.url or "/login" in page.url:
+                logger.info("Currently on FamilySearch sign-in page - not logged in")
+                return False
+
+            # Check for login indicators in the DOM
+            # FamilySearch shows "Sign In" button when not logged in
+            # Shows user menu/account icon when logged in
+            login_status = await page.evaluate("""
+                () => {
+                    // Check for sign-in button (not logged in)
+                    const signInButton = document.querySelector('a[href*="signin"], button:has-text("Sign In")');
+                    if (signInButton && signInButton.textContent.toLowerCase().includes('sign in')) {
+                        return { loggedIn: false, indicator: 'sign-in-button-found' };
+                    }
+
+                    // Check for user menu/account elements (logged in)
+                    // FamilySearch uses various selectors for user menu
+                    const userMenu = document.querySelector('[data-testid="user-menu"], [aria-label*="account"], [aria-label*="user"]');
+                    if (userMenu) {
+                        return { loggedIn: true, indicator: 'user-menu-found' };
+                    }
+
+                    // Check for "My Account" or username display
+                    const bodyText = document.body.innerText;
+                    if (bodyText.includes('My Account') || bodyText.includes('Sign Out')) {
+                        return { loggedIn: true, indicator: 'account-text-found' };
+                    }
+
+                    // Cannot determine
+                    return { loggedIn: false, indicator: 'no-indicators-found' };
+                }
+            """)
+
+            is_logged_in = login_status.get("loggedIn", False)
+            indicator = login_status.get("indicator", "unknown")
+
+            if is_logged_in:
+                logger.info(f"FamilySearch login verified ({indicator})")
+            else:
+                logger.warning(f"FamilySearch login required ({indicator})")
+
+            return is_logged_in
+
+        except Exception as e:
+            logger.error(f"Error checking FamilySearch login status: {e}")
+            return False
+
     async def get_or_create_page(self) -> Page | None:
         """
         Get an existing FamilySearch page or create a new one.
