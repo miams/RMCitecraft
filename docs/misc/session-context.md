@@ -79,7 +79,7 @@ pytest --co -q  # Count tests
 - `CLAUDE.md` - Development guidance for Claude Code
 - `AGENTS.md` - Machine-readable instructions
 - `docs/TEST-GAP-ANALYSIS.md` - Test priorities and gaps
-- `docs/LLM-PROVIDERS.md` - LLM integration documentation
+- `docs/architecture/LLM-PROVIDERS.md` - LLM integration documentation
 
 ### Database Safety
 - Working copy: `data/Iiams.rmtree` (excluded from git)

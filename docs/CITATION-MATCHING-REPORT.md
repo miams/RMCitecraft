@@ -242,7 +242,7 @@ The variation with the highest match score is displayed in the report.
 ## References
 
 - **Spouse matching enhancement**: `docs/ENHANCED_VARIATIONS_SUMMARY.md`
-- **Original bug fix**: `docs/SPOUSE-NAME-MATCHING-FIX.md`
+- **Original bug fix**: `docs/implementation/SPOUSE-NAME-MATCHING-FIX.md`
 - **Code**: `src/rmcitecraft/database/findagrave_queries.py:996-1270`
 - **UI**: `src/rmcitecraft/ui/tabs/findagrave_batch.py:778-859`
 - **Tests**: `tests/unit/test_spouse_name_matching.py`

@@ -8,7 +8,7 @@ Missing required field for 1930: Enumeration District (ED) (enumeration_district
 ```
 
 **Date Tested**: November 6, 2025
-**Log File**: `logs/census_batch_1930_20251106_170705.md`
+**Log File**: `docs/misc/census_batch_1930_20251106_170705.md`
 
 ## Root Cause Analysis
 
@@ -82,7 +82,7 @@ All failed with same error:
 
 ### Option 1: Manual Entry via Batch Processing UI (Recommended)
 
-**Status**: UI design completed in `docs/BATCH_PROCESSING_UI_DESIGN.md`
+**Status**: UI design completed in `docs/architecture/BATCH_PROCESSING_UI_DESIGN.md`
 
 **Approach**:
 1. Batch processing extracts all available fields from FamilySearch pages
@@ -172,7 +172,7 @@ def validate_census_data(data: dict, census_year: int, is_legacy: bool = False) 
 
 **Proceed with Option 1 (Manual Entry via Batch UI)** as the primary solution because:
 
-1. **Already designed**: Comprehensive UI spec completed in `docs/BATCH_PROCESSING_UI_DESIGN.md`
+1. **Already designed**: Comprehensive UI spec completed in `docs/architecture/BATCH_PROCESSING_UI_DESIGN.md`
 2. **Handles all edge cases**: Not limited to 1930 census or ED extraction
 3. **Better data quality**: User verifies data by viewing original images
 4. **Scalable**: Designed for efficient processing of 100s-1000s of entries
@@ -209,10 +209,10 @@ def validate_census_data(data: dict, census_year: int, is_legacy: bool = False) 
 
 ## Related Documentation
 
-- Batch UI Design: `docs/BATCH_PROCESSING_UI_DESIGN.md`
+- Batch UI Design: `docs/architecture/BATCH_PROCESSING_UI_DESIGN.md`
 - FamilySearch Automation: `src/rmcitecraft/services/familysearch_automation.py`
 - Validation Module: `src/rmcitecraft/validation/census_data.py`
-- 1930 Test Log: `logs/census_batch_1930_20251106_170705.md`
+- 1930 Test Log: `docs/misc/census_batch_1930_20251106_170705.md`
 
 ---
 

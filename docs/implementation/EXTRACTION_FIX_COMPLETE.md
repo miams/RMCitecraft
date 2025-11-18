@@ -259,7 +259,7 @@ uv run python process_census_batch.py 1930 10
 
 ## Log Files
 
-- Latest: `logs/census_batch_1940_20251106_125057.md`
+- Latest: `docs/misc/census_batch_1940_20251106_125057.md`
 - Shows complete formatted citations
 - Includes validation results
 - Documents all field extractions

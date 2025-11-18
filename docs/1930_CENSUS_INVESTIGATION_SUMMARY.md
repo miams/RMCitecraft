@@ -118,7 +118,7 @@ The 1930 citations appear to be:
 
 ## Definitive Solution: Manual Entry via Batch UI
 
-**Status**: Design completed in `docs/BATCH_PROCESSING_UI_DESIGN.md`
+**Status**: Design completed in `docs/architecture/BATCH_PROCESSING_UI_DESIGN.md`
 **Approach**: User-assisted data entry with efficient UX
 
 ### Why This Is The Right Solution
@@ -255,8 +255,8 @@ This solution:
 
 **Related Files**:
 - Root cause analysis: `docs/1930_CENSUS_ED_EXTRACTION_ISSUE.md`
-- Batch UI design: `docs/BATCH_PROCESSING_UI_DESIGN.md`
-- Failed batch log: `logs/census_batch_1930_20251106_170705.md`
+- Batch UI design: `docs/architecture/BATCH_PROCESSING_UI_DESIGN.md`
+- Failed batch log: `docs/misc/census_batch_1930_20251106_170705.md`
 - Extraction code: `src/rmcitecraft/services/familysearch_automation.py`
 - Validation code: `src/rmcitecraft/validation/census_data.py`
 

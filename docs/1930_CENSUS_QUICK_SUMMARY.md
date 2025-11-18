@@ -17,7 +17,7 @@
 - 1930 citations: Older placeholders (Sep 2023), minimal data captured
 
 **Solution**: Manual Entry via Batch Processing UI
-- Design completed: `docs/BATCH_PROCESSING_UI_DESIGN.md`
+- Design completed: `docs/architecture/BATCH_PROCESSING_UI_DESIGN.md`
 - Three-panel layout: queue + form + image viewer
 - User views census image and enters missing fields
 - Keyboard-first workflow: <10 keystrokes per citation
@@ -28,7 +28,7 @@
 **Related Docs**:
 - Full investigation: `docs/1930_CENSUS_INVESTIGATION_SUMMARY.md`
 - Root cause analysis: `docs/1930_CENSUS_ED_EXTRACTION_ISSUE.md`
-- Batch UI design: `docs/BATCH_PROCESSING_UI_DESIGN.md`
-- Failed batch log: `logs/census_batch_1930_20251106_170705.md`
+- Batch UI design: `docs/architecture/BATCH_PROCESSING_UI_DESIGN.md`
+- Failed batch log: `docs/misc/census_batch_1930_20251106_170705.md`
 
 **Status**: ✅ Investigation complete - Ready to implement UI solution
