@@ -219,9 +219,13 @@ class TestVeteranSymbolCleanup:
 
 
 class TestFamilyDataExtraction:
-    """Test family data extraction for citation linking."""
+    """Test family data extraction for citation linking.
 
-    @pytest.mark.xfail(reason="Test uses outdated API - extract_memorial_data now takes URL string, not page object")
+    These tests call _extract_source_comment() directly, which is a private helper
+    that still accepts a page object. The API change was to extract_memorial_data(),
+    not to _extract_source_comment(). These tests are testing the current, correct API.
+    """
+
     @pytest.mark.asyncio
     async def test_extracts_family_data_from_source_comment(self):
         """Verify family dict returned with comment text."""
@@ -267,7 +271,6 @@ class TestFamilyDataExtraction:
         assert isinstance(comment_data, dict)
         assert 'family' in comment_data
 
-    @pytest.mark.xfail(reason="Test uses outdated API - extract_memorial_data now takes URL string, not page object")
     @pytest.mark.asyncio
     async def test_family_data_includes_spouse(self):
         """Verify spouse relationships extracted."""
@@ -295,7 +298,6 @@ class TestFamilyDataExtraction:
         assert len(family['spouse']) > 0
         assert family['spouse'][0]['name'] == 'Mary Smith'
 
-    @pytest.mark.xfail(reason="Test uses outdated API - extract_memorial_data now takes URL string, not page object")
     @pytest.mark.asyncio
     async def test_family_data_includes_parents(self):
         """Verify parent relationships extracted."""
@@ -324,7 +326,6 @@ class TestFamilyDataExtraction:
         assert 'parents' in family
         assert len(family['parents']) == 2
 
-    @pytest.mark.xfail(reason="Test uses outdated API - extract_memorial_data now takes URL string, not page object")
     @pytest.mark.asyncio
     async def test_handles_missing_family_data(self):
         """Verify empty dict when no family data found."""
@@ -349,7 +350,6 @@ class TestFamilyDataExtraction:
         family = comment_data['family']
         assert isinstance(family, dict)
 
-    @pytest.mark.xfail(reason="Test uses outdated API - extract_memorial_data now takes URL string, not page object")
     @pytest.mark.asyncio
     async def test_handles_extraction_error(self):
         """Verify graceful handling when extraction fails."""
@@ -405,7 +405,6 @@ class TestFamilyDataExtraction:
         assert len(result['family']['spouse']) > 0
         assert result['family']['spouse'][0]['name'] == 'Jane Doe'
 
-    @pytest.mark.xfail(reason="Test uses outdated API - extract_memorial_data now takes URL string, not page object")
     @pytest.mark.asyncio
     async def test_return_signature_is_tuple(self):
         """Verify _extract_source_comment returns tuple (str, dict)."""
