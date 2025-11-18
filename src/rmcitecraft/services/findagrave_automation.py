@@ -205,7 +205,10 @@ class FindAGraveAutomation:
 
                     // Extract person name from h1
                     const h1 = document.querySelector('h1');
-                    data.personName = h1 ? h1.textContent.trim() : '';
+                    let personName = h1 ? h1.textContent.trim() : '';
+                    // Remove veteran symbol text (appears as " VVeteran")
+                    personName = personName.replace(/\s*VVeteran\s*/g, '');
+                    data.personName = personName;
 
                     // Extract memorial ID from URL or page
                     const memorialIdMatch = window.location.href.match(/memorial\\/(\\d+)/);
@@ -379,7 +382,11 @@ class FindAGraveAutomation:
             memorial_data['accessDate'] = datetime.now().strftime("%B %d, %Y")
 
             # Extract source comment data (biographical summary, photos, family)
-            memorial_data['sourceComment'] = await self._extract_source_comment(page, memorial_data)
+            source_comment, comment_data = await self._extract_source_comment(page, memorial_data)
+            memorial_data['sourceComment'] = source_comment
+
+            # Store family data for parent/spouse citation linking
+            memorial_data['family'] = comment_data.get('family', {})
 
             logger.info(f"Extracted memorial data for: {memorial_data.get('personName')}")
             logger.info(
@@ -658,7 +665,7 @@ class FindAGraveAutomation:
             # Return photos unchanged - Phase 1 metadata is still valid
             return photos
 
-    async def _extract_source_comment(self, page: Page, memorial_data: dict) -> str:
+    async def _extract_source_comment(self, page: Page, memorial_data: dict) -> tuple[str, dict]:
         """
         Extract data for Source Comment field.
 
@@ -672,7 +679,7 @@ class FindAGraveAutomation:
             memorial_data: Memorial data with basic info
 
         Returns:
-            Formatted source comment text
+            Tuple of (formatted source comment text, comment_data dict with family info)
         """
         try:
             # Extract biographical and family data from page
@@ -949,11 +956,14 @@ class FindAGraveAutomation:
             sections.append("\n".join(family_lines))
 
             # Combine all sections with double newlines
-            return "\n\n".join(sections)
+            comment_text = "\n\n".join(sections)
+
+            # Return both the formatted comment text and the raw comment data (with family info)
+            return comment_text, comment_data
 
         except Exception as e:
             logger.warning(f"Could not extract source comment data: {e}")
-            return ""
+            return "", {}
 
     def _extract_maiden_name(self, person_name: str) -> str:
         """
