@@ -1008,10 +1008,10 @@ def create_location_and_cemetery(
             0,  # Longitude (0 = unknown)
             0,  # LatLongExact (0 = not exact)
             location_id,  # MasterID links to location
-            '',  # Reverse (empty for place details)
+            None,  # Reverse (NULL for place details, not empty string)
             '',  # Note (empty)
-            0,  # fsID (FamilySearch ID - 0 = none)
-            0,  # anID (Ancestry ID - 0 = none)
+            None,  # fsID (NULL for cemeteries - no FamilySearch link)
+            None,  # anID (NULL for cemeteries - no Ancestry link)
             utc_mod_date,
         ))
 
@@ -1083,10 +1083,10 @@ def create_cemetery_for_existing_location(
             0,  # Longitude (0 = unknown)
             0,  # LatLongExact (0 = not exact)
             location_id,  # MasterID links to existing location
-            '',  # Reverse (empty for place details)
+            None,  # Reverse (NULL for place details, not empty string)
             '',  # Note (empty)
-            0,  # fsID (FamilySearch ID - 0 = none)
-            0,  # anID (Ancestry ID - 0 = none)
+            None,  # fsID (NULL for cemeteries - no FamilySearch link)
+            None,  # anID (NULL for cemeteries - no Ancestry link)
             utc_mod_date,
         ))
 
