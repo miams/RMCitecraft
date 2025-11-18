@@ -1254,26 +1254,10 @@ class FindAGraveBatchTab:
                         logger.warning(f"Failed to link citation to parent families: {family_link_error}")
                         # Don't fail the entire item, just log the warning
 
-                    # Auto-download images if enabled
-                    if self.auto_download_images and item.photos:
-                        logger.info(f"Auto-downloading {len(item.photos)} photo(s) for {item.full_name}...")
-                        status_label.text = f"Downloading {len(item.photos)} image(s)..."
-
-                        for photo in item.photos:
-                            try:
-                                # Download photo using the same logic as manual download
-                                await self._download_photo_for_batch(item, photo, result['citation_id'])
-                            except Exception as photo_error:
-                                logger.error(f"Failed to download photo: {photo_error}", exc_info=True)
-                                self.error_log.add_warning(
-                                    f"Failed to download photo for {item.full_name}: {photo_error}",
-                                    context="Find a Grave Batch"
-                                )
-                                # Continue with other photos/processing
-
                     burial_event_id = None
 
-                    # Create burial event if cemetery information is available
+                    # Create burial event BEFORE downloading images
+                    # (so Grave/Cemetery photos can link to the burial event)
                     cemetery_name = memorial_data.get('cemeteryName', '')
                     cemetery_city = memorial_data.get('cemeteryCity', '')
                     cemetery_county = memorial_data.get('cemeteryCounty', '')
@@ -1325,6 +1309,24 @@ class FindAGraveBatchTab:
                             f"No cemetery name found for {item.full_name}, skipping burial event",
                             context="Find a Grave Batch"
                         )
+
+                    # Auto-download images AFTER burial event is created
+                    # (so Grave/Cemetery photos can link to the burial event)
+                    if self.auto_download_images and item.photos:
+                        logger.info(f"Auto-downloading {len(item.photos)} photo(s) for {item.full_name}...")
+                        status_label.text = f"Downloading {len(item.photos)} image(s)..."
+
+                        for photo in item.photos:
+                            try:
+                                # Download photo using the same logic as manual download
+                                await self._download_photo_for_batch(item, photo, result['citation_id'])
+                            except Exception as photo_error:
+                                logger.error(f"Failed to download photo: {photo_error}", exc_info=True)
+                                self.error_log.add_warning(
+                                    f"Failed to download photo for {item.full_name}: {photo_error}",
+                                    context="Find a Grave Batch"
+                                )
+                                # Continue with other photos/processing
 
                     # Mark as complete
                     self.controller.mark_item_complete(
