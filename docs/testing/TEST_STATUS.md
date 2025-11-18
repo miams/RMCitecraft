@@ -91,6 +91,11 @@ These tests document inconsistencies in the legacy RootsMagic database:
 2. User manually logged into FamilySearch in Chrome
 3. Real FamilySearch census record URLs (see `tests/e2e/conftest.py`)
 
+**Login Status Check** (automatic):
+- E2E tests now check if you're logged into FamilySearch before running
+- Shows clear notification ONLY when login is required (no false positives)
+- Skip message: "FamilySearch login required. Please log into https://www.familysearch.org in Chrome (port 9222) and re-run tests."
+
 **E2E Test Performance**:
 - Chrome connection tests: Fast (~1-2 seconds total)
 - Citation extraction tests: **Very slow** (30-120 seconds per test)
