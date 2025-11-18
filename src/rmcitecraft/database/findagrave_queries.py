@@ -213,6 +213,52 @@ def get_utc_mod_date() -> int:
     return int(utc_now.timestamp())
 
 
+def _build_source_fields_xml(footnote: str, short_footnote: str, bibliography: str) -> str:
+    """
+    Build XML for SourceTable.Fields BLOB.
+
+    For free-form sources (TemplateID=0), RootsMagic stores Footnote, ShortFootnote,
+    and Bibliography in SourceTable.Fields as XML, not in CitationTable TEXT fields.
+
+    Args:
+        footnote: Full footnote citation
+        short_footnote: Short form citation
+        bibliography: Bibliography entry
+
+    Returns:
+        XML string for SourceTable.Fields BLOB
+    """
+    def escape_xml(text: str) -> str:
+        """Escape special XML characters."""
+        if not text:
+            return ''
+        text = text.replace('&', '&amp;')
+        text = text.replace('<', '&lt;')
+        text = text.replace('>', '&gt;')
+        text = text.replace('"', '&quot;')
+        text = text.replace("'", '&apos;')
+        return text
+
+    return f"""<Root><Fields>
+<Field><Name>Footnote</Name><Value>{escape_xml(footnote)}</Value></Field>
+<Field><Name>ShortFootnote</Name><Value>{escape_xml(short_footnote)}</Value></Field>
+<Field><Name>Bibliography</Name><Value>{escape_xml(bibliography)}</Value></Field>
+</Fields></Root>"""
+
+
+def _build_citation_fields_xml() -> str:
+    """
+    Build XML for CitationTable.Fields BLOB.
+
+    For free-form sources (TemplateID=0), citation fields are empty because
+    all citation text is stored in SourceTable.Fields.
+
+    Returns:
+        Empty XML structure for CitationTable.Fields BLOB
+    """
+    return '<Root><Fields></Fields></Root>'
+
+
 def validate_place_with_gazetteer(location_name: str) -> dict[str, Any]:
     """
     Validate a place location against the RootsMagic gazetteer (PlaceDB.dat).
@@ -493,26 +539,10 @@ def create_findagrave_source_and_citation(
         logger.info(f"Created Find a Grave source ID {source_id}: {source_name}")
 
         # Now update the source with formatted citations in Fields XML
-        # Escape XML special characters
-        def escape_xml(text: str) -> str:
-            """Escape special XML characters."""
-            if not text:
-                return ''
-            text = text.replace('&', '&amp;')
-            text = text.replace('<', '&lt;')
-            text = text.replace('>', '&gt;')
-            text = text.replace('"', '&quot;')
-            text = text.replace("'", '&apos;')
-            return text
-
         # Add URL as first line of footnote (with blank line after)
         footnote_with_url = f"{memorial_url}\n\n{footnote}" if memorial_url else footnote
 
-        xml_content = f"""<Root><Fields>
-<Field><Name>Footnote</Name><Value>{escape_xml(footnote_with_url)}</Value></Field>
-<Field><Name>ShortFootnote</Name><Value>{escape_xml(short_footnote)}</Value></Field>
-<Field><Name>Bibliography</Name><Value>{escape_xml(bibliography)}</Value></Field>
-</Fields></Root>"""
+        xml_content = _build_source_fields_xml(footnote_with_url, short_footnote, bibliography)
 
         cursor.execute("""
             UPDATE SourceTable
@@ -522,6 +552,8 @@ def create_findagrave_source_and_citation(
 
         # Create citation linking to person
         # For free-form sources, leave citation fields empty (they're in source)
+        citation_fields_xml = _build_citation_fields_xml()
+
         cursor.execute("""
             INSERT INTO CitationTable (
                 SourceID, Comments, ActualText, RefNumber,
@@ -536,7 +568,7 @@ def create_findagrave_source_and_citation(
             '',  # Footnote empty for free-form source
             '',  # ShortFootnote empty for free-form source
             '',  # Bibliography empty for free-form source
-            b'<Root><Fields></Fields></Root>',  # Empty Fields XML
+            citation_fields_xml.encode('utf-8'),  # Empty Fields XML
             utc_mod_date,
         ))
 
