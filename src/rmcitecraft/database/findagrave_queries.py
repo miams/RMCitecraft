@@ -696,12 +696,16 @@ def create_burial_event_and_link_citation(
         # Link citation to burial event
         cursor.execute("""
             INSERT OR IGNORE INTO CitationLinkTable (
-                CitationID, OwnerType, OwnerID, UTCModDate
-            ) VALUES (?, ?, ?, ?)
+                CitationID, OwnerType, OwnerID, SortOrder, Quality, IsPrivate, Flags, UTCModDate
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             citation_id,
             2,  # OwnerType = 2 for EventTable
             burial_event_id,
+            0,  # SortOrder: 0 for consistency with recent records
+            '~~~',  # Quality: default rating (no specific rating provided)
+            0,  # IsPrivate
+            0,  # Flags
             utc_mod_date,
         ))
 
@@ -759,12 +763,16 @@ def link_citation_to_families(
             # Link citation to family (OwnerType = 1 for FamilyTable)
             cursor.execute("""
                 INSERT OR IGNORE INTO CitationLinkTable (
-                    CitationID, OwnerType, OwnerID, UTCModDate
-                ) VALUES (?, ?, ?, ?)
+                    CitationID, OwnerType, OwnerID, SortOrder, Quality, IsPrivate, Flags, UTCModDate
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 citation_id,
                 1,  # OwnerType = 1 for FamilyTable
                 family_id,
+                0,  # SortOrder: 0 for consistency with recent records
+                '~~~',  # Quality: default rating (no specific rating provided)
+                0,  # IsPrivate
+                0,  # Flags
                 utc_mod_date,
             ))
 

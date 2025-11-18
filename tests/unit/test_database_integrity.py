@@ -585,7 +585,7 @@ class TestCitationLinkTableIntegrity:
         shutil.copy(test_db_path, test_db)
 
         # Pre-create a location for the test to match against
-        temp_conn = connect_rmtree(str(test_db))
+        temp_conn = connect_rmtree(str(test_db), read_only=False)
         temp_cursor = temp_conn.cursor()
 
         location_name = "Test City, Test, Test State, Test Country"
@@ -625,10 +625,7 @@ class TestCitationLinkTableIntegrity:
             person_id=person_id,
             citation_id=source_result['citation_id'],
             cemetery_name="Test Cemetery",
-            cemetery_city="Test City",
-            cemetery_county="Test County",
-            cemetery_state="Test State",
-            cemetery_country="Test Country",
+            cemetery_location="Test City, Test County, Test State, Test Country",
         )
 
         # Verify the citation link was created correctly
@@ -744,7 +741,7 @@ class TestEventTableIntegrity:
         # Pre-create a location for the test to match against
         # This ensures we don't hit the "needs approval" path
         # NOTE: Function normalizes county by removing " County" suffix
-        temp_conn = connect_rmtree(str(test_db))
+        temp_conn = connect_rmtree(str(test_db), read_only=False)
         temp_cursor = temp_conn.cursor()
 
         # Build location_name the same way the function does (with normalized county)
@@ -785,10 +782,7 @@ class TestEventTableIntegrity:
             person_id=person_id,
             citation_id=source_result['citation_id'],
             cemetery_name="Test Cemetery",
-            cemetery_city="Test City",
-            cemetery_county="Test County",
-            cemetery_state="Test State",
-            cemetery_country="Test Country",
+            cemetery_location="Test City, Test County, Test State, Test Country",
         )
 
         # Verify burial event was created
