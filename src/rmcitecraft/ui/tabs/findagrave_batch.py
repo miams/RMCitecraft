@@ -21,8 +21,12 @@ from rmcitecraft.services.findagrave_formatter import (
 from rmcitecraft.database.findagrave_queries import (
     create_findagrave_source_and_citation,
     create_burial_event_and_link_citation,
+    link_citation_to_families,
+    create_location_and_cemetery,
+    create_cemetery_for_existing_location,
 )
-from rmcitecraft.services.message_log import get_message_log
+from rmcitecraft.database.image_repository import ImageRepository
+from rmcitecraft.services.error_log import get_error_log_service
 
 
 class FindAGraveBatchTab:
@@ -32,7 +36,7 @@ class FindAGraveBatchTab:
         """Initialize Find a Grave batch processing tab."""
         self.config = get_config()
         self.controller = FindAGraveBatchController()
-        self.message_log = get_message_log()
+        self.error_log = get_error_log_service()
         self.automation = get_findagrave_automation()
 
         # UI component references
@@ -41,9 +45,13 @@ class FindAGraveBatchTab:
         self.queue_container: ui.column | None = None
         self.detail_container: ui.column | None = None
         self.selected_item_ids: set[int] = set()
+        self.ui_context = None  # Store UI context for background tasks
 
     def render(self) -> ui.column:
         """Render the Find a Grave batch processing tab."""
+        # Store UI context for background tasks
+        self.ui_context = ui.context.client
+
         with ui.column().classes("w-full h-full gap-4") as self.container:
             self._render_header()
 
@@ -101,7 +109,19 @@ class FindAGraveBatchTab:
             with ui.card().classes("p-2").style(
                 "width: 35%; min-width: 35%; max-width: 35%; height: 100%; flex-shrink: 0; flex-grow: 0"
             ):
-                ui.label("Memorial Queue").classes("font-bold text-sm mb-2")
+                with ui.row().classes("w-full items-center justify-between mb-2"):
+                    ui.label("Memorial Queue").classes("font-bold text-sm")
+                    with ui.row().classes("gap-1"):
+                        ui.button(
+                            "Select All",
+                            icon="check_box",
+                            on_click=self._select_all,
+                        ).props("dense flat size=sm")
+                        ui.button(
+                            "Clear",
+                            icon="check_box_outline_blank",
+                            on_click=self._deselect_all,
+                        ).props("dense flat size=sm")
                 with ui.scroll_area().classes("w-full h-full"):
                     with ui.column().classes("w-full gap-1") as self.queue_container:
                         self._render_queue_items()
@@ -343,7 +363,9 @@ class FindAGraveBatchTab:
             )
 
             if not result['people']:
-                ui.notify("No people found with Find a Grave URLs", type="warning")
+                warning_msg = "No people found with Find a Grave URLs"
+                ui.notify(warning_msg, type="warning")
+                self.error_log.add_warning(warning_msg, context="Find a Grave Batch")
                 return
 
             # Create session
@@ -356,15 +378,34 @@ class FindAGraveBatchTab:
                 self._render_header()
                 self._render_batch_view()
 
-            ui.notify(
+            # Notify user
+            load_msg = (
                 f"Loaded {len(result['people'])} people "
-                f"(examined {result['examined']}, excluded {result['excluded']})",
-                type="positive",
+                f"(examined {result['examined']}, excluded {result['excluded']})"
             )
+            ui.notify(load_msg, type="positive")
+            self.error_log.add_info(load_msg, context="Find a Grave Batch")
+
+            # Log exclusion details if any were excluded
+            if result['excluded'] > 0 and result.get('excluded_people'):
+                excluded_people = result['excluded_people']
+                excluded_names = [f"{p['full_name']} (ID {p['person_id']})" for p in excluded_people[:5]]
+
+                if len(excluded_people) <= 5:
+                    exclusion_detail = f"Excluded {len(excluded_people)} people (already have citations): {', '.join(excluded_names)}"
+                else:
+                    exclusion_detail = (
+                        f"Excluded {len(excluded_people)} people (already have citations). "
+                        f"First 5: {', '.join(excluded_names)}..."
+                    )
+
+                self.error_log.add_info(exclusion_detail, context="Find a Grave Batch")
 
         except Exception as e:
             logger.error(f"Failed to load batch: {e}")
-            ui.notify(f"Error loading batch: {e}", type="negative")
+            error_msg = f"Error loading batch: {e}"
+            ui.notify(error_msg, type="negative")
+            self.error_log.add_error(error_msg, context="Find a Grave Batch")
 
     async def _extract_item_data(self, item: FindAGraveBatchItem) -> None:
         """Extract data from Find a Grave for a single item."""
@@ -500,18 +541,462 @@ class FindAGraveBatchTab:
 
             if success:
                 item.downloaded_images.append(str(download_path))
-                ui.notify(f"Downloaded photo to {download_path}", type="positive")
+                success_msg = f"Downloaded photo to {download_path}"
+                ui.notify(success_msg, type="positive")
+                self.error_log.add_info(success_msg, context="Find a Grave Batch")
+
+                # Create database record for the image and link to citation
+                if item.citation_id:
+                    try:
+                        from rmcitecraft.database.findagrave_queries import create_findagrave_image_record
+
+                        # Extract contributor info from photo metadata
+                        contributor = photo.get('addedBy', '')
+
+                        # Create the media record and links
+                        media_info = create_findagrave_image_record(
+                            db_path=self.config.rm_database_path,
+                            citation_id=item.citation_id,
+                            image_path=str(download_path),
+                            photo_type=photo_type,
+                            memorial_id=item.memorial_id,
+                            contributor=contributor,
+                            media_root=self.config.rm_media_root_directory,
+                        )
+
+                        # Store media ID with the downloaded image info
+                        item.downloaded_images[-1] = {
+                            'path': str(download_path),
+                            'media_id': media_info['media_id'],
+                            'photo_type': photo_type,
+                        }
+
+                        db_msg = f"Created media record ID {media_info['media_id']} and linked to citation"
+                        logger.info(db_msg)
+                        self.error_log.add_info(db_msg, context="Find a Grave Batch")
+
+                    except Exception as e:
+                        error_msg = f"Failed to create database record for image: {e}"
+                        logger.error(error_msg, exc_info=True)
+                        self.error_log.add_error(error_msg, context="Find a Grave Batch")
+                        # Don't fail the download itself, just log the database error
             else:
-                ui.notify("Failed to download photo", type="negative")
+                error_msg = "Failed to download photo"
+                ui.notify(error_msg, type="negative")
+                self.error_log.add_error(error_msg, context="Find a Grave Batch")
 
         except Exception as e:
             logger.error(f"Error downloading photo: {e}", exc_info=True)
-            ui.notify(f"Error: {e}", type="negative")
+            error_msg = f"Error downloading photo: {e}"
+            ui.notify(error_msg, type="negative")
+            self.error_log.add_error(error_msg, context="Find a Grave Batch")
+
+    async def _show_place_approval_dialog(
+        self,
+        item: FindAGraveBatchItem,
+        match_info: dict,
+    ) -> dict[str, any] | None:
+        """
+        Show place approval dialog and wait for user decision.
+
+        Args:
+            item: The batch item needing approval
+            match_info: Match information including candidates
+
+        Returns:
+            Dictionary with 'action' ('add_new', 'select_existing', 'abort')
+            and 'selected_place_id' if action is 'select_existing'
+            Returns None if dialog was cancelled
+        """
+        # Use a mutable object to store result
+        class Result:
+            def __init__(self):
+                self.action = None
+                self.selected_place_id = None
+
+        result = Result()
+        candidates = match_info.get('candidates', [])
+        cemetery_name = match_info.get('cemetery_name', '')
+        location_name = match_info.get('findagrave_location', '')
+        gazetteer_validation = match_info.get('gazetteer_validation', {})
+
+        # Ensure we're in the correct UI context for creating the dialog
+        if not self.ui_context:
+            logger.error("No UI context available for place approval dialog")
+            return None
+
+        with self.ui_context:
+            # Sort state for the table
+            sort_by = {'field': 'combined_score', 'reverse': True}  # Default: sort by combined score descending
+            selected_place_id = {'value': candidates[0]['place_id'] if candidates else None}
+
+            def update_table():
+                """Update the candidates table with current sort."""
+                sorted_candidates = sorted(
+                    candidates,
+                    key=lambda x: x.get(sort_by['field'], 0),
+                    reverse=sort_by['reverse']
+                )
+
+                table_container.clear()
+                with table_container:
+                    with ui.table(
+                        columns=[
+                            {'name': 'name', 'label': 'Place Name', 'field': 'name', 'align': 'left', 'sortable': True},
+                            {'name': 'combined_score', 'label': 'Score', 'field': 'combined_score', 'align': 'right', 'sortable': True},
+                            {'name': 'similarity', 'label': 'PlaceTable Match', 'field': 'similarity', 'align': 'right', 'sortable': True},
+                            {'name': 'usage_count', 'label': 'Usage', 'field': 'usage_count', 'align': 'right', 'sortable': True},
+                        ],
+                        rows=sorted_candidates,
+                        row_key='place_id',
+                        selection='single',
+                    ).props('dense flat bordered') as table:
+                        table.classes('w-full')
+
+                        # Set initial selection
+                        if selected_place_id['value']:
+                            table.selected = [next((c for c in sorted_candidates if c['place_id'] == selected_place_id['value']), None)]
+
+                        # Handle selection change
+                        def on_selection(e):
+                            if e.selection:
+                                selected_place_id['value'] = e.selection[0]['place_id']
+
+                        table.on('selection', on_selection)
+
+                        # Custom column formatting
+                        table.add_slot('body-cell-combined_score', '''
+                            <q-td key="combined_score" :props="props">
+                                <strong>{{ props.row.combined_score }}</strong>
+                            </q-td>
+                        ''')
+
+                        table.add_slot('body-cell-similarity', '''
+                            <q-td key="similarity" :props="props">
+                                {{ (props.row.similarity * 100).toFixed(1) }}%
+                            </q-td>
+                        ''')
+
+            def toggle_sort(field):
+                """Toggle sort field and direction."""
+                if sort_by['field'] == field:
+                    sort_by['reverse'] = not sort_by['reverse']
+                else:
+                    sort_by['field'] = field
+                    sort_by['reverse'] = field in ['combined_score', 'similarity', 'usage_count']  # Default descending for scores
+                update_table()
+
+            with ui.dialog().props('persistent') as dialog, ui.card().classes('w-[800px]'):
+                ui.label('Burial Place Approval Required').classes('text-lg font-bold mb-4')
+
+                # Show Find a Grave information
+                with ui.card().classes('w-full bg-blue-50 p-3 mb-4'):
+                    ui.label('Find a Grave Information').classes('font-semibold mb-2')
+                    ui.label(f'Cemetery: {cemetery_name}').classes('text-sm')
+                    ui.label(f'Location: {location_name}').classes('text-sm')
+                    ui.label(f'Person: {item.full_name}').classes('text-sm font-semibold')
+
+                # Show proposed new place name
+                with ui.card().classes('w-full bg-green-50 p-3 mb-4'):
+                    ui.label('Proposed New Place').classes('font-semibold mb-2')
+                    ui.label(f'Location: {location_name}').classes('text-sm')
+                    ui.label(f'Cemetery: {cemetery_name}').classes('text-sm')
+
+                # Show gazetteer validation status
+                if gazetteer_validation:
+                    confidence = gazetteer_validation.get('confidence', 'unknown')
+                    validated_count = gazetteer_validation.get('validated_count', 0)
+                    total_count = gazetteer_validation.get('total_components', 0)
+                    components = gazetteer_validation.get('components', {})
+
+                    # Determine card color based on confidence
+                    if confidence == 'high':
+                        card_class = 'w-full bg-green-100 p-3 mb-4'
+                        icon = 'check_circle'
+                        icon_color = 'positive'
+                    elif confidence == 'medium':
+                        card_class = 'w-full bg-yellow-50 p-3 mb-4'
+                        icon = 'warning'
+                        icon_color = 'warning'
+                    else:
+                        card_class = 'w-full bg-orange-50 p-3 mb-4'
+                        icon = 'error_outline'
+                        icon_color = 'negative'
+
+                    with ui.card().classes(card_class):
+                        with ui.row().classes('items-center gap-2 mb-2'):
+                            ui.icon(icon).props(f'color={icon_color}')
+                            ui.label('Gazetteer Validation').classes('font-semibold')
+                            ui.label(f'({validated_count}/{total_count} components validated - {confidence} confidence)').classes('text-sm text-gray-600')
+
+                        # Show component validation details
+                        with ui.column().classes('gap-1'):
+                            for comp_name in ['city', 'county', 'state', 'country']:
+                                comp_data = components.get(comp_name, {})
+                                comp_place_name = comp_data.get('name')
+
+                                if comp_place_name:
+                                    exists = comp_data.get('exists', False)
+                                    fuzzy = comp_data.get('fuzzy', False)
+
+                                    # Determine icon
+                                    if exists:
+                                        check_icon = '✓'
+                                        check_color = 'text-green-600'
+                                        match_type = ' (fuzzy)' if fuzzy else ''
+                                    else:
+                                        check_icon = '✗'
+                                        check_color = 'text-red-600'
+                                        match_type = ' (not found)'
+
+                                    ui.html(
+                                        content=f'<span class="{check_color} text-sm">'
+                                        f'{check_icon} <strong>{comp_name.title()}:</strong> {comp_place_name}{match_type}'
+                                        f'</span>',
+                                        sanitize=False
+                                    )
+
+                # Show existing place candidates
+                ui.label('Existing Places (Sorted by Combined Score)').classes('font-semibold mb-2')
+
+                if candidates:
+                    # Table container that will be updated when sorting
+                    table_container = ui.column().classes('w-full')
+                    update_table()
+                else:
+                    ui.label('No existing places found in database').classes('text-gray-500 italic')
+
+                # Action buttons
+                with ui.row().classes('w-full justify-end gap-2 mt-4'):
+                    def on_add_new():
+                        result.action = 'add_new'
+                        dialog.close()
+
+                    def on_select_existing():
+                        if selected_place_id['value']:
+                            result.action = 'select_existing'
+                            result.selected_place_id = selected_place_id['value']
+                            dialog.close()
+
+                    def on_abort():
+                        result.action = 'abort'
+                        dialog.close()
+
+                    ui.button(
+                        'Add New Place',
+                        icon='add_location',
+                        on_click=on_add_new
+                    ).props('color=primary')
+
+                    ui.button(
+                        'Select Existing Place',
+                        icon='check_circle',
+                        on_click=on_select_existing
+                    ).props('color=positive').bind_enabled_from(selected_place_id, 'value', lambda v: v is not None)
+
+                    ui.button(
+                        'Abort Batch',
+                        icon='cancel',
+                        on_click=on_abort
+                    ).props('color=negative outline')
+
+            dialog.open()
+            await dialog  # Wait for dialog to close
+
+            # Return None if no action was taken
+            if result.action is None:
+                return None
+
+            return {
+                'action': result.action,
+                'selected_place_id': result.selected_place_id,
+        }
+
+    def _show_citation_matching_report(self, report_data: list[dict]) -> None:
+        """
+        Display citation matching report after batch processing.
+
+        Shows spouse and parent citation matching results with color coding:
+        - Green for successful matches (above 60% threshold)
+        - Red for failed matches (below 60% threshold)
+
+        Args:
+            report_data: List of dicts with person_name, person_id, spouse_matches, parent_match_info
+        """
+        # Filter to only entries with spouse or parent data
+        entries_with_data = [
+            entry for entry in report_data
+            if entry.get('spouse_matches') or entry.get('parent_match_info')
+        ]
+
+        if not entries_with_data:
+            return  # Nothing to report
+
+        with ui.dialog().props('maximized') as report_dialog, ui.card().classes('w-full max-w-4xl p-6'):
+            ui.label('Citation Matching Report').classes('text-2xl font-bold mb-4')
+
+            # === SPOUSE MATCHING SECTION ===
+            spouse_entries = [e for e in entries_with_data if e.get('spouse_matches')]
+
+            if spouse_entries:
+                ui.label('Spouse Citation Matches').classes('text-xl font-bold mt-4 mb-2')
+                ui.label(f'{len(spouse_entries)} entr{"y" if len(spouse_entries) == 1 else "ies"} with spouse data').classes('text-sm text-gray-600 mb-4')
+
+                # Table header
+                with ui.grid(columns=6).classes('w-full gap-2 mb-2'):
+                    ui.label('Target Name').classes('font-bold text-xs')
+                    ui.label('Person ID').classes('font-bold text-xs')
+                    ui.label('RM Spouse Name').classes('font-bold text-xs')
+                    ui.label('Spouse ID').classes('font-bold text-xs')
+                    ui.label('Find a Grave Name').classes('font-bold text-xs')
+                    ui.label('Match %').classes('font-bold text-xs')
+
+                # Table rows
+                for entry in spouse_entries:
+                    for spouse_match in entry['spouse_matches']:
+                        matched = spouse_match['matched']
+                        text_color = 'text-green-700' if matched else 'text-red-700'
+
+                        with ui.grid(columns=6).classes(f'w-full gap-2 {text_color}'):
+                            ui.label(entry['person_name']).classes('text-xs')
+                            ui.label(str(entry['person_id'])).classes('text-xs')
+                            ui.label(spouse_match['db_name'] or 'N/A').classes('text-xs')
+                            ui.label(str(spouse_match['db_person_id']) if spouse_match['db_person_id'] else 'N/A').classes('text-xs')
+                            ui.label(spouse_match['fg_name']).classes('text-xs')
+                            ui.label(f"{spouse_match['match_score']:.1%}").classes('text-xs font-bold')
+
+            # === PARENT MATCHING SECTION ===
+            parent_entries = [e for e in entries_with_data if e.get('parent_match_info')]
+
+            if parent_entries:
+                ui.separator().classes('my-6')
+                ui.label('Parent Citation Matches').classes('text-xl font-bold mt-4 mb-2')
+
+                # Count successes and failures
+                total_with_parents = len(parent_entries)
+                successful_parents = sum(1 for e in parent_entries if e['parent_match_info'].get('matched'))
+                failed_parents = total_with_parents - successful_parents
+
+                ui.label(
+                    f'({successful_parents}/{total_with_parents}) entries with parents successfully cited'
+                ).classes('text-sm mb-4')
+
+                if failed_parents > 0:
+                    ui.label('Failures:').classes('text-md font-bold text-red-700 mt-2 mb-2')
+
+                    for entry in parent_entries:
+                        if not entry['parent_match_info'].get('matched'):
+                            with ui.row().classes('text-xs text-red-700 ml-4'):
+                                ui.label(f"{entry['person_name']} (Person ID {entry['person_id']}) - No parent family found in database")
+
+            # Close button
+            with ui.row().classes('w-full justify-end mt-6'):
+                ui.button('Close', on_click=report_dialog.close).props('flat')
+
+        report_dialog.open()
+
+    def _show_image_download_summary(self) -> None:
+        """Display summary of downloaded images after batch processing."""
+        if not self.controller.session:
+            return
+
+        # Collect all downloaded images across all items
+        total_images = 0
+        images_by_type = {'Person': 0, 'Grave': 0, 'Family': 0, 'Other': 0}
+        people_with_images = []
+
+        for item in self.controller.session.items:
+            if item.downloaded_images:
+                person_images = []
+                for img_info in item.downloaded_images:
+                    # Handle both old format (string) and new format (dict)
+                    if isinstance(img_info, dict):
+                        photo_type = img_info.get('photo_type', 'Other')
+                        images_by_type[photo_type] = images_by_type.get(photo_type, 0) + 1
+                        person_images.append({
+                            'type': photo_type,
+                            'path': img_info.get('path', ''),
+                            'media_id': img_info.get('media_id'),
+                        })
+                    else:
+                        # Legacy string format
+                        images_by_type['Other'] += 1
+                        person_images.append({
+                            'type': 'Other',
+                            'path': str(img_info),
+                            'media_id': None,
+                        })
+                    total_images += 1
+
+                people_with_images.append({
+                    'name': item.full_name,
+                    'person_id': item.person_id,
+                    'images': person_images,
+                })
+
+        # Only show summary if images were downloaded
+        if total_images == 0:
+            return
+
+        # Create summary dialog
+        with ui.dialog() as img_dialog, ui.card().classes('w-full max-w-2xl p-6'):
+            ui.label('Downloaded Images Summary').classes('text-2xl font-bold mb-4')
+
+            # Overall statistics
+            with ui.row().classes('w-full gap-4 mb-4'):
+                with ui.card().classes('p-3'):
+                    ui.label(f'{total_images}').classes('text-3xl font-bold text-primary')
+                    ui.label('Total Images').classes('text-sm text-gray-600')
+
+                with ui.card().classes('p-3'):
+                    ui.label(f'{len(people_with_images)}').classes('text-2xl font-bold text-primary')
+                    ui.label('People with Images').classes('text-sm text-gray-600')
+
+            # Images by type
+            ui.label('Images by Type').classes('text-lg font-bold mt-4 mb-2')
+            with ui.row().classes('w-full gap-2'):
+                for photo_type, count in images_by_type.items():
+                    if count > 0:
+                        with ui.card().classes('p-2'):
+                            ui.label(f'{count}').classes('text-xl font-bold')
+                            ui.label(photo_type).classes('text-xs text-gray-600')
+
+            # Details by person (collapsible)
+            if len(people_with_images) <= 10:
+                # Show expanded for small batches
+                ui.label('Downloaded Images by Person').classes('text-lg font-bold mt-4 mb-2')
+                for person_info in people_with_images:
+                    with ui.expansion(
+                        f"{person_info['name']} ({len(person_info['images'])} image{'s' if len(person_info['images']) != 1 else ''})",
+                        icon='person'
+                    ).classes('w-full'):
+                        for img in person_info['images']:
+                            with ui.row().classes('items-center gap-2 text-sm'):
+                                ui.icon('image').classes('text-gray-400')
+                                ui.label(f"{img['type']} Photo")
+                                if img['media_id']:
+                                    ui.label(f"(Media ID: {img['media_id']})").classes('text-xs text-gray-500')
+
+            # Summary message
+            ui.separator().classes('my-4')
+            success_msg = f"Successfully downloaded {total_images} image{'s' if total_images != 1 else ''} for {len(people_with_images)} {'people' if len(people_with_images) != 1 else 'person'}"
+            ui.label(success_msg).classes('text-sm text-green-600')
+
+            # Log to error log
+            self.error_log.add_info(success_msg, context="Find a Grave Batch")
+
+            # Close button
+            with ui.row().classes('w-full justify-end mt-4'):
+                ui.button('Close', on_click=img_dialog.close).props('flat')
+
+        img_dialog.open()
 
     async def _start_batch_processing(self) -> None:
         """Start batch processing of selected items."""
         if not self.controller.session:
-            ui.notify("No batch loaded", type="warning")
+            warning_msg = "No batch loaded"
+            ui.notify(warning_msg, type="warning")
+            self.error_log.add_warning(warning_msg, context="Find a Grave Batch")
             return
 
         # Get items to process (selected or all pending)
@@ -527,7 +1012,9 @@ class FindAGraveBatchTab:
             ]
 
         if not items_to_process:
-            ui.notify("No items to process", type="warning")
+            warning_msg = "No items to process"
+            ui.notify(warning_msg, type="warning")
+            self.error_log.add_warning(warning_msg, context="Find a Grave Batch")
             return
 
         # Create progress dialog
@@ -543,6 +1030,9 @@ class FindAGraveBatchTab:
 
         processed = 0
         total = len(items_to_process)
+
+        # Collect citation matching data for end-of-batch report
+        citation_report_data = []  # List of {person_name, person_id, spouse_matches, parent_match_info}
 
         for i, item in enumerate(items_to_process, 1):
             # Update progress
@@ -635,45 +1125,101 @@ class FindAGraveBatchTab:
                             if burial_result['needs_approval']:
                                 match_info = burial_result.get('match_info', {})
                                 cemetery_name = match_info.get('cemetery_name', 'Unknown')
-                                findagrave_loc = match_info.get('findagrave_location', 'Unknown')
-                                best_match = match_info.get('best_match_name') or 'No matches found'
-                                best_match_id = match_info.get('best_match_id')
-                                similarity = match_info.get('similarity', 0)
+                                location_name = match_info.get('findagrave_location', 'Unknown')
 
-                                # Format match details
-                                if best_match_id:
-                                    match_detail = f"{best_match} (PlaceID {best_match_id}, {similarity:.1%})"
-                                else:
-                                    match_detail = "No matches found"
-
-                                logger.warning(
-                                    f"Burial event for {item.full_name} requires user approval:\n"
-                                    f"  Cemetery: {cemetery_name}\n"
-                                    f"  Find a Grave: {findagrave_loc}\n"
-                                    f"  Best Match: {match_detail}"
-                                )
-
-                                # Create detailed note for user
-                                item.note = (
-                                    f"⚠️ Burial place needs approval\n"
-                                    f"Cemetery: {cemetery_name}\n"
-                                    f"Location: {findagrave_loc}\n"
-                                    f"Best match: {match_detail}"
-                                )
-
-                                # Notify user during batch processing
-                                if best_match_id:
-                                    ui.notify(
-                                        f"⚠️ {item.full_name}: Burial place needs approval "
-                                        f"({similarity:.1%} match to PlaceID {best_match_id})",
-                                        type="warning",
+                                # Show approval dialog and wait for user decision
+                                logger.info(f"Showing place approval dialog for {item.full_name}")
+                                try:
+                                    decision = await self._show_place_approval_dialog(item, match_info)
+                                except Exception as dialog_error:
+                                    logger.error(f"Error showing place approval dialog: {dialog_error}", exc_info=True)
+                                    ui.notify(f"Error showing place approval dialog: {dialog_error}", type="negative")
+                                    self.error_log.add_error(
+                                        f"Failed to show place approval dialog for {item.full_name}: {dialog_error}",
+                                        context="Find a Grave Batch"
                                     )
-                                else:
-                                    ui.notify(
-                                        f"⚠️ {item.full_name}: Burial place needs approval "
-                                        f"(no existing matches)",
-                                        type="warning",
+                                    return  # Abort batch processing
+
+                                if not decision or decision['action'] == 'abort':
+                                    # User aborted - stop entire batch processing
+                                    logger.warning(f"User aborted batch processing at {item.full_name}")
+                                    self.error_log.add_warning(
+                                        f"Batch processing aborted by user at {item.full_name}",
+                                        context="Find a Grave Batch"
                                     )
+                                    ui.notify("Batch processing aborted", type="warning")
+                                    return  # Exit batch processing
+
+                                elif decision['action'] == 'add_new':
+                                    # Create new location and cemetery
+                                    logger.info(f"Creating new location and cemetery for {item.full_name}")
+                                    place_result = create_location_and_cemetery(
+                                        db_path=self.config.rm_database_path,
+                                        location_name=location_name,
+                                        cemetery_name=cemetery_name,
+                                    )
+
+                                    location_id = place_result['location_id']
+                                    cemetery_id = place_result['cemetery_id']
+
+                                    logger.info(f"Created location {location_id} and cemetery {cemetery_id}")
+                                    ui.notify(f"Created new place: {location_name}", type="positive")
+
+                                    # Log to web UI
+                                    self.error_log.add_info(
+                                        f"Created new place for {item.full_name}: {location_name} (PlaceID {location_id}), "
+                                        f"Cemetery: {cemetery_name} (PlaceID {cemetery_id})",
+                                        context="Find a Grave Batch"
+                                    )
+
+                                    # Now create burial event with new places
+                                    # Re-run burial event creation but it will find the new place
+                                    burial_result_retry = create_burial_event_and_link_citation(
+                                        db_path=self.config.rm_database_path,
+                                        person_id=item.person_id,
+                                        citation_id=result['citation_id'],
+                                        cemetery_name=cemetery_name,
+                                        cemetery_city=memorial_data.get('cemeteryCity', ''),
+                                        cemetery_county=memorial_data.get('cemeteryCounty', ''),
+                                        cemetery_state=memorial_data.get('cemeteryState', ''),
+                                        cemetery_country=memorial_data.get('cemeteryCountry', ''),
+                                    )
+                                    burial_event_id = burial_result_retry['burial_event_id']
+
+                                elif decision['action'] == 'select_existing':
+                                    # Use selected existing location, create cemetery
+                                    selected_place_id = decision['selected_place_id']
+                                    logger.info(f"Creating cemetery for existing location {selected_place_id}")
+
+                                    cemetery_id = create_cemetery_for_existing_location(
+                                        db_path=self.config.rm_database_path,
+                                        location_id=selected_place_id,
+                                        cemetery_name=cemetery_name,
+                                    )
+
+                                    logger.info(f"Created cemetery {cemetery_id} for location {selected_place_id}")
+                                    ui.notify(f"Created cemetery for existing location", type="positive")
+
+                                    # Log to web UI
+                                    self.error_log.add_info(
+                                        f"Created cemetery for {item.full_name}: {cemetery_name} (PlaceID {cemetery_id}), "
+                                        f"using existing location PlaceID {selected_place_id}",
+                                        context="Find a Grave Batch"
+                                    )
+
+                                    # Now create burial event - it will use the selected location and new cemetery
+                                    burial_result_retry = create_burial_event_and_link_citation(
+                                        db_path=self.config.rm_database_path,
+                                        person_id=item.person_id,
+                                        citation_id=result['citation_id'],
+                                        cemetery_name=cemetery_name,
+                                        cemetery_city=memorial_data.get('cemeteryCity', ''),
+                                        cemetery_county=memorial_data.get('cemeteryCounty', ''),
+                                        cemetery_state=memorial_data.get('cemeteryState', ''),
+                                        cemetery_country=memorial_data.get('cemeteryCountry', ''),
+                                    )
+                                    burial_event_id = burial_result_retry['burial_event_id']
+
                             else:
                                 burial_event_id = burial_result['burial_event_id']
                                 logger.info(
@@ -682,11 +1228,77 @@ class FindAGraveBatchTab:
 
                         except Exception as burial_error:
                             logger.error(f"Failed to create burial event: {burial_error}", exc_info=True)
+                            self.error_log.add_error(
+                                f"Failed to create burial event for {item.full_name}: {burial_error}",
+                                context="Find a Grave Batch"
+                            )
                             # Don't fail the entire item, just log the error
                     else:
                         logger.warning(
                             f"No cemetery name found for {item.full_name}, skipping burial event creation"
                         )
+                        self.error_log.add_warning(
+                            f"No cemetery name found for {item.full_name}, skipping burial event",
+                            context="Find a Grave Batch"
+                        )
+
+                    # Link citation to parent and spouse families
+                    family_data = memorial_data.get('family', {})
+                    parents = family_data.get('parents', [])
+                    spouses = family_data.get('spouse', [])
+
+                    if parents or spouses:
+                        logger.info(
+                            f"Linking citation to families for {item.full_name}: "
+                            f"{len(parents)} parent(s), {len(spouses)} spouse(s)"
+                        )
+                        try:
+                            family_link_result = link_citation_to_families(
+                                db_path=self.config.rm_database_path,
+                                person_id=item.person_id,
+                                citation_id=result['citation_id'],
+                                parents=parents,
+                                spouses=spouses,
+                            )
+
+                            # Log results
+                            if family_link_result['parent_family_ids']:
+                                logger.info(
+                                    f"Linked to {len(family_link_result['parent_family_ids'])} parent family"
+                                )
+
+                            if family_link_result['spouse_family_ids']:
+                                logger.info(
+                                    f"Linked to {len(family_link_result['spouse_family_ids'])} spouse "
+                                    f"famil{'y' if len(family_link_result['spouse_family_ids']) == 1 else 'ies'}"
+                                )
+
+                            # Log warnings (mismatches)
+                            for warning in family_link_result['warnings']:
+                                logger.warning(warning)
+                                self.error_log.add_warning(warning, context="Find a Grave Batch")
+                                # Add to item note if there are issues
+                                if item.note:
+                                    item.note += f"\n{warning}"
+                                else:
+                                    item.note = warning
+
+                            # Collect match data for report (only if spouses or parents were specified)
+                            if family_link_result.get('spouse_matches') or family_link_result.get('parent_match_info'):
+                                citation_report_data.append({
+                                    'person_name': item.full_name,
+                                    'person_id': item.person_id,
+                                    'spouse_matches': family_link_result.get('spouse_matches', []),
+                                    'parent_match_info': family_link_result.get('parent_match_info'),
+                                })
+
+                        except Exception as family_error:
+                            logger.error(f"Failed to link citation to families: {family_error}", exc_info=True)
+                            self.error_log.add_error(
+                                f"Failed to link citation to families for {item.full_name}: {family_error}",
+                                context="Find a Grave Batch"
+                            )
+                            # Don't fail the entire item, just log the error
 
                     # Mark as complete
                     self.controller.mark_item_complete(
@@ -700,6 +1312,10 @@ class FindAGraveBatchTab:
 
                 except Exception as db_error:
                     logger.error(f"Database write failed: {db_error}")
+                    self.error_log.add_error(
+                        f"Database write failed for {item.full_name}: {db_error}",
+                        context="Find a Grave Batch"
+                    )
                     self.controller.mark_item_error(item, f"Database write failed: {db_error}")
                     continue
 
@@ -720,11 +1336,22 @@ class FindAGraveBatchTab:
         # Close progress dialog
         progress_dialog.close()
 
+        # Show citation matching report if there's data to report
+        if citation_report_data:
+            self._show_citation_matching_report(citation_report_data)
+
+        # Show image download summary
+        self._show_image_download_summary()
+
         # Show completion notification BEFORE UI refresh
-        ui.notify(
-            f"Processed {processed} of {total} items",
-            type="positive" if processed == total else "warning"
-        )
+        completion_msg = f"Processed {processed} of {total} items"
+        msg_type = "positive" if processed == total else "warning"
+        ui.notify(completion_msg, type=msg_type)
+
+        if msg_type == "positive":
+            self.error_log.add_info(completion_msg, context="Find a Grave Batch")
+        else:
+            self.error_log.add_warning(completion_msg, context="Find a Grave Batch")
 
         # Clear checkbox selections after processing
         self.selected_item_ids.clear()
@@ -756,6 +1383,37 @@ class FindAGraveBatchTab:
             self.selected_item_ids.add(person_id)
         else:
             self.selected_item_ids.discard(person_id)
+
+    def _select_all(self) -> None:
+        """Select all items in the queue."""
+        if not self.controller.session:
+            return
+
+        # Add all person IDs to selected set
+        for item in self.controller.session.items:
+            self.selected_item_ids.add(item.person_id)
+
+        # Refresh queue to show checkboxes
+        self.queue_container.clear()
+        with self.queue_container:
+            self._render_queue_items()
+
+        ui.notify(f"Selected {len(self.selected_item_ids)} items", type="info")
+
+    def _deselect_all(self) -> None:
+        """Deselect all items in the queue."""
+        if not self.controller.session:
+            return
+
+        # Clear selected set
+        self.selected_item_ids.clear()
+
+        # Refresh queue to show checkboxes
+        self.queue_container.clear()
+        with self.queue_container:
+            self._render_queue_items()
+
+        ui.notify("Cleared all selections", type="info")
 
     def _get_status_icon(self, status: FindAGraveStatus) -> str:
         """Get icon for status."""
