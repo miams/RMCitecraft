@@ -1213,7 +1213,7 @@ def create_findagrave_image_record(
             media_file=media_file,
             caption=caption,
             ref_number=f"https://www.findagrave.com/memorial/{memorial_id}" if memorial_id else '',
-            date=None,  # Could extract photo date if available
+            census_date='',  # Find a Grave photos don't have census dates
         )
 
         # Link to citation

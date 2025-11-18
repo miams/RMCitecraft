@@ -120,7 +120,11 @@ class CitationFormatter:
         if c.sheet:
             footnote_parts.append(f"sheet {c.sheet},")
 
-        # Line number (not family number) per Evidence Explained
+        # Family number (1900 census may include this)
+        if c.family_number:
+            footnote_parts.append(f"family {c.family_number},")
+
+        # Line number (when available)
         if c.line:
             footnote_parts.append(f"line {c.line},")
 
@@ -173,6 +177,9 @@ class CitationFormatter:
 
         if c.sheet:
             short_parts.append(f"sheet {c.sheet},")
+
+        if c.family_number:
+            short_parts.append(f"family {c.family_number},")
 
         if c.line:
             short_parts.append(f"line {c.line},")
