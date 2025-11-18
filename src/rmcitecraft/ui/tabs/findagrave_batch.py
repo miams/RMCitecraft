@@ -1110,16 +1110,27 @@ class FindAGraveBatchTab:
 
                     if cemetery_name:
                         logger.info(f"Creating burial event for {item.full_name}...")
+
+                        # Format cemetery location from individual fields
+                        cemetery_location_parts = []
+                        if memorial_data.get('cemeteryCity'):
+                            cemetery_location_parts.append(memorial_data['cemeteryCity'])
+                        if memorial_data.get('cemeteryCounty'):
+                            cemetery_location_parts.append(memorial_data['cemeteryCounty'])
+                        if memorial_data.get('cemeteryState'):
+                            cemetery_location_parts.append(memorial_data['cemeteryState'])
+                        if memorial_data.get('cemeteryCountry') and memorial_data['cemeteryCountry'] != 'USA':
+                            cemetery_location_parts.append(memorial_data['cemeteryCountry'])
+
+                        cemetery_location = ', '.join(cemetery_location_parts) if cemetery_location_parts else None
+
                         try:
                             burial_result = create_burial_event_and_link_citation(
                                 db_path=self.config.rm_database_path,
                                 person_id=item.person_id,
                                 citation_id=result['citation_id'],
                                 cemetery_name=cemetery_name,
-                                cemetery_city=memorial_data.get('cemeteryCity', ''),
-                                cemetery_county=memorial_data.get('cemeteryCounty', ''),
-                                cemetery_state=memorial_data.get('cemeteryState', ''),
-                                cemetery_country=memorial_data.get('cemeteryCountry', ''),
+                                cemetery_location=cemetery_location,
                             )
 
                             if burial_result['needs_approval']:
@@ -1179,10 +1190,7 @@ class FindAGraveBatchTab:
                                         person_id=item.person_id,
                                         citation_id=result['citation_id'],
                                         cemetery_name=cemetery_name,
-                                        cemetery_city=memorial_data.get('cemeteryCity', ''),
-                                        cemetery_county=memorial_data.get('cemeteryCounty', ''),
-                                        cemetery_state=memorial_data.get('cemeteryState', ''),
-                                        cemetery_country=memorial_data.get('cemeteryCountry', ''),
+                                        cemetery_location=cemetery_location,
                                     )
                                     burial_event_id = burial_result_retry['burial_event_id']
 
@@ -1213,10 +1221,7 @@ class FindAGraveBatchTab:
                                         person_id=item.person_id,
                                         citation_id=result['citation_id'],
                                         cemetery_name=cemetery_name,
-                                        cemetery_city=memorial_data.get('cemeteryCity', ''),
-                                        cemetery_county=memorial_data.get('cemeteryCounty', ''),
-                                        cemetery_state=memorial_data.get('cemeteryState', ''),
-                                        cemetery_country=memorial_data.get('cemeteryCountry', ''),
+                                        cemetery_location=cemetery_location,
                                     )
                                     burial_event_id = burial_result_retry['burial_event_id']
 
@@ -1253,44 +1258,20 @@ class FindAGraveBatchTab:
                             f"{len(parents)} parent(s), {len(spouses)} spouse(s)"
                         )
                         try:
-                            family_link_result = link_citation_to_families(
+                            # Link citation to all families where person is a parent
+                            # (Function automatically finds families based on person_id)
+                            family_ids = link_citation_to_families(
                                 db_path=self.config.rm_database_path,
                                 person_id=item.person_id,
                                 citation_id=result['citation_id'],
-                                parents=parents,
-                                spouses=spouses,
                             )
 
                             # Log results
-                            if family_link_result['parent_family_ids']:
+                            if family_ids:
                                 logger.info(
-                                    f"Linked to {len(family_link_result['parent_family_ids'])} parent family"
+                                    f"Linked citation to {len(family_ids)} "
+                                    f"famil{'y' if len(family_ids) == 1 else 'ies'}"
                                 )
-
-                            if family_link_result['spouse_family_ids']:
-                                logger.info(
-                                    f"Linked to {len(family_link_result['spouse_family_ids'])} spouse "
-                                    f"famil{'y' if len(family_link_result['spouse_family_ids']) == 1 else 'ies'}"
-                                )
-
-                            # Log warnings (mismatches)
-                            for warning in family_link_result['warnings']:
-                                logger.warning(warning)
-                                self.error_log.add_warning(warning, context="Find a Grave Batch")
-                                # Add to item note if there are issues
-                                if item.note:
-                                    item.note += f"\n{warning}"
-                                else:
-                                    item.note = warning
-
-                            # Collect match data for report (only if spouses or parents were specified)
-                            if family_link_result.get('spouse_matches') or family_link_result.get('parent_match_info'):
-                                citation_report_data.append({
-                                    'person_name': item.full_name,
-                                    'person_id': item.person_id,
-                                    'spouse_matches': family_link_result.get('spouse_matches', []),
-                                    'parent_match_info': family_link_result.get('parent_match_info'),
-                                })
 
                         except Exception as family_error:
                             logger.error(f"Failed to link citation to families: {family_error}", exc_info=True)
