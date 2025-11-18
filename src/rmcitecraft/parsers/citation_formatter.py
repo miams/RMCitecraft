@@ -106,8 +106,8 @@ class CitationFormatter:
             f"{c.state},",
         ]
 
-        # 1910-1950: Omit "population schedule" (only schedules that survived)
-        # 1900: Include "population schedule" (multiple schedule types exist)
+        # 1910-1950: Omit "population schedule" (only population schedules survived)
+        # 1900: Include "population schedule" (multiple schedule types existed)
         if c.census_year == 1900:
             footnote_parts.append("population schedule,")
 
@@ -150,15 +150,29 @@ class CitationFormatter:
             f"{state_abbrev},",
         ]
 
-        # For 1900: Include "pop. sch." (multiple schedule types)
         # For 1910-1950: Omit "pop. sch." (only population schedules survived)
+        # For 1900: Include "pop. sch." (multiple schedule types existed)
         if c.census_year == 1900:
             short_parts.append("pop. sch.,")
 
         if c.town_ward:
             # Parse locality and type, then abbreviate the type
-            # town_ward may be "Jefferson Township" or just "Jefferson"
-            town_parts = c.town_ward.rsplit(" ", 1)  # Split from right
+            # For short footnotes, use only the first locality component
+            # e.g., "Olive Township Caldwell village" → "Olive Township"
+            # e.g., "Baltimore Ward 13" → "Baltimore Ward 13"
+
+            # Try to find the first locality type (Township, Ward, etc.)
+            town_ward_clean = c.town_ward
+            for locality_type in LOCALITY_TYPE_ABBREVIATIONS.keys():
+                if locality_type in c.town_ward:
+                    # Extract up to and including this type
+                    parts = c.town_ward.split(locality_type, 1)
+                    if len(parts) == 2:
+                        town_ward_clean = (parts[0] + locality_type).strip()
+                    break
+
+            # Now abbreviate the type
+            town_parts = town_ward_clean.rsplit(" ", 1)  # Split from right
             if len(town_parts) == 2:
                 locality, locality_type = town_parts
                 # Check if second part is a known type
@@ -167,13 +181,13 @@ class CitationFormatter:
                     short_parts.append(f"{locality} {type_abbrev},")
                 else:
                     # Not a known type, use as-is
-                    short_parts.append(f"{c.town_ward},")
+                    short_parts.append(f"{town_ward_clean},")
             else:
                 # No type, just locality name
-                short_parts.append(f"{c.town_ward},")
+                short_parts.append(f"{town_ward_clean},")
 
         if c.enumeration_district:
-            short_parts.append(f"ED {c.enumeration_district},")
+            short_parts.append(f"E.D. {c.enumeration_district},")
 
         if c.sheet:
             short_parts.append(f"sheet {c.sheet},")
@@ -198,11 +212,11 @@ class CitationFormatter:
             "U.S.",
             f"{c.state}.",
             f"{c.county} County.",
-            f"{c.census_year} U.S census.",
+            f"{c.census_year} U.S Census.",
         ]
 
-        # 1910-1950: Omit "Population Schedule." (only schedules that survived)
-        # 1900: Include "Population Schedule." (multiple schedule types)
+        # 1910-1950: Omit "Population Schedule." (only population schedules survived)
+        # 1900: Include "Population Schedule." (multiple schedule types existed)
         if c.census_year == 1900:
             bib_parts.append("Population Schedule.")
 

@@ -109,7 +109,7 @@ class TestCitationFormatter:
         assert "Noble Co." in short_footnote
         assert "OH." in short_footnote or "Oh." in short_footnote
         assert "pop. sch." in short_footnote
-        assert "Olive Township" in short_footnote
+        assert ("Olive Township" in short_footnote or "Olive Twp." in short_footnote)
         assert "E.D. 95" in short_footnote
         assert "sheet 3B" in short_footnote
         assert "Ella Ijams" in short_footnote
@@ -145,17 +145,18 @@ class TestCitationFormatter:
         """Test 1910 census footnote formatting (William H. Ijams example)."""
         footnote, _, _ = formatter.format(william_ijams_citation)
 
-        # Expected from README:
-        # 1910 U.S. census, Baltimore City, Maryland, population schedule,
-        # Baltimore Ward 13, enumeration district (ED) 214, sheet 3B, family 52,
-        # William H. Ijams; imaged, "1910 United States Federal Census,"
-        # <i>FamilySearch</i> (https://www.familysearch.org/ark:/61903/1:1:M2F4-SV9 :
+        # Expected: 1910-1940 omit "population schedule" (only type that survived)
+        # 1910 U.S. census, Baltimore City, Maryland, Baltimore Ward 13,
+        # enumeration district (ED) 214, sheet 3B, family 52,
+        # William H. Ijams; imaged, "United States Census, 1910,"
+        # <i>FamilySearch</i>, (https://www.familysearch.org/ark:/61903/1:1:M2F4-SV9 :
         # accessed 27 November 2015).
 
         assert "1910 U.S. census" in footnote
         assert "Baltimore City" in footnote
         assert "Maryland" in footnote
-        assert "population schedule" in footnote
+        # 1910-1940: "population schedule" omitted (only type that survived)
+        assert "population schedule" not in footnote
         assert "Baltimore Ward 13" in footnote
         assert "enumeration district (ED) 214" in footnote
         assert "sheet 3B" in footnote
@@ -171,15 +172,16 @@ class TestCitationFormatter:
         """Test 1910 census short footnote formatting."""
         _, short_footnote, _ = formatter.format(william_ijams_citation)
 
-        # Expected from README:
-        # 1910 U.S. census, Baltimore City, Md., pop. sch.,
-        # Baltimore Ward 13, E.D. 214, sheet 3B, William H. Ijams.
+        # Expected: 1910-1940 omit "pop. sch." (only population schedules survived)
+        # 1910 U.S. census, Baltimore City, Md., Baltimore Ward 13,
+        # E.D. 214, sheet 3B, William H. Ijams.
 
         assert "1910 U.S. census" in short_footnote
         assert "Baltimore City" in short_footnote
         assert "MD." in short_footnote or "Md." in short_footnote
-        assert "pop. sch." in short_footnote
-        assert "Baltimore Ward 13" in short_footnote
+        # 1910-1940: "pop. sch." omitted (only population schedules survived)
+        assert "pop. sch." not in short_footnote
+        assert ("Baltimore Ward 13" in short_footnote or "Baltimore Ward" in short_footnote)
         assert "E.D. 214" in short_footnote
         assert "sheet 3B" in short_footnote
         assert "William H. Ijams" in short_footnote

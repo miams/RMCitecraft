@@ -82,7 +82,7 @@ STATE_ABBREVIATIONS: dict[str, str] = {
     "New York": "N.Y.",
     "North Carolina": "N.C.",
     "North Dakota": "N.Dak.",
-    "Ohio": "Ohio",
+    "Ohio": "Oh.",
     "Oklahoma": "Okla.",
     "Oregon": "Oreg.",
     "Pennsylvania": "Pa.",
