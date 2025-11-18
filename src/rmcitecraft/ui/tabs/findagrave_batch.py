@@ -1243,7 +1243,6 @@ class FindAGraveBatchTab:
 
                     # Link citation to all families where person is parent
                     try:
-                        from rmcitecraft.database.findagrave_queries import link_citation_to_families
                         family_ids = link_citation_to_families(
                             db_path=self.config.rm_database_path,
                             person_id=item.person_id,
@@ -1326,40 +1325,6 @@ class FindAGraveBatchTab:
                             f"No cemetery name found for {item.full_name}, skipping burial event",
                             context="Find a Grave Batch"
                         )
-
-                    # Link citation to parent and spouse families
-                    family_data = memorial_data.get('family', {})
-                    parents = family_data.get('parents', [])
-                    spouses = family_data.get('spouse', [])
-
-                    if parents or spouses:
-                        logger.info(
-                            f"Linking citation to families for {item.full_name}: "
-                            f"{len(parents)} parent(s), {len(spouses)} spouse(s)"
-                        )
-                        try:
-                            # Link citation to all families where person is a parent
-                            # (Function automatically finds families based on person_id)
-                            family_ids = link_citation_to_families(
-                                db_path=self.config.rm_database_path,
-                                person_id=item.person_id,
-                                citation_id=result['citation_id'],
-                            )
-
-                            # Log results
-                            if family_ids:
-                                logger.info(
-                                    f"Linked citation to {len(family_ids)} "
-                                    f"famil{'y' if len(family_ids) == 1 else 'ies'}"
-                                )
-
-                        except Exception as family_error:
-                            logger.error(f"Failed to link citation to families: {family_error}", exc_info=True)
-                            self.error_log.add_error(
-                                f"Failed to link citation to families for {item.full_name}: {family_error}",
-                                context="Find a Grave Batch"
-                            )
-                            # Don't fail the entire item, just log the error
 
                     # Mark as complete
                     self.controller.mark_item_complete(

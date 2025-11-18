@@ -911,9 +911,19 @@ def link_citation_to_families(
         for row in cursor.fetchall():
             family_id = row[0]
 
+            # Check if link already exists
+            cursor.execute("""
+                SELECT LinkID FROM CitationLinkTable
+                WHERE CitationID = ? AND OwnerType = 1 AND OwnerID = ?
+            """, (citation_id, family_id))
+
+            if cursor.fetchone():
+                logger.debug(f"Citation {citation_id} already linked to family {family_id}, skipping")
+                continue
+
             # Link citation to family (OwnerType = 1 for FamilyTable)
             cursor.execute("""
-                INSERT OR IGNORE INTO CitationLinkTable (
+                INSERT INTO CitationLinkTable (
                     CitationID, OwnerType, OwnerID, SortOrder, Quality, IsPrivate, Flags, UTCModDate
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
