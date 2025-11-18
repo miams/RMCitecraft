@@ -155,6 +155,60 @@ uv run python sqlite-extension/python_example.py
 # - Sample queries with sorted results
 ```
 
+### Database Integrity Tests (CRITICAL)
+
+**Always run database integrity tests when modifying database operations:**
+
+```bash
+# Run all database integrity tests
+uv run pytest tests/unit/test_database_integrity.py -v
+
+# Run specific integrity test category
+uv run pytest tests/unit/test_database_integrity.py::TestPlaceTableIntegrity -v
+uv run pytest tests/unit/test_database_integrity.py::TestSourceTableIntegrity -v
+uv run pytest tests/unit/test_database_integrity.py::TestCitationTableIntegrity -v
+uv run pytest tests/unit/test_database_integrity.py::TestEventTableIntegrity -v
+```
+
+**When to Write New Integrity Tests:**
+
+1. **Adding new record type** (e.g., MediaTable, PersonTable)
+2. **Modifying existing insert operations** (e.g., adding new fields)
+3. **After discovering undocumented field requirements** (add test to prevent regression)
+
+**Comparison-Based Testing Template:**
+
+```python
+def test_new_record_matches_existing(db_connection):
+    """Compare created record field-by-field with existing record."""
+    cursor = db_connection.cursor()
+
+    # Get existing record
+    cursor.execute("SELECT * FROM TableName WHERE condition LIMIT 1")
+    existing = cursor.fetchone()
+
+    # Create new record using your function
+    new_id = create_new_record(...)
+
+    # Fetch created record
+    cursor.execute("SELECT * FROM TableName WHERE ID = ?", (new_id,))
+    created = cursor.fetchone()
+
+    # Compare field-by-field
+    assert type(created[0]) == type(existing[0]), "ID type mismatch"
+    assert created[1] is not None, "Field should not be NULL"
+    # ... continue for all critical fields
+```
+
+**Critical Lessons from Find a Grave Implementation:**
+
+- **Reverse field**: 99.9% of locations have it, not documented anywhere
+- **NULL vs 0**: RootsMagic breaks with NULL in integer columns
+- **SortDate is BIGINT**: Not INTEGER like other ID fields
+- **Empty citation fields**: Free-form sources (TemplateID=0) store differently
+
+See `CLAUDE.md` "Database Integrity Testing" section for full methodology and philosophy.
+
 ---
 
 ## Code Style & Formatting Rules

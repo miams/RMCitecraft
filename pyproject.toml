@@ -59,6 +59,17 @@ packaging = [
 cost-optimization = [
     "litellm>=1.0.0",
 ]
+# New LLM provider options
+llm = [
+    "llm>=0.13.0",
+]
+openrouter = [
+    "openai>=1.0.0",
+]
+all-llm = [
+    "llm>=0.13.0",
+    "openai>=1.0.0",
+]
 
 [build-system]
 requires = ["hatchling"]
