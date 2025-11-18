@@ -1018,12 +1018,14 @@ def create_location_and_cemetery(
         cemetery_id = cursor.lastrowid
         logger.info(f"Created cemetery PlaceID {cemetery_id}: {cemetery_name} (linked to location {location_id})")
 
-        # Link cemetery to burial event
+        # Link location to burial event
+        # NOTE: Event PlaceID should reference the location (PlaceType=0), not cemetery (PlaceType=2)
+        # Cemetery is linked via its MasterID pointing to the location
         cursor.execute("""
             UPDATE EventTable
             SET PlaceID = ?, UTCModDate = ?
             WHERE EventID = ?
-        """, (cemetery_id, utc_mod_date, burial_event_id))
+        """, (location_id, utc_mod_date, burial_event_id))
 
         conn.commit()
         logger.info(f"Successfully created location and cemetery places for burial event {burial_event_id}")
@@ -1093,12 +1095,14 @@ def create_cemetery_for_existing_location(
         cemetery_id = cursor.lastrowid
         logger.info(f"Created cemetery PlaceID {cemetery_id}: {cemetery_name} (linked to location {location_id})")
 
-        # Link cemetery to burial event
+        # Link location to burial event
+        # NOTE: Event PlaceID should reference the location (PlaceType=0), not cemetery (PlaceType=2)
+        # Cemetery is linked via its MasterID pointing to the location
         cursor.execute("""
             UPDATE EventTable
             SET PlaceID = ?, UTCModDate = ?
             WHERE EventID = ?
-        """, (cemetery_id, utc_mod_date, burial_event_id))
+        """, (location_id, utc_mod_date, burial_event_id))
 
         conn.commit()
 
