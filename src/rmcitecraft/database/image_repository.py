@@ -130,9 +130,9 @@ class ImageRepository:
                 """
                 INSERT INTO MultimediaTable (
                     MediaID, MediaType, MediaPath, MediaFile,
-                    Caption, RefNumber, Date, UTCModDate
+                    Caption, RefNumber, Date, SortDate, UTCModDate
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     media_id,
@@ -142,6 +142,7 @@ class ImageRepository:
                     caption,
                     ref_number,
                     census_date,
+                    0,  # SortDate: 0 = no specific date (never NULL)
                     utc_mod_date,
                 ),
             )
@@ -156,7 +157,7 @@ class ImageRepository:
             logger.error(f"Failed to create media record: {e}")
             raise
 
-    def link_media_to_event(self, media_id: int, event_id: int, is_primary: bool = False) -> None:
+    def link_media_to_event(self, media_id: int, event_id: int, is_primary: bool = False) -> int:
         """
         Link media to census event in MediaLinkTable.
 
@@ -165,8 +166,11 @@ class ImageRepository:
             event_id: EventID from EventTable (census event)
             is_primary: Whether this is the primary image for the event (default: False)
 
+        Returns:
+            LinkID of the created or existing link
+
         Example:
-            >>> repo.link_media_to_event(media_id=42, event_id=123)
+            >>> link_id = repo.link_media_to_event(media_id=42, event_id=123)
         """
         cursor = self.conn.cursor()
 
@@ -180,9 +184,11 @@ class ImageRepository:
                 (media_id, event_id),
             )
 
-            if cursor.fetchone():
-                logger.warning(f"Media {media_id} already linked to event {event_id}")
-                return
+            existing = cursor.fetchone()
+            if existing:
+                link_id = existing[0]
+                logger.warning(f"Media {media_id} already linked to event {event_id} (LinkID {link_id})")
+                return link_id
 
             # Get next LinkID
             cursor.execute("SELECT COALESCE(MAX(LinkID), 0) + 1 FROM MediaLinkTable")
@@ -204,14 +210,16 @@ class ImageRepository:
             )
 
             self.conn.commit()
-            logger.info(f"Linked media {media_id} to event {event_id}")
+            logger.info(f"Linked media {media_id} to event {event_id} (LinkID {link_id})")
+
+            return link_id
 
         except sqlite3.Error as e:
             self.conn.rollback()
             logger.error(f"Failed to link media to event: {e}")
             raise
 
-    def link_media_to_citation(self, media_id: int, citation_id: int) -> None:
+    def link_media_to_citation(self, media_id: int, citation_id: int) -> int:
         """
         Link media to citation in MediaLinkTable.
 
@@ -219,8 +227,11 @@ class ImageRepository:
             media_id: MediaID from MultimediaTable
             citation_id: CitationID from CitationTable
 
+        Returns:
+            LinkID of the created or existing link
+
         Example:
-            >>> repo.link_media_to_citation(media_id=42, citation_id=456)
+            >>> link_id = repo.link_media_to_citation(media_id=42, citation_id=456)
         """
         cursor = self.conn.cursor()
 
@@ -234,9 +245,11 @@ class ImageRepository:
                 (media_id, citation_id),
             )
 
-            if cursor.fetchone():
-                logger.warning(f"Media {media_id} already linked to citation {citation_id}")
-                return
+            existing = cursor.fetchone()
+            if existing:
+                link_id = existing[0]
+                logger.warning(f"Media {media_id} already linked to citation {citation_id} (LinkID {link_id})")
+                return link_id
 
             # Get next LinkID
             cursor.execute("SELECT COALESCE(MAX(LinkID), 0) + 1 FROM MediaLinkTable")
@@ -258,7 +271,9 @@ class ImageRepository:
             )
 
             self.conn.commit()
-            logger.info(f"Linked media {media_id} to citation {citation_id}")
+            logger.info(f"Linked media {media_id} to citation {citation_id} (LinkID {link_id})")
+
+            return link_id
 
         except sqlite3.Error as e:
             self.conn.rollback()

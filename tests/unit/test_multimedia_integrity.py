@@ -101,7 +101,11 @@ class TestMultimediaTableSchema:
         assert len(nulls) == 0, f"Found {len(nulls)} media with NULL SortDate: {nulls[:5]}"
 
     def test_symbolic_path_format(self, db_connection):
-        """Verify MediaPath uses symbolic prefixes (?, ~, *) or absolute paths."""
+        r"""Verify MediaPath uses symbolic prefixes (?, ~, *) or absolute paths.
+
+        Note: RootsMagic supports both forward slashes (/) and backslashes (\)
+        as path separators after symbolic prefixes.
+        """
         cursor = db_connection.cursor()
         cursor.execute("""
             SELECT MediaID, MediaPath, MediaFile
@@ -113,10 +117,11 @@ class TestMultimediaTableSchema:
 
         for media_id, media_path, media_file in cursor.fetchall():
             # Should start with symbolic prefix or be absolute
+            # RootsMagic supports both forward slash (/) and backslash (\) separators
             assert (
-                media_path.startswith('?/') or
-                media_path.startswith('~/') or
-                media_path.startswith('*/') or
+                media_path.startswith('?/') or media_path.startswith('?\\') or
+                media_path.startswith('~/') or media_path.startswith('~\\') or
+                media_path.startswith('*/') or media_path.startswith('*\\') or
                 media_path.startswith('/')
             ), f"MediaID {media_id}: Invalid path format '{media_path}'"
 
@@ -298,7 +303,7 @@ class TestCreateFindAGraveImageRecord:
         cursor.execute("""
             SELECT OwnerType, OwnerID, MediaID
             FROM MediaLinkTable
-            WHERE MediaLinkID = ?
+            WHERE LinkID = ?
         """, (result['media_link_id'],))
         link_record = cursor.fetchone()
 
