@@ -47,13 +47,19 @@ class TestProviderConfiguration:
             provider = create_provider(config)
             assert provider.name == "OpenRouter"
 
-    @pytest.mark.skip(reason="llm package not installed - test passes by default")
+    @pytest.mark.xfail(reason="Test requires llm package to be uninstalled - cannot test ImportError path with llm installed")
     def test_llm_datasette_initialization_without_package(self):
-        """Verify error when LLM package not installed."""
+        """Verify error when LLM package not installed.
+
+        NOTE: This test is xfail because llm package IS installed as an optional dependency.
+        To test the ImportError path, llm would need to be uninstalled, but that breaks
+        other tests that depend on it. This test documents the expected behavior when
+        llm is not installed, but cannot actually run in the current environment.
+        """
         config = {"provider": "llm"}
 
         # This test requires llm package to NOT be installed
-        # Since llm is not installed, creating provider should raise ConfigurationError
+        # Since llm IS installed, this test will fail
         with pytest.raises(ConfigurationError, match="not installed"):
             create_provider(config)
 
@@ -90,10 +96,22 @@ class TestProviderConfiguration:
             error_msg = str(e)
             assert "api_key" in error_msg.lower()
 
-    @pytest.mark.skip(reason="Requires llm package to be installed")
     def test_llm_datasette_model_access_error(self):
-        """Verify error when LLM models not accessible."""
-        pytest.skip("Requires llm package to be installed with models configured")
+        """Verify error when LLM models not accessible.
+
+        Tests that LLMDatasette raises ConfigurationError when llm package is installed
+        but no models are available (e.g., no API keys configured).
+        """
+        config = {"provider": "llm"}
+
+        # Create a mock llm module with no models
+        with patch("rmcitecraft.llm.llm_datasette.LLMDatasette._test_model_access") as mock_test:
+            # Make _test_model_access raise ConfigurationError (simulating no models)
+            mock_test.side_effect = ConfigurationError("No models available in LLM")
+
+            # Should raise ConfigurationError when no models available
+            with pytest.raises(ConfigurationError, match="No models available"):
+                provider = create_provider(config)
 
 
 class TestProviderErrorHandling:
