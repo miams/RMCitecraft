@@ -135,6 +135,14 @@ class FindAGraveBatchTab:
                         on_click=self._show_resume_dialog,
                     ).props("dense outline")
 
+                    ui.button(
+                        "Reset State DB",
+                        icon="delete_sweep",
+                        on_click=self._show_reset_database_dialog,
+                    ).props("dense outline color=orange").tooltip(
+                        "Clear all batch state data (use after RootsMagic restore)"
+                    )
+
                     if self.controller.session:
                         ui.button(
                             "Process",
@@ -680,6 +688,41 @@ class FindAGraveBatchTab:
                 ui.button(
                     "Clear All Sessions",
                     on_click=confirm_clear,
+                    icon="delete_sweep"
+                ).props("color=red")
+
+        confirm_dialog.open()
+
+    def _show_reset_database_dialog(self) -> None:
+        """Show dialog to reset state database (accessible anytime)."""
+        def confirm_reset():
+            try:
+                count = self.state_repository.clear_all_sessions()
+                ui.notify(f"Reset complete: cleared {count} sessions", type="warning")
+                logger.warning(f"User reset state database ({count} sessions cleared)")
+                confirm_dialog.close()
+
+            except Exception as e:
+                logger.error(f"Failed to reset state database: {e}")
+                ui.notify(f"Error resetting database: {e}", type="negative")
+
+        # Confirmation dialog
+        with ui.dialog() as confirm_dialog, ui.card():
+            ui.label("Reset State Database?").classes("font-bold text-lg mb-2")
+            ui.label(
+                "This will permanently delete ALL batch state data."
+            ).classes("text-sm text-gray-700 mb-2")
+            ui.label(
+                "Use this when you've restored your RootsMagic database from backup "
+                "and the state database is out of sync."
+            ).classes("text-sm text-gray-700 mb-4 max-w-md")
+            ui.label("This action cannot be undone.").classes("text-sm font-semibold text-red-600 mb-4")
+
+            with ui.row().classes("w-full justify-end gap-2"):
+                ui.button("Cancel", on_click=confirm_dialog.close).props("flat")
+                ui.button(
+                    "Reset State Database",
+                    on_click=confirm_reset,
                     icon="delete_sweep"
                 ).props("color=red")
 

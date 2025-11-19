@@ -981,8 +981,14 @@ def create_burial_event_and_link_citation(
                         # RootsMagic "after" date format: DA+YYYYMMDD..+00000000..
                         # Position 2 'A' = After modifier
                         burial_date = f"DA+{date_part}..+00000000.."
-                        sort_date = int(date_part)
-                        logger.info(f"Burial date (after death): {burial_date}")
+
+                        # SortDate = death date + 1 day (for chronological sorting)
+                        from datetime import datetime, timedelta
+                        death_dt = datetime.strptime(date_part, "%Y%m%d")
+                        burial_dt = death_dt + timedelta(days=1)
+                        sort_date = int(burial_dt.strftime("%Y%m%d"))
+
+                        logger.info(f"Burial date (after death): {burial_date}, SortDate: {sort_date}")
                     else:
                         logger.info(f"Death date not precise (YYYY-MM-DD: {date_part[:4]}-{month}-{day}), leaving burial date blank")
 
