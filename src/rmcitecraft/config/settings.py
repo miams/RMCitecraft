@@ -70,6 +70,50 @@ class Config(BaseSettings):
         description="Show preview before saving to database",
     )
 
+    # Find a Grave Batch Processing Settings
+    findagrave_base_timeout_seconds: int = Field(
+        default=30,
+        ge=15,
+        le=120,
+        description="Base timeout for Find a Grave page loads (seconds)",
+    )
+    findagrave_enable_adaptive_timeout: bool = Field(
+        default=True,
+        description="Enable dynamic timeout adjustment based on response times",
+    )
+    findagrave_timeout_window_size: int = Field(
+        default=10,
+        ge=5,
+        le=50,
+        description="Number of recent requests to consider for adaptive timeout",
+    )
+    findagrave_max_retries: int = Field(
+        default=3,
+        ge=0,
+        le=10,
+        description="Maximum retry attempts for transient failures",
+    )
+    findagrave_retry_base_delay_seconds: int = Field(
+        default=2,
+        ge=1,
+        le=60,
+        description="Base delay for exponential backoff retries (seconds)",
+    )
+    findagrave_state_db_path: str = Field(
+        default="~/.rmcitecraft/batch_state.db",
+        description="Path to batch state database (separate from RootsMagic DB)",
+    )
+    findagrave_checkpoint_frequency: int = Field(
+        default=1,
+        ge=1,
+        le=10,
+        description="Number of items processed between checkpoints",
+    )
+    findagrave_enable_crash_recovery: bool = Field(
+        default=True,
+        description="Enable automatic page crash detection and recovery",
+    )
+
     @field_validator("rm_database_path", "sqlite_icu_extension")
     @classmethod
     def validate_path_exists(cls, v: str) -> str:
@@ -80,7 +124,7 @@ class Config(BaseSettings):
             pass
         return str(path)
 
-    @field_validator("download_folder", "rm_media_root_directory")
+    @field_validator("download_folder", "rm_media_root_directory", "findagrave_state_db_path")
     @classmethod
     def expand_user_path(cls, v: str) -> str:
         """Expand user home directory in paths."""
