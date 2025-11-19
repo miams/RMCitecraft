@@ -136,6 +136,9 @@ def _check_existing_citation(cursor: sqlite3.Cursor, person_id: int) -> bool:
     """
     Check if person already has a Find a Grave source with formatted citations.
 
+    This is the legacy check used during pre-filtering. For more robust duplicate
+    detection during batch processing, use check_citation_exists_detailed().
+
     Args:
         cursor: Database cursor
         person_id: Person ID
@@ -186,6 +189,104 @@ def _check_existing_citation(cursor: sqlite3.Cursor, person_id: int) -> bool:
             continue
 
     return False
+
+
+def check_citation_exists_detailed(
+    db_path: str,
+    person_id: int,
+    memorial_id: str | None = None,
+    memorial_url: str | None = None,
+) -> dict[str, Any]:
+    """
+    Enhanced duplicate checking for Find a Grave citations during batch processing.
+
+    Checks multiple criteria to detect existing citations:
+    1. Person has formatted Find a Grave citation (legacy check)
+    2. Citation with matching memorial ID in RefNumber field
+    3. Citation with matching memorial URL in RefNumber field
+
+    This is more robust than the pre-filter check and should be called
+    BEFORE creating a citation during batch processing.
+
+    Args:
+        db_path: Path to RootsMagic database
+        person_id: Person ID to check
+        memorial_id: Optional memorial ID to check for duplicates
+        memorial_url: Optional memorial URL to check for duplicates
+
+    Returns:
+        Dict with duplicate check results:
+        {
+            'exists': bool,  # True if any duplicate found
+            'citation_id': int | None,  # Existing citation ID if found
+            'source_id': int | None,  # Existing source ID if found
+            'match_type': str | None,  # 'formatted', 'memorial_id', 'url'
+            'details': str,  # Human-readable explanation
+        }
+    """
+    with DatabaseConnection(db_path, read_only=True).transaction() as conn:
+        cursor = conn.cursor()
+
+        result = {
+            'exists': False,
+            'citation_id': None,
+            'source_id': None,
+            'match_type': None,
+            'details': 'No existing citation found',
+        }
+
+        # Check 1: Legacy formatted citation check
+        if _check_existing_citation(cursor, person_id):
+            result['exists'] = True
+            result['match_type'] = 'formatted'
+            result['details'] = 'Person already has formatted Find a Grave citation'
+            logger.info(f"Duplicate found for person {person_id}: {result['details']}")
+            return result
+
+        # Check 2 & 3: Check for memorial ID or URL in RefNumber field
+        if memorial_id or memorial_url:
+            # Build URL patterns to match
+            url_patterns = []
+            if memorial_url:
+                url_patterns.append(memorial_url)
+            if memorial_id:
+                # Find a Grave URLs can be in multiple formats
+                url_patterns.extend([
+                    f"https://www.findagrave.com/memorial/{memorial_id}",
+                    f"https://findagrave.com/memorial/{memorial_id}",
+                    f"www.findagrave.com/memorial/{memorial_id}",
+                    f"findagrave.com/memorial/{memorial_id}",
+                ])
+
+            # Query citations by RefNumber
+            for pattern in url_patterns:
+                cursor.execute("""
+                    SELECT c.CitationID, c.SourceID, c.RefNumber
+                    FROM CitationTable c
+                    JOIN CitationLinkTable cl ON c.CitationID = cl.CitationID
+                    JOIN EventTable e ON cl.OwnerID = e.EventID AND cl.OwnerType = 2
+                    WHERE e.OwnerID = ? AND e.OwnerType = 0
+                    AND c.RefNumber LIKE ?
+                """, (person_id, f"%{pattern}%"))
+
+                row = cursor.fetchone()
+                if row:
+                    citation_id, source_id, ref_number = row
+                    result['exists'] = True
+                    result['citation_id'] = citation_id
+                    result['source_id'] = source_id
+                    result['match_type'] = 'memorial_id' if memorial_id else 'url'
+                    result['details'] = (
+                        f"Citation {citation_id} already exists with matching memorial "
+                        f"(RefNumber: {ref_number})"
+                    )
+                    logger.warning(
+                        f"Duplicate citation found for person {person_id}, memorial {memorial_id}: "
+                        f"CitationID {citation_id}"
+                    )
+                    return result
+
+        return result
 
 
 def _extract_memorial_id(url: str) -> str:
