@@ -1139,7 +1139,7 @@ def link_citation_to_families(
                 cursor.execute("""
                     SELECT Surname, Given, Prefix, Suffix
                     FROM NameTable
-                    WHERE OwnerID = ? AND OwnerType = 0 AND IsPrimary = 1
+                    WHERE OwnerID = ? AND IsPrimary = 1
                 """, (spouse_id,))
 
                 spouse_row = cursor.fetchone()
