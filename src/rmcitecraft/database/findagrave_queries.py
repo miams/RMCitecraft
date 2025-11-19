@@ -1076,6 +1076,76 @@ def create_burial_event_and_link_citation(
         conn.close()
 
 
+def link_citation_to_person(
+    db_path: str,
+    person_id: int,
+    citation_id: int,
+) -> int:
+    """
+    Link Find a Grave citation directly to Person record.
+
+    CITATION LINKING RULE #1: ALWAYS create citation link to Person record
+    - OwnerType = 0 (Person)
+    - OwnerID = PersonID
+    - This is the primary/direct link
+
+    Args:
+        db_path: Path to RootsMagic database
+        person_id: Person ID
+        citation_id: Citation ID to link to person
+
+    Returns:
+        LinkID of created link
+    """
+    from rmcitecraft.database.connection import connect_rmtree
+
+    conn = connect_rmtree(db_path, read_only=False)
+    cursor = conn.cursor()
+
+    try:
+        utc_mod_date = get_utc_mod_date()
+
+        # Check if link already exists
+        cursor.execute("""
+            SELECT LinkID FROM CitationLinkTable
+            WHERE CitationID = ? AND OwnerType = 0 AND OwnerID = ?
+        """, (citation_id, person_id))
+
+        if cursor.fetchone():
+            logger.debug(f"Citation {citation_id} already linked to person {person_id}, skipping")
+            return None
+
+        # Create link to person (OwnerType = 0)
+        cursor.execute("""
+            INSERT INTO CitationLinkTable (
+                CitationID, OwnerType, OwnerID, SortOrder, Quality, IsPrivate, Flags, UTCModDate
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            citation_id,
+            0,  # OwnerType = 0 for Person
+            person_id,
+            0,  # SortOrder
+            '~~~',  # Quality: default rating
+            0,  # IsPrivate
+            0,  # Flags
+            utc_mod_date,
+        ))
+
+        link_id = cursor.lastrowid
+        conn.commit()
+
+        logger.info(f"Linked citation {citation_id} to person {person_id} (PersonID {person_id})")
+        return link_id
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Failed to link citation to person: {e}", exc_info=True)
+        raise
+
+    finally:
+        conn.close()
+
+
 def link_citation_to_families(
     db_path: str,
     person_id: int,
@@ -1083,17 +1153,31 @@ def link_citation_to_families(
     family_data: dict | None = None,
 ) -> list[int]:
     """
-    Link Find a Grave citation to families where person is parent AND spouse is mentioned.
+    Link Find a Grave citation to Family records (both parent and child families).
 
-    Only creates citation links for families where the spouse's name appears in the
-    Find a Grave biography (family_data['spouse'] list). This prevents creating
-    citations on spouse records that don't mention the person.
+    CITATION LINKING RULE #3: CONDITIONALLY create citation links to Family records
+
+    A. Families where person is PARENT (FatherID or MotherID):
+       - OwnerType = 1 (Family)
+       - OwnerID = FamilyID
+       - IF spouse is mentioned in family_data['spouse']
+       - Match logic: Check if spouse's name appears in memorial biography
+
+    B. Families where person is CHILD (in parent family):
+       - OwnerType = 1 (Family)
+       - OwnerID = FamilyID (where person is child)
+       - IF parents are mentioned in family_data['parents']
+       - Match logic: Check if ANY parent's name appears in memorial biography
 
     Args:
         db_path: Path to RootsMagic database
         person_id: Person ID
         citation_id: Citation ID to link to families
-        family_data: Family data from Find a Grave (contains 'spouse' array)
+        family_data: Family data from Find a Grave with structure:
+            {
+                'spouse': [{'name': 'Alice Jane Kimball', 'dates': '1842-1912'}, ...],
+                'parents': [{'name': 'Rezin Iames', 'dates': '1809-1868'}, ...]
+            }
 
     Returns:
         List of family IDs that were linked
@@ -1106,18 +1190,21 @@ def link_citation_to_families(
     try:
         utc_mod_date = get_utc_mod_date()
 
-        # Find all families where person is a parent
+        family_ids = []
+        skipped_count = 0
+
+        # =================================================================
+        # PART A: Families where person is PARENT
+        # =================================================================
         cursor.execute("""
             SELECT FamilyID, FatherID, MotherID
             FROM FamilyTable
             WHERE FatherID = ? OR MotherID = ?
         """, (person_id, person_id))
 
-        families = cursor.fetchall()
-        family_ids = []
-        skipped_count = 0
+        parent_families = cursor.fetchall()
 
-        for row in families:
+        for row in parent_families:
             family_id, father_id, mother_id = row
 
             # Check if link already exists
@@ -1215,12 +1302,136 @@ def link_citation_to_families(
 
             family_ids.append(family_id)
 
+        # =================================================================
+        # PART B: Families where person is CHILD
+        # =================================================================
+        cursor.execute("""
+            SELECT FamilyID FROM ChildTable
+            WHERE ChildID = ?
+        """, (person_id,))
+
+        child_families = cursor.fetchall()
+
+        for row in child_families:
+            family_id = row[0]
+
+            # Check if link already exists
+            cursor.execute("""
+                SELECT LinkID FROM CitationLinkTable
+                WHERE CitationID = ? AND OwnerType = 1 AND OwnerID = ?
+            """, (citation_id, family_id))
+
+            if cursor.fetchone():
+                logger.debug(f"Citation {citation_id} already linked to child family {family_id}, skipping")
+                continue
+
+            # Get parents from this family
+            cursor.execute("""
+                SELECT FatherID, MotherID
+                FROM FamilyTable
+                WHERE FamilyID = ?
+            """, (family_id,))
+
+            family_row = cursor.fetchone()
+            if not family_row:
+                logger.warning(f"Family {family_id} not found, skipping")
+                skipped_count += 1
+                continue
+
+            father_id, mother_id = family_row
+
+            # Check if ANY parent mentioned in Find a Grave biography
+            if family_data and 'parents' in family_data and family_data['parents']:
+                parents_mentioned = False
+
+                # Check father
+                if father_id:
+                    cursor.execute("""
+                        SELECT Surname, Given
+                        FROM NameTable
+                        WHERE OwnerID = ? AND IsPrimary = 1
+                    """, (father_id,))
+                    father_row = cursor.fetchone()
+
+                    if father_row:
+                        father_surname, father_given = father_row
+                        father_full_name = f'{father_given} {father_surname}' if father_given else father_surname
+
+                        # Check if father's surname appears in parents array
+                        for parent in family_data['parents']:
+                            parent_name = parent.get('name', '').lower()
+                            if father_surname and father_surname.lower() in parent_name:
+                                parents_mentioned = True
+                                logger.info(
+                                    f"Father {father_full_name} (PersonID {father_id}) mentioned in biography, "
+                                    f"will link child family {family_id}"
+                                )
+                                break
+
+                # Check mother (if father not found)
+                if not parents_mentioned and mother_id:
+                    cursor.execute("""
+                        SELECT Surname, Given
+                        FROM NameTable
+                        WHERE OwnerID = ? AND IsPrimary = 1
+                    """, (mother_id,))
+                    mother_row = cursor.fetchone()
+
+                    if mother_row:
+                        mother_surname, mother_given = mother_row
+                        mother_full_name = f'{mother_given} {mother_surname}' if mother_given else mother_surname
+
+                        # Check if mother's surname appears in parents array
+                        for parent in family_data['parents']:
+                            parent_name = parent.get('name', '').lower()
+                            if mother_surname and mother_surname.lower() in parent_name:
+                                parents_mentioned = True
+                                logger.info(
+                                    f"Mother {mother_full_name} (PersonID {mother_id}) mentioned in biography, "
+                                    f"will link child family {family_id}"
+                                )
+                                break
+
+                if not parents_mentioned:
+                    logger.info(
+                        f"No parents mentioned in Find a Grave biography, "
+                        f"skipping child family {family_id} citation link"
+                    )
+                    skipped_count += 1
+                    continue
+
+            elif family_data and 'parents' in family_data and not family_data['parents']:
+                # Family data provided but no parents mentioned - skip child family citations
+                logger.info(f"No parents mentioned in Find a Grave biography, skipping child family {family_id}")
+                skipped_count += 1
+                continue
+            # If family_data is None, create citation (backward compatibility)
+
+            # Link citation to child family (OwnerType = 1 for FamilyTable)
+            cursor.execute("""
+                INSERT INTO CitationLinkTable (
+                    CitationID, OwnerType, OwnerID, SortOrder, Quality, IsPrivate, Flags, UTCModDate
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                citation_id,
+                1,  # OwnerType = 1 for FamilyTable
+                family_id,
+                0,  # SortOrder
+                '~~~',  # Quality: default rating
+                0,  # IsPrivate
+                0,  # Flags
+                utc_mod_date,
+            ))
+
+            family_ids.append(family_id)
+            logger.info(f"Linked citation to child family {family_id} (person is child)")
+
         conn.commit()
 
         if family_ids:
-            logger.info(f"Linked citation {citation_id} to {len(family_ids)} families")
+            logger.info(f"Linked citation {citation_id} to {len(family_ids)} families total")
         if skipped_count:
-            logger.info(f"Skipped {skipped_count} families (spouse not mentioned in biography)")
+            logger.info(f"Skipped {skipped_count} families (family members not mentioned in biography)")
         if not family_ids and not skipped_count:
             logger.info(f"No families found for person {person_id}")
 

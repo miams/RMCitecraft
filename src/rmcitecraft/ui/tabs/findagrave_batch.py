@@ -1738,7 +1738,19 @@ class FindAGraveBatchTab:
                         source_comment=memorial_data.get('sourceComment', ''),
                     )
 
-                    # Link citation to families where spouse is mentioned in biography
+                    # Link citation directly to Person (ALWAYS)
+                    try:
+                        from rmcitecraft.database.findagrave_queries import link_citation_to_person
+                        link_citation_to_person(
+                            db_path=self.config.rm_database_path,
+                            person_id=item.person_id,
+                            citation_id=result['citation_id'],
+                        )
+                    except Exception as person_link_error:
+                        logger.error(f"Failed to link citation to person: {person_link_error}")
+                        # Don't fail the entire item, just log the error
+
+                    # Link citation to families (conditional on family members mentioned)
                     try:
                         family_ids = link_citation_to_families(
                             db_path=self.config.rm_database_path,
