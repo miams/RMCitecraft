@@ -129,6 +129,12 @@ class FindAGraveBatchTab:
                         on_click=self._show_load_dialog,
                     ).props("dense outline")
 
+                    ui.button(
+                        "Resume Session",
+                        icon="replay",
+                        on_click=self._show_resume_dialog,
+                    ).props("dense outline")
+
                     if self.controller.session:
                         ui.button(
                             "Process",
@@ -447,6 +453,168 @@ class FindAGraveBatchTab:
         except Exception as e:
             logger.error(f"Failed to load batch: {e}")
             error_msg = f"Error loading batch: {e}"
+            ui.notify(error_msg, type="negative")
+            self.error_log.add_error(error_msg, context="Find a Grave Batch")
+
+    def _show_resume_dialog(self) -> None:
+        """Show dialog to resume an interrupted batch session."""
+        # Get resumable sessions
+        sessions = self.state_repository.get_resumable_sessions()
+
+        if not sessions:
+            ui.notify("No resumable sessions found", type="info")
+            return
+
+        with ui.dialog() as dialog, ui.card().classes("w-[600px]"):
+            ui.label("Resume Batch Session").classes("font-bold text-lg mb-4")
+
+            if not sessions:
+                ui.label("No incomplete sessions found").classes("text-gray-500 italic")
+                ui.button("Close", on_click=dialog.close).props("flat")
+                dialog.open()
+                return
+
+            ui.label("Select a session to resume:").classes("font-medium mb-2")
+
+            # Table of sessions
+            with ui.column().classes("w-full gap-2 mb-4"):
+                for session in sessions:
+                    created_at = datetime.fromisoformat(session['created_at']).strftime("%Y-%m-%d %H:%M:%S")
+                    status = session['status']
+                    total = session['total_items']
+                    completed = session['completed_count']
+                    errors = session['error_count']
+                    pending = total - completed
+
+                    with ui.card().classes("w-full p-3 cursor-pointer hover:bg-gray-50").on(
+                        "click", lambda s=session, d=dialog: self._resume_session(s['session_id'], d)
+                    ):
+                        with ui.row().classes("w-full items-center justify-between"):
+                            with ui.column().classes("gap-0"):
+                                ui.label(f"Session: {session['session_id']}").classes("font-semibold text-sm")
+                                ui.label(f"Created: {created_at}").classes("text-xs text-gray-600")
+                                ui.label(f"Status: {status}").classes("text-xs text-gray-600")
+
+                            with ui.column().classes("gap-0 text-right"):
+                                ui.label(f"{completed}/{total} complete").classes("text-sm font-semibold")
+                                if errors > 0:
+                                    ui.label(f"{errors} errors").classes("text-xs text-red-600")
+                                if pending > 0:
+                                    ui.label(f"{pending} pending").classes("text-xs text-blue-600")
+
+            # Actions
+            with ui.row().classes("w-full justify-end gap-2"):
+                ui.button("Cancel", on_click=dialog.close).props("flat")
+
+        dialog.open()
+
+    def _resume_session(self, session_id: str, dialog: ui.dialog) -> None:
+        """Resume batch processing from saved session."""
+        dialog.close()
+
+        ui.notify(f"Resuming session {session_id}...", type="info")
+
+        try:
+            # Get session and items from state DB
+            session = self.state_repository.get_session(session_id)
+            if not session:
+                ui.notify("Session not found", type="negative")
+                return
+
+            state_items = self.state_repository.get_session_items(session_id)
+            if not state_items:
+                ui.notify("No items found in session", type="negative")
+                return
+
+            # Get person IDs from state items
+            person_ids = [item['person_id'] for item in state_items]
+
+            # Query RootsMagic database for full person data
+            from rmcitecraft.database.findagrave_queries import get_findagrave_people_by_ids
+
+            people = get_findagrave_people_by_ids(
+                db_path=str(self.config.rm_database_path),
+                person_ids=person_ids,
+            )
+
+            if not people:
+                ui.notify("Could not load people from RootsMagic database", type="negative")
+                return
+
+            # Create people dict for fast lookup
+            people_by_id = {p['person_id']: p for p in people}
+
+            # Reconstruct batch items from state + RootsMagic data
+            batch_items = []
+            for state_item in state_items:
+                person_id = state_item['person_id']
+                person = people_by_id.get(person_id)
+
+                if not person:
+                    logger.warning(f"Person {person_id} not found in RootsMagic database, skipping")
+                    continue
+
+                # Parse status from state DB
+                status_str = state_item['status']
+                if status_str == 'complete':
+                    status = FindAGraveStatus.COMPLETE
+                elif status_str == 'error':
+                    status = FindAGraveStatus.ERROR
+                elif status_str in ('extracting', 'extracted', 'creating_citation', 'created_citation', 'downloading_images'):
+                    status = FindAGraveStatus.QUEUED  # Resume from queued state
+                else:
+                    status = FindAGraveStatus.QUEUED
+
+                # Create batch item
+                item = FindAGraveBatchItem(
+                    person_id=person['person_id'],
+                    link_id=person['link_id'],
+                    surname=person['surname'],
+                    given_name=person['given_name'],
+                    full_name=person['full_name'],
+                    birth_year=person['birth_year'],
+                    death_year=person['death_year'],
+                    sex=person['sex'],
+                    memorial_id=state_item['memorial_id'],
+                    url=state_item['memorial_url'],
+                    note=person.get('note'),
+                    status=status,
+                    extracted_data=state_item.get('extracted_data') or {},
+                    source_id=state_item.get('created_source_id'),
+                    citation_id=state_item.get('created_citation_id'),
+                    burial_event_id=state_item.get('created_burial_event_id'),
+                    error=state_item.get('error_message'),
+                )
+
+                batch_items.append(item)
+
+            # Create session in controller
+            self.controller.create_session(batch_items)
+            self.selected_item_ids = set()
+
+            # Store session ID for continuation
+            self.current_session_id = session_id
+
+            # Refresh UI
+            self.container.clear()
+            with self.container:
+                self._render_header()
+                self._render_batch_view()
+
+            # Notify user
+            pending_count = sum(1 for item in batch_items if item.status == FindAGraveStatus.QUEUED)
+            resume_msg = (
+                f"Resumed session {session_id}: "
+                f"{len(batch_items)} total items, {pending_count} pending"
+            )
+            ui.notify(resume_msg, type="positive")
+            self.error_log.add_info(resume_msg, context="Find a Grave Batch")
+
+            logger.info(f"Resumed batch session {session_id} with {len(batch_items)} items")
+
+        except Exception as e:
+            logger.error(f"Failed to resume session: {e}")
+            error_msg = f"Error resuming session: {e}"
             ui.notify(error_msg, type="negative")
             self.error_log.add_error(error_msg, context="Find a Grave Batch")
 

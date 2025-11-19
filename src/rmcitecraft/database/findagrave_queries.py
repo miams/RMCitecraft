@@ -132,6 +132,93 @@ def find_findagrave_people(db_path: str, limit: int | None = None, offset: int =
         conn.close()
 
 
+def get_findagrave_people_by_ids(db_path: str, person_ids: list[int]) -> list[dict[str, Any]]:
+    """
+    Get Find a Grave information for specific people by their IDs.
+
+    Used when resuming a batch session to reconstruct batch items.
+
+    Args:
+        db_path: Path to RootsMagic database
+        person_ids: List of person IDs to retrieve
+
+    Returns:
+        List of person dictionaries with Find a Grave data
+    """
+    from rmcitecraft.database.connection import connect_rmtree
+
+    if not person_ids:
+        return []
+
+    conn = connect_rmtree(db_path)
+    cursor = conn.cursor()
+
+    try:
+        # Create placeholders for SQL IN clause
+        placeholders = ','.join('?' * len(person_ids))
+
+        # Query for people with their Find a Grave URLs
+        cursor.execute(f"""
+            SELECT
+                u.LinkID,
+                u.OwnerID as PersonID,
+                u.URL,
+                u.Note,
+                n.Surname,
+                n.Given,
+                n.BirthYear,
+                n.DeathYear,
+                p.Sex
+            FROM URLTable u
+            JOIN PersonTable p ON u.OwnerID = p.PersonID
+            JOIN NameTable n ON p.PersonID = n.OwnerID
+            WHERE u.OwnerType = 0
+            AND u.Name = 'Find a Grave'
+            AND p.PersonID IN ({placeholders})
+            ORDER BY n.Surname COLLATE RMNOCASE, n.Given COLLATE RMNOCASE
+        """, person_ids)
+
+        rows = cursor.fetchall()
+
+        people = []
+        for row in rows:
+            (
+                link_id,
+                person_id,
+                url,
+                note,
+                surname,
+                given,
+                birth_year,
+                death_year,
+                sex,
+            ) = row
+
+            # Extract memorial ID from URL
+            memorial_id = _extract_memorial_id(url)
+
+            people.append({
+                'link_id': link_id,
+                'person_id': person_id,
+                'url': url,
+                'note': note,
+                'surname': surname,
+                'given_name': given,
+                'birth_year': birth_year,
+                'death_year': death_year,
+                'sex': sex,
+                'memorial_id': memorial_id,
+                'full_name': f"{given} {surname}",
+            })
+
+        logger.info(f"Retrieved {len(people)} people for resume operation")
+
+        return people
+
+    finally:
+        conn.close()
+
+
 def _check_existing_citation(cursor: sqlite3.Cursor, person_id: int) -> bool:
     """
     Check if person already has a Find a Grave source with formatted citations.
