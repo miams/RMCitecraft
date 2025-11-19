@@ -311,7 +311,10 @@ def check_citation_exists_detailed(
             'details': str,  # Human-readable explanation
         }
     """
-    with DatabaseConnection(db_path, read_only=True).transaction() as conn:
+    from rmcitecraft.database.connection import connect_rmtree
+
+    conn = connect_rmtree(db_path)
+    try:
         cursor = conn.cursor()
 
         result = {
@@ -374,6 +377,8 @@ def check_citation_exists_detailed(
                     return result
 
         return result
+    finally:
+        conn.close()
 
 
 def _extract_memorial_id(url: str) -> str:
