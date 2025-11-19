@@ -588,8 +588,11 @@ class FindAGraveBatchTab:
 
                 batch_items.append(item)
 
-            # Create session in controller
-            self.controller.create_session(batch_items)
+            # Create session directly (we already have FindAGraveBatchItem objects)
+            self.controller.session = FindAGraveBatchSession(
+                session_id=session_id,
+                items=batch_items,
+            )
             self.selected_item_ids = set()
 
             # Store session ID for continuation
