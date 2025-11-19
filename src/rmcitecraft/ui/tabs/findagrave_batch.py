@@ -1261,16 +1261,155 @@ class FindAGraveBatchTab:
             progress_bar.value = i / total
             status_label.text = f"{processed} completed"
 
+            # Get state item ID for tracking
             try:
-                # Extract memorial data
+                state_items = self.state_repository.get_session_items(session_id)
+                state_item = next(
+                    (si for si in state_items if si['person_id'] == item.person_id),
+                    None
+                )
+                self.current_state_item_id = state_item['id'] if state_item else None
+            except Exception:
+                self.current_state_item_id = None
+
+            try:
+                # ===== PHASE 1: PAGE HEALTH CHECK =====
+                if self.config.findagrave_enable_crash_recovery:
+                    health_label.text = "Checking page health..."
+
+                    page = await self.automation.get_or_create_page()
+                    health = await self.health_monitor.check_page_health(page)
+
+                    if not health.is_healthy:
+                        logger.warning(f"Page unhealthy: {health.error}")
+                        health_label.text = f"⚠️ Page issue: {health.error}"
+
+                        # Attempt recovery
+                        status_label.text = "Recovering from page crash..."
+                        recovered_page = await self.recovery_manager.attempt_recovery(
+                            page, self.automation
+                        )
+
+                        if not recovered_page:
+                            raise Exception(f"Failed to recover page: {health.error}")
+
+                        logger.info("Page recovery successful")
+                        health_label.text = "✓ Page recovered"
+                    else:
+                        health_label.text = "✓ Page healthy"
+
+                # ===== PHASE 2: DUPLICATE CHECK =====
+                status_label.text = "Checking for duplicates..."
+
+                duplicate_check = check_citation_exists_detailed(
+                    db_path=self.config.rm_database_path,
+                    person_id=item.person_id,
+                    memorial_id=item.memorial_id,
+                    memorial_url=item.url,
+                )
+
+                if duplicate_check['exists']:
+                    logger.warning(
+                        f"Skipping {item.full_name}: {duplicate_check['details']}"
+                    )
+                    self.controller.mark_item_error(
+                        item,
+                        f"Duplicate: {duplicate_check['details']}"
+                    )
+
+                    if self.current_state_item_id:
+                        self.state_repository.update_item_status(
+                            self.current_state_item_id,
+                            'error',
+                            error_message=duplicate_check['details']
+                        )
+
+                    continue
+
+                # ===== PHASE 3: EXTRACTION WITH RETRY & ADAPTIVE TIMEOUT =====
                 item.status = FindAGraveStatus.EXTRACTING
-                memorial_data = await self.automation.extract_memorial_data(item.url)
+                if self.current_state_item_id:
+                    self.state_repository.update_item_status(
+                        self.current_state_item_id,
+                        'extracting'
+                    )
+
+                # Get current adaptive timeout
+                if self.config.findagrave_enable_adaptive_timeout:
+                    current_timeout = self.timeout_manager.get_current_timeout()
+                    health_label.text = f"⏱️ Timeout: {current_timeout}s"
+                else:
+                    current_timeout = self.config.findagrave_base_timeout_seconds
+
+                memorial_data = None
+                extraction_start = time.time()
+
+                # Wrap extraction in retry logic
+                try:
+                    async def extract_with_timeout():
+                        """Extraction with adaptive timeout."""
+                        return await self.automation.extract_memorial_data(
+                            item.url,
+                            timeout=current_timeout
+                        )
+
+                    memorial_data = await self.retry_strategy.retry_async(
+                        extract_with_timeout
+                    )
+
+                    # Record successful extraction timing
+                    extraction_duration = time.time() - extraction_start
+                    self.timeout_manager.record_response_time(extraction_duration, success=True)
+
+                    if self.current_state_item_id:
+                        self.state_repository.record_metric(
+                            operation='extraction',
+                            duration_ms=int(extraction_duration * 1000),
+                            success=True,
+                            session_id=session_id
+                        )
+
+                except Exception as extraction_error:
+                    # Record failed extraction timing
+                    extraction_duration = time.time() - extraction_start
+                    self.timeout_manager.record_response_time(extraction_duration, success=False)
+
+                    if self.current_state_item_id:
+                        self.state_repository.record_metric(
+                            operation='extraction',
+                            duration_ms=int(extraction_duration * 1000),
+                            success=False,
+                            session_id=session_id
+                        )
+
+                        # Increment retry count in state DB
+                        retry_count = self.state_repository.increment_retry_count(
+                            self.current_state_item_id
+                        )
+
+                        logger.error(
+                            f"Extraction failed for {item.full_name} "
+                            f"(retry {retry_count}/{self.config.findagrave_max_retries}): "
+                            f"{extraction_error}"
+                        )
+
+                    raise  # Re-raise to be caught by outer exception handler
 
                 if not memorial_data:
                     raise Exception("Failed to extract memorial data")
 
                 # Update item with extracted data
                 self.controller.update_item_extracted_data(item, memorial_data)
+
+                # Store extraction in state DB
+                if self.current_state_item_id:
+                    self.state_repository.update_item_extraction(
+                        self.current_state_item_id,
+                        extracted_data=memorial_data
+                    )
+
+                # ===== PHASE 4: CITATION FORMATTING =====
+                status_label.text = "Formatting citation..."
 
                 # Format citation using Find a Grave name (not database name)
                 # Source name uses database name, but citations use Find a Grave name
@@ -1297,7 +1436,17 @@ class FindAGraveBatchTab:
                     person_id=item.person_id,
                 )
 
-                # Write to database
+                # ===== PHASE 5: DATABASE WRITES =====
+                status_label.text = "Writing to database..."
+
+                if self.current_state_item_id:
+                    self.state_repository.update_item_status(
+                        self.current_state_item_id,
+                        'creating_citation'
+                    )
+
+                citation_start = time.time()
+
                 try:
                     result = create_findagrave_source_and_citation(
                         db_path=self.config.rm_database_path,
@@ -1398,6 +1547,24 @@ class FindAGraveBatchTab:
                                 )
                                 # Continue with other photos/processing
 
+                    # Record citation creation timing
+                    citation_duration = time.time() - citation_start
+                    if self.current_state_item_id:
+                        self.state_repository.record_metric(
+                            operation='citation_creation',
+                            duration_ms=int(citation_duration * 1000),
+                            success=True,
+                            session_id=session_id
+                        )
+
+                        # Update state DB with created citation IDs
+                        self.state_repository.update_item_citation(
+                            self.current_state_item_id,
+                            citation_id=result['citation_id'],
+                            source_id=result['source_id'],
+                            burial_event_id=burial_event_id
+                        )
+
                     # Mark as complete
                     self.controller.mark_item_complete(
                         item,
@@ -1415,9 +1582,55 @@ class FindAGraveBatchTab:
                         context="Find a Grave Batch"
                     )
                     self.controller.mark_item_error(item, f"Database write failed: {db_error}")
+
+                    # Record failure in state DB
+                    if self.current_state_item_id:
+                        self.state_repository.update_item_status(
+                            self.current_state_item_id,
+                            'error',
+                            error_message=f"Database write failed: {db_error}"
+                        )
+                        self.state_repository.record_metric(
+                            operation='citation_creation',
+                            duration_ms=int((time.time() - citation_start) * 1000),
+                            success=False,
+                            session_id=session_id
+                        )
+
                     continue
 
                 processed += 1
+
+                # ===== PHASE 6: CHECKPOINT =====
+                # Mark complete in state DB
+                if self.current_state_item_id:
+                    self.state_repository.update_item_status(
+                        self.current_state_item_id,
+                        'complete'
+                    )
+
+                # Create checkpoint after configured interval
+                self.checkpoint_counter += 1
+                if self.checkpoint_counter >= self.config.findagrave_checkpoint_frequency:
+                    try:
+                        self.state_repository.create_checkpoint(
+                            session_id=session_id,
+                            last_processed_item_id=self.current_state_item_id or 0,
+                            last_processed_person_id=item.person_id
+                        )
+                        self.checkpoint_counter = 0
+                        logger.debug(f"Checkpoint created at item {i}/{total}")
+                    except Exception as checkpoint_error:
+                        logger.warning(f"Failed to create checkpoint: {checkpoint_error}")
+
+                # Update session progress
+                try:
+                    self.state_repository.update_session_counts(
+                        session_id=session_id,
+                        completed_count=processed,
+                    )
+                except Exception:
+                    pass  # Non-critical
 
                 # Refresh queue
                 self.queue_container.clear()
@@ -1428,11 +1641,55 @@ class FindAGraveBatchTab:
                 logger.error(f"Error processing item {item.person_id}: {e}")
                 self.controller.mark_item_error(item, str(e))
 
+                # Record error in state DB
+                if self.current_state_item_id:
+                    self.state_repository.update_item_status(
+                        self.current_state_item_id,
+                        'error',
+                        error_message=str(e)
+                    )
+
             # Small delay to allow UI update
             await asyncio.sleep(0.1)
 
         # Close progress dialog
         progress_dialog.close()
+
+        # ===== COMPLETE SESSION IN STATE DB =====
+        try:
+            errors = total - processed
+            self.state_repository.update_session_counts(
+                session_id=session_id,
+                completed_count=processed,
+                error_count=errors
+            )
+            self.state_repository.complete_session(session_id)
+
+            # Log performance summary
+            metrics = self.state_repository.get_session_metrics(session_id)
+            logger.info(f"Batch session {session_id} completed:")
+            logger.info(f"  Total items: {total}")
+            logger.info(f"  Successful: {processed}")
+            logger.info(f"  Failed: {errors}")
+
+            if metrics:
+                for operation, stats in metrics.items():
+                    logger.info(
+                        f"  {operation}: avg={stats['avg_duration_ms']:.0f}ms, "
+                        f"success_rate={stats['success_rate']:.1%}"
+                    )
+
+            # Log adaptive timeout stats
+            timeout_stats = self.timeout_manager.get_statistics()
+            logger.info(
+                f"Adaptive timeout stats: "
+                f"mean={timeout_stats['mean']:.1f}s, "
+                f"current={timeout_stats['current_timeout']}s, "
+                f"success_rate={timeout_stats['success_rate']:.1%}"
+            )
+
+        except Exception as state_error:
+            logger.warning(f"Failed to finalize state session: {state_error}")
 
         # Show citation matching report if there's data to report
         if citation_report_data:
