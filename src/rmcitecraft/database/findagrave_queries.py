@@ -1501,7 +1501,10 @@ def create_findagrave_image_record(
                 img_repo.link_media_to_event(media_id, burial_event_id)
                 logger.info(f"Linked image to burial event ID {burial_event_id}")
             else:
-                logger.warning(f"No burial event found for citation {citation_id}, skipping event link")
+                logger.warning(
+                    f"Failed to link photo to burial event, because burial event not found "
+                    f"in RootsMagic database for PersonID {person_id} (citation {citation_id})"
+                )
 
         # Link to person if Person or Family type
         if photo_type in ['Person', 'Family']:
