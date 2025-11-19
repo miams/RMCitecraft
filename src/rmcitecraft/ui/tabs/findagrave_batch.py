@@ -486,24 +486,38 @@ class FindAGraveBatchTab:
                     errors = session['error_count']
                     pending = total - completed
 
-                    with ui.card().classes("w-full p-3 cursor-pointer hover:bg-gray-50").on(
-                        "click", lambda s=session, d=dialog: self._resume_session(s['session_id'], d)
-                    ):
-                        with ui.row().classes("w-full items-center justify-between"):
-                            with ui.column().classes("gap-0"):
-                                ui.label(f"Session: {session['session_id']}").classes("font-semibold text-sm")
-                                ui.label(f"Created: {created_at}").classes("text-xs text-gray-600")
-                                ui.label(f"Status: {status}").classes("text-xs text-gray-600")
+                    with ui.card().classes("w-full p-3"):
+                        with ui.row().classes("w-full items-center justify-between gap-2"):
+                            # Session info (clickable)
+                            with ui.column().classes("gap-0 flex-grow cursor-pointer hover:bg-gray-50 p-2 rounded").on(
+                                "click", lambda s=session, d=dialog: self._resume_session(s['session_id'], d)
+                            ):
+                                with ui.row().classes("w-full items-center justify-between"):
+                                    with ui.column().classes("gap-0"):
+                                        ui.label(f"Session: {session['session_id']}").classes("font-semibold text-sm")
+                                        ui.label(f"Created: {created_at}").classes("text-xs text-gray-600")
+                                        ui.label(f"Status: {status}").classes("text-xs text-gray-600")
 
-                            with ui.column().classes("gap-0 text-right"):
-                                ui.label(f"{completed}/{total} complete").classes("text-sm font-semibold")
-                                if errors > 0:
-                                    ui.label(f"{errors} errors").classes("text-xs text-red-600")
-                                if pending > 0:
-                                    ui.label(f"{pending} pending").classes("text-xs text-blue-600")
+                                    with ui.column().classes("gap-0 text-right"):
+                                        ui.label(f"{completed}/{total} complete").classes("text-sm font-semibold")
+                                        if errors > 0:
+                                            ui.label(f"{errors} errors").classes("text-xs text-red-600")
+                                        if pending > 0:
+                                            ui.label(f"{pending} pending").classes("text-xs text-blue-600")
+
+                            # Delete button
+                            ui.button(
+                                icon="delete",
+                                on_click=lambda s=session, d=dialog: self._delete_session(s['session_id'], d)
+                            ).props("flat color=red size=sm").tooltip("Delete this session")
 
             # Actions
-            with ui.row().classes("w-full justify-end gap-2"):
+            with ui.row().classes("w-full justify-between gap-2"):
+                ui.button(
+                    "Clear All Sessions",
+                    on_click=lambda d=dialog: self._clear_all_sessions(d),
+                    icon="delete_sweep"
+                ).props("flat color=orange")
                 ui.button("Cancel", on_click=dialog.close).props("flat")
 
         dialog.open()
@@ -620,6 +634,56 @@ class FindAGraveBatchTab:
             error_msg = f"Error resuming session: {e}"
             ui.notify(error_msg, type="negative")
             self.error_log.add_error(error_msg, context="Find a Grave Batch")
+
+    def _delete_session(self, session_id: str, dialog: ui.dialog) -> None:
+        """Delete a single session."""
+        try:
+            self.state_repository.delete_session(session_id)
+            ui.notify(f"Deleted session {session_id}", type="positive")
+            logger.info(f"User deleted session: {session_id}")
+
+            # Close and reopen dialog to refresh the list
+            dialog.close()
+            self._show_resume_dialog()
+
+        except Exception as e:
+            logger.error(f"Failed to delete session: {e}")
+            ui.notify(f"Error deleting session: {e}", type="negative")
+
+    def _clear_all_sessions(self, dialog: ui.dialog) -> None:
+        """Clear all batch sessions with confirmation."""
+        def confirm_clear():
+            try:
+                count = self.state_repository.clear_all_sessions()
+                ui.notify(f"Cleared {count} sessions", type="warning")
+                logger.warning(f"User cleared all batch sessions ({count} sessions)")
+
+                # Close dialogs
+                confirm_dialog.close()
+                dialog.close()
+
+            except Exception as e:
+                logger.error(f"Failed to clear sessions: {e}")
+                ui.notify(f"Error clearing sessions: {e}", type="negative")
+
+        # Confirmation dialog
+        with ui.dialog() as confirm_dialog, ui.card():
+            ui.label("Clear All Sessions?").classes("font-bold text-lg mb-2")
+            ui.label(
+                "This will permanently delete ALL batch state data. "
+                "Use this when you've restored your RootsMagic database from backup."
+            ).classes("text-sm text-gray-700 mb-4 max-w-md")
+            ui.label("This action cannot be undone.").classes("text-sm font-semibold text-red-600 mb-4")
+
+            with ui.row().classes("w-full justify-end gap-2"):
+                ui.button("Cancel", on_click=confirm_dialog.close).props("flat")
+                ui.button(
+                    "Clear All Sessions",
+                    on_click=confirm_clear,
+                    icon="delete_sweep"
+                ).props("color=red")
+
+        confirm_dialog.open()
 
     async def _extract_item_data(self, item: FindAGraveBatchItem) -> None:
         """Extract data from Find a Grave for a single item."""

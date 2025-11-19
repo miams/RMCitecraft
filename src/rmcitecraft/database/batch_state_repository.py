@@ -167,6 +167,58 @@ class BatchStateRepository:
             conn.commit()
             logger.info(f"Paused batch session: {session_id}")
 
+    def delete_session(self, session_id: str) -> None:
+        """Delete a session and all associated data.
+
+        Deletes:
+        - Session record
+        - All batch items
+        - All checkpoints
+        - All performance metrics
+
+        Args:
+            session_id: Session identifier
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Delete in order: metrics, checkpoints, items, session
+            cursor.execute("DELETE FROM performance_metrics WHERE session_id = ?", (session_id,))
+            cursor.execute("DELETE FROM batch_checkpoints WHERE session_id = ?", (session_id,))
+            cursor.execute("DELETE FROM batch_items WHERE session_id = ?", (session_id,))
+            cursor.execute("DELETE FROM batch_sessions WHERE session_id = ?", (session_id,))
+
+            conn.commit()
+            logger.info(f"Deleted batch session and all associated data: {session_id}")
+
+    def clear_all_sessions(self) -> int:
+        """Clear all sessions and reset database.
+
+        DANGEROUS: This deletes ALL batch state data.
+        Use when RootsMagic database has been restored from backup
+        and state database is out of sync.
+
+        Returns:
+            Number of sessions deleted
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Count sessions before deletion
+            cursor.execute("SELECT COUNT(*) FROM batch_sessions")
+            count = cursor.fetchone()[0]
+
+            # Delete all data
+            cursor.execute("DELETE FROM performance_metrics")
+            cursor.execute("DELETE FROM batch_checkpoints")
+            cursor.execute("DELETE FROM batch_items")
+            cursor.execute("DELETE FROM batch_sessions")
+
+            conn.commit()
+            logger.warning(f"Cleared all batch state data ({count} sessions deleted)")
+
+        return count
+
     def update_session_counts(
         self,
         session_id: str,
