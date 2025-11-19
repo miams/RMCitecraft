@@ -301,6 +301,39 @@ The resume dialog shows for each session:
 - **Progress**: `15/20 complete`
 - **Errors**: `2 errors` (if any)
 - **Pending**: `3 pending`
+- **Delete Button**: Red trash icon to delete individual session
+
+### Session Management
+
+**Delete Individual Session:**
+1. Click "Resume Session" button
+2. Click the red delete icon (🗑️) next to any session
+3. Session and all associated data are permanently deleted
+4. Dialog refreshes to show updated list
+
+**Clear All Sessions:**
+1. Click "Resume Session" button
+2. Click "Clear All Sessions" (orange button at bottom)
+3. Confirm deletion in warning dialog
+4. All batch state data is permanently deleted
+
+**When to Clear All Sessions:**
+- After restoring RootsMagic database from backup
+- State database person IDs no longer match RootsMagic database
+- Testing workflow requires clean slate
+- Accumulated many old/failed sessions
+
+**What Gets Deleted:**
+- Session records
+- All batch items
+- All checkpoints
+- All performance metrics
+
+**Important Notes:**
+- Deletion is permanent (no undo)
+- RootsMagic database is NOT affected
+- State database automatically recreates on next batch
+- Safe to delete `~/.rmcitecraft/batch_state.db` manually
 
 ### Behind the Scenes
 
