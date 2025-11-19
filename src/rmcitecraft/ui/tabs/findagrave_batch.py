@@ -1,32 +1,42 @@
 """Find a Grave Batch Processing Tab UI."""
 
 import asyncio
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from loguru import logger
 from nicegui import ui
 
 from rmcitecraft.config import get_config
+from rmcitecraft.database.batch_state_repository import BatchStateRepository
+from rmcitecraft.database.findagrave_queries import (
+    check_citation_exists_detailed,
+    create_burial_event_and_link_citation,
+    create_cemetery_for_existing_location,
+    create_findagrave_source_and_citation,
+    create_location_and_cemetery,
+    link_citation_to_families,
+)
+from rmcitecraft.database.image_repository import ImageRepository
+from rmcitecraft.services.adaptive_timeout import AdaptiveTimeoutManager, TimingContext
+from rmcitecraft.services.error_log import get_error_log_service
+from rmcitecraft.services.findagrave_automation import get_findagrave_automation
 from rmcitecraft.services.findagrave_batch import (
     FindAGraveBatchController,
     FindAGraveBatchItem,
     FindAGraveStatus,
 )
-from rmcitecraft.services.findagrave_automation import get_findagrave_automation
 from rmcitecraft.services.findagrave_formatter import (
     format_findagrave_citation,
-    generate_source_name,
     generate_image_filename,
+    generate_source_name,
 )
-from rmcitecraft.database.findagrave_queries import (
-    create_findagrave_source_and_citation,
-    create_burial_event_and_link_citation,
-    link_citation_to_families,
-    create_location_and_cemetery,
-    create_cemetery_for_existing_location,
+from rmcitecraft.services.page_health_monitor import (
+    PageHealthMonitor,
+    PageRecoveryManager,
 )
-from rmcitecraft.database.image_repository import ImageRepository
-from rmcitecraft.services.error_log import get_error_log_service
+from rmcitecraft.services.retry_strategy import RetryConfig, RetryStrategy
 
 
 class FindAGraveBatchTab:
@@ -38,6 +48,28 @@ class FindAGraveBatchTab:
         self.controller = FindAGraveBatchController()
         self.error_log = get_error_log_service()
         self.automation = get_findagrave_automation()
+
+        # Robustness components
+        self.state_repository = BatchStateRepository(
+            db_path=self.config.findagrave_state_db_path
+        )
+        self.health_monitor = PageHealthMonitor(health_check_timeout_ms=2000)
+        self.recovery_manager = PageRecoveryManager(self.health_monitor)
+        self.timeout_manager = AdaptiveTimeoutManager(
+            base_timeout_seconds=self.config.findagrave_base_timeout_seconds,
+            window_size=self.config.findagrave_timeout_window_size,
+        )
+        self.retry_strategy = RetryStrategy(
+            config=RetryConfig(
+                max_retries=self.config.findagrave_max_retries,
+                base_delay_seconds=self.config.findagrave_retry_base_delay_seconds,
+            )
+        )
+
+        # State tracking
+        self.current_session_id: str | None = None
+        self.current_state_item_id: int | None = None
+        self.checkpoint_counter = 0
 
         # UI component references
         self.container: ui.column | None = None
@@ -1143,7 +1175,7 @@ class FindAGraveBatchTab:
         img_dialog.open()
 
     async def _start_batch_processing(self) -> None:
-        """Start batch processing of selected items."""
+        """Start batch processing of selected items with crash recovery and state persistence."""
         if not self.controller.session:
             warning_msg = "No batch loaded"
             ui.notify(warning_msg, type="warning")
@@ -1168,6 +1200,39 @@ class FindAGraveBatchTab:
             self.error_log.add_warning(warning_msg, context="Find a Grave Batch")
             return
 
+        # Create session in state database for persistence
+        session_id = f"batch_{int(datetime.now(timezone.utc).timestamp())}"
+        self.current_session_id = session_id
+
+        try:
+            config_snapshot = {
+                'base_timeout': self.config.findagrave_base_timeout_seconds,
+                'max_retries': self.config.findagrave_max_retries,
+                'adaptive_timeout_enabled': self.config.findagrave_enable_adaptive_timeout,
+                'crash_recovery_enabled': self.config.findagrave_enable_crash_recovery,
+            }
+
+            self.state_repository.create_session(
+                session_id=session_id,
+                total_items=len(items_to_process),
+                config_snapshot=config_snapshot,
+            )
+            self.state_repository.start_session(session_id)
+            logger.info(f"Created state tracking session: {session_id}")
+
+            # Create items in state database
+            for item in items_to_process:
+                self.state_repository.create_item(
+                    session_id=session_id,
+                    person_id=item.person_id,
+                    memorial_id=item.memorial_id,
+                    memorial_url=item.url,
+                    person_name=item.full_name,
+                )
+        except Exception as e:
+            logger.error(f"Failed to create state tracking session: {e}")
+            # Continue without state tracking (non-fatal)
+
         # Create progress dialog
         with ui.dialog().props('persistent') as progress_dialog, ui.card().classes('w-96'):
             ui.label('Processing Find a Grave Memorials').classes('text-lg font-bold mb-4')
@@ -1176,6 +1241,7 @@ class FindAGraveBatchTab:
             progress_bar = ui.linear_progress(value=0).props('instant-feedback')
 
             status_label = ui.label('').classes('text-xs text-gray-600 mt-2')
+            health_label = ui.label('').classes('text-xs text-blue-600 mt-1')
 
         progress_dialog.open()
 
@@ -1183,7 +1249,11 @@ class FindAGraveBatchTab:
         total = len(items_to_process)
 
         # Collect citation matching data for end-of-batch report
-        citation_report_data = []  # List of {person_name, person_id, spouse_matches, parent_match_info}
+        citation_report_data = []
+
+        # Reset recovery counter at start of batch
+        if self.config.findagrave_enable_crash_recovery:
+            self.recovery_manager.reset_recovery_counter()
 
         for i, item in enumerate(items_to_process, 1):
             # Update progress
