@@ -140,12 +140,13 @@ class FindAGraveAutomation:
         logger.error("No browser pages available - cannot proceed")
         return None
 
-    async def extract_memorial_data(self, url: str) -> dict[str, Any] | None:
+    async def extract_memorial_data(self, url: str, timeout: float = 30.0) -> dict[str, Any] | None:
         """
         Navigate to Find a Grave memorial page and extract data.
 
         Args:
             url: Find a Grave memorial URL
+            timeout: Page load timeout in seconds (default: 30.0)
 
         Returns:
             Dictionary with memorial data or None if extraction failed
@@ -166,10 +167,10 @@ class FindAGraveAutomation:
                 try:
                     await asyncio.wait_for(
                         page.goto(url, wait_until="domcontentloaded"),
-                        timeout=10.0
+                        timeout=timeout
                     )
                 except asyncio.TimeoutError:
-                    logger.warning(f"Navigation timed out after 10 seconds")
+                    logger.warning(f"Navigation timed out after {timeout} seconds")
                     if "findagrave.com" not in page.url:
                         raise
 
