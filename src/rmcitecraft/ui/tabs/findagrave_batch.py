@@ -1588,7 +1588,7 @@ class FindAGraveBatchTab:
 
                 if duplicate_check['exists']:
                     logger.warning(
-                        f"Skipping {item.full_name}: {duplicate_check['details']}"
+                        f"Skipping {item.full_name} (PersonID {item.person_id}): {duplicate_check['details']}"
                     )
                     self.controller.mark_item_error(
                         item,
@@ -1666,7 +1666,7 @@ class FindAGraveBatchTab:
                         )
 
                         logger.error(
-                            f"Extraction failed for {item.full_name} "
+                            f"Extraction failed for {item.full_name} (PersonID {item.person_id}) "
                             f"(retry {retry_count}/{self.config.findagrave_max_retries}): "
                             f"{extraction_error}"
                         )
@@ -1738,15 +1738,16 @@ class FindAGraveBatchTab:
                         source_comment=memorial_data.get('sourceComment', ''),
                     )
 
-                    # Link citation to all families where person is parent
+                    # Link citation to families where spouse is mentioned in biography
                     try:
                         family_ids = link_citation_to_families(
                             db_path=self.config.rm_database_path,
                             person_id=item.person_id,
                             citation_id=result['citation_id'],
+                            family_data=memorial_data.get('family'),
                         )
                         if family_ids:
-                            logger.info(f"Linked citation to {len(family_ids)} parent families for {item.full_name}")
+                            logger.info(f"Linked citation to {len(family_ids)} parent families for {item.full_name} (PersonID {item.person_id})")
                     except Exception as family_link_error:
                         logger.warning(f"Failed to link citation to parent families: {family_link_error}")
                         # Don't fail the entire item, just log the warning
@@ -1800,10 +1801,10 @@ class FindAGraveBatchTab:
                             # Don't fail the entire item, just log the error
                     else:
                         logger.warning(
-                            f"No cemetery name found for {item.full_name}, skipping burial event creation"
+                            f"No cemetery name found for {item.full_name} (PersonID {item.person_id}), skipping burial event creation"
                         )
                         self.error_log.add_warning(
-                            f"No cemetery name found for {item.full_name}, skipping burial event",
+                            f"No cemetery name found for {item.full_name} (PersonID {item.person_id}), skipping burial event",
                             context="Find a Grave Batch"
                         )
 
@@ -1916,7 +1917,7 @@ class FindAGraveBatchTab:
                     self._render_queue_items()
 
             except Exception as e:
-                logger.error(f"Error processing item {item.person_id}: {e}")
+                logger.error(f"Error processing item {item.full_name} (PersonID {item.person_id}): {e}")
                 self.controller.mark_item_error(item, str(e))
 
                 # Record error in state DB

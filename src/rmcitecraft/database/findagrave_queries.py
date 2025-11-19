@@ -1080,14 +1080,20 @@ def link_citation_to_families(
     db_path: str,
     person_id: int,
     citation_id: int,
+    family_data: dict | None = None,
 ) -> list[int]:
     """
-    Link Find a Grave citation to all families where person is parent.
+    Link Find a Grave citation to families where person is parent AND spouse is mentioned.
+
+    Only creates citation links for families where the spouse's name appears in the
+    Find a Grave biography (family_data['spouse'] list). This prevents creating
+    citations on spouse records that don't mention the person.
 
     Args:
         db_path: Path to RootsMagic database
         person_id: Person ID
         citation_id: Citation ID to link to families
+        family_data: Family data from Find a Grave (contains 'spouse' array)
 
     Returns:
         List of family IDs that were linked
@@ -1102,13 +1108,17 @@ def link_citation_to_families(
 
         # Find all families where person is a parent
         cursor.execute("""
-            SELECT FamilyID FROM FamilyTable
+            SELECT FamilyID, FatherID, MotherID
+            FROM FamilyTable
             WHERE FatherID = ? OR MotherID = ?
         """, (person_id, person_id))
 
+        families = cursor.fetchall()
         family_ids = []
-        for row in cursor.fetchall():
-            family_id = row[0]
+        skipped_count = 0
+
+        for row in families:
+            family_id, father_id, mother_id = row
 
             # Check if link already exists
             cursor.execute("""
@@ -1119,6 +1129,73 @@ def link_citation_to_families(
             if cursor.fetchone():
                 logger.debug(f"Citation {citation_id} already linked to family {family_id}, skipping")
                 continue
+
+            # Determine spouse ID
+            spouse_id = mother_id if father_id == person_id else father_id
+
+            # Check if spouse mentioned in Find a Grave biography
+            if family_data and 'spouse' in family_data and family_data['spouse']:
+                # Get spouse name from database
+                cursor.execute("""
+                    SELECT Surname, Given, Prefix, Suffix
+                    FROM NameTable
+                    WHERE OwnerID = ? AND OwnerType = 0 AND IsPrimary = 1
+                """, (spouse_id,))
+
+                spouse_row = cursor.fetchone()
+                if not spouse_row:
+                    logger.warning(f"No primary name found for spouse {spouse_id}, skipping family {family_id}")
+                    skipped_count += 1
+                    continue
+
+                surname, given, prefix, suffix = spouse_row
+
+                # Build full spouse name for matching
+                spouse_name_parts = []
+                if prefix:
+                    spouse_name_parts.append(prefix)
+                if given:
+                    spouse_name_parts.append(given)
+                if surname:
+                    spouse_name_parts.append(surname)
+                if suffix:
+                    spouse_name_parts.append(suffix)
+
+                spouse_full_name = ' '.join(spouse_name_parts)
+
+                # Check if spouse name appears in family['spouse'] array
+                spouse_mentioned = False
+                for member in family_data['spouse']:
+                    member_name = member.get('name', '').lower()
+                    # Check if any part of spouse's name appears in member name
+                    if surname and surname.lower() in member_name:
+                        # Surname match found, check if given name also matches (if provided)
+                        if given:
+                            if given.lower() in member_name:
+                                spouse_mentioned = True
+                                break
+                        else:
+                            spouse_mentioned = True
+                            break
+
+                if not spouse_mentioned:
+                    logger.info(
+                        f"Spouse {spouse_full_name} (PersonID {spouse_id}) not mentioned in Find a Grave biography, "
+                        f"skipping family {family_id} citation link"
+                    )
+                    skipped_count += 1
+                    continue
+                else:
+                    logger.info(
+                        f"Spouse {spouse_full_name} (PersonID {spouse_id}) mentioned in biography, "
+                        f"creating family {family_id} citation link"
+                    )
+            elif family_data and 'spouse' in family_data and not family_data['spouse']:
+                # Family data provided but no spouses mentioned - skip all family citations
+                logger.info(f"No spouses mentioned in Find a Grave biography, skipping family {family_id}")
+                skipped_count += 1
+                continue
+            # If family_data is None, create citation (backward compatibility)
 
             # Link citation to family (OwnerType = 1 for FamilyTable)
             cursor.execute("""
@@ -1142,7 +1219,9 @@ def link_citation_to_families(
 
         if family_ids:
             logger.info(f"Linked citation {citation_id} to {len(family_ids)} families")
-        else:
+        if skipped_count:
+            logger.info(f"Skipped {skipped_count} families (spouse not mentioned in biography)")
+        if not family_ids and not skipped_count:
             logger.info(f"No families found for person {person_id}")
 
         return family_ids
@@ -1682,8 +1761,18 @@ def create_findagrave_image_record(
         # Link to citation (always)
         media_link_id = img_repo.link_media_to_citation(media_id, citation_id)
 
-        # Conditional linking based on photo type
+        # Link to source (always) - so photos appear when viewing Source record
         cursor = conn.cursor()
+        cursor.execute("SELECT SourceID FROM CitationTable WHERE CitationID = ?", (citation_id,))
+        source_row = cursor.fetchone()
+        if source_row:
+            source_id = source_row[0]
+            img_repo.link_media_to_source(media_id, source_id)
+            logger.info(f"Linked image to source ID {source_id}")
+        else:
+            logger.warning(f"Failed to find source for citation {citation_id}, skipping source link")
+
+        # Conditional linking based on photo type
 
         # Link to burial event if Grave or Cemetery type
         if photo_type in ['Grave', 'Cemetery']:
