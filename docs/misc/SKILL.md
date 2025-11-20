@@ -146,17 +146,93 @@ async def test_ui():
 - Public callbacks → Make private with `_` prefix
 - Fixed timeouts → Use `wait_for_selector()` with timeout
 
-**For detailed patterns and advanced techniques**, see: `docs/misc/REFERENCE.md`
+**For detailed patterns and advanced techniques**, see: `.claude/skills/frontend-design/REFERENCE.md`
+
+---
+
+## User Journey Analysis & Documentation
+
+When redesigning existing interfaces, analyze user journey documentation first to understand workflows and pain points.
+
+### Design Workflow
+
+**ALWAYS create a feature branch before starting design work**:
+
+```bash
+# Create feature branch for design work
+git checkout -b feat/redesign-[workflow-name]
+
+# Example: git checkout -b feat/redesign-census-batch
+```
+
+**Branch Naming**:
+- `feat/redesign-[workflow]` - Major redesigns
+- `feat/ui-[component]` - New UI components
+- `fix/ui-[issue]` - UI bug fixes
+
+**Commit often** as you iterate on design changes. This allows easy rollback if needed.
+
+### Analyzing Existing Journeys
+
+**Read `docs/USER_JOURNEY_MAP.md` to extract**:
+- User personas and goals
+- Critical workflows (optimize these first)
+- Pain points (where users struggle)
+- Less-used but important interfaces
+- Technical constraints
+
+**Key Questions**: What's most critical? Where do users get stuck? What context do they need?
+
+### Documenting Improvements
+
+Create **comparative before/after documentation**:
+
+1. **Problem Statement** - Current pain points
+2. **Proposed Solution** - Design improvements
+3. **Workflow Comparison** - Step-by-step before/after
+4. **Screenshots** - Before/After with annotations
+5. **Benefits Summary** - Quantified improvements (time, errors, satisfaction)
+
+**Pattern**:
+```markdown
+## Journey Improvement: [Workflow]
+
+### Before
+- Pain: Users alt-tab 8-10 times per task
+- Time: 2 minutes per task
+
+### After
+- Solution: Integrated side-by-side layout
+- Time: 45 seconds (62% faster)
+- Screenshots with annotated improvements
+```
+
+### Capturing Screenshots
+
+```python
+# Capture before state
+await page.goto('http://localhost:8080/workflow')
+await page.screenshot(path='before.png')
+
+# Apply design changes (feature flag, CSS, staging environment)
+# ...
+
+# Capture after state
+await page.screenshot(path='after.png')
+```
+
+**For detailed templates and examples**, see: `.claude/skills/frontend-design/REFERENCE.md#user-journey-documentation`
 
 ---
 
 ## Skill Integration
 
-This skill combines **creative design** with **systematic testing**:
+This skill combines **creative design** with **systematic testing** and **user-centered documentation**:
 - Choose bold aesthetic direction
 - Implement with attention to detail
 - Test incrementally with Playwright
 - Debug with evidence (screenshots + logs)
+- Document improvements with before/after comparisons
 - Iterate rapidly with automation
 
 Every frontend should be both **visually distinctive** and **reliably functional**.
