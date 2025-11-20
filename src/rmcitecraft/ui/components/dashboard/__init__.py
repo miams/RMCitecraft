@@ -11,6 +11,8 @@ from rmcitecraft.ui.components.dashboard.citations_stats import CitationsStatsCa
 from rmcitecraft.ui.components.dashboard.error_analysis import ErrorAnalysisCard
 from rmcitecraft.ui.components.dashboard.performance_heatmap import PerformanceHeatmapCard
 from rmcitecraft.ui.components.dashboard.media_gallery import MediaGalleryCard
+from rmcitecraft.ui.components.dashboard.export_tools import ExportToolsCard
+from rmcitecraft.ui.components.dashboard.batch_comparison import BatchComparisonCard
 
 __all__ = [
     'MasterProgressCard',
@@ -24,4 +26,6 @@ __all__ = [
     'ErrorAnalysisCard',
     'PerformanceHeatmapCard',
     'MediaGalleryCard',
+    'ExportToolsCard',
+    'BatchComparisonCard',
 ]

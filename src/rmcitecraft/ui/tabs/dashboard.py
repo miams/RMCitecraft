@@ -5,8 +5,10 @@ from nicegui import ui
 from rmcitecraft.config import Config
 from rmcitecraft.database.batch_state_repository import BatchStateRepository
 from rmcitecraft.ui.components.dashboard import (
+    BatchComparisonCard,
     CitationsStatsCard,
     ErrorAnalysisCard,
+    ExportToolsCard,
     ItemDetailPanel,
     ItemsTable,
     MasterProgressCard,
@@ -50,6 +52,8 @@ class DashboardTab:
         self._media_gallery = None
         self._items_table = None
         self._item_detail = None
+        self._export_tools = None
+        self._batch_comparison = None
         self.current_session_id: str | None = None
 
     def render(self) -> None:
@@ -146,8 +150,23 @@ class DashboardTab:
             )
             self._media_gallery.render()
 
-            # Phase 5+ placeholder
-            self._render_coming_soon_phase5()
+            # Phase 5: Export Tools & Batch Comparison (2-column layout)
+            with ui.grid(columns=2).classes('w-full gap-4'):
+                # Export Tools
+                self._export_tools = ExportToolsCard(
+                    self._state_repo,
+                    session_id=self.current_session_id
+                )
+                self._export_tools.render()
+
+                # Batch Comparison
+                self._batch_comparison = BatchComparisonCard(
+                    self._state_repo
+                )
+                self._batch_comparison.render()
+
+            # Future phases placeholder
+            self._render_coming_soon_future()
 
             # Setup auto-refresh
             self._setup_auto_refresh()
@@ -190,14 +209,14 @@ class DashboardTab:
                         on_click=self._refresh_all_components
                     ).props('dense outline')
 
-    def _render_coming_soon_phase5(self) -> None:
-        """Render placeholder for Phase 5+ components."""
+    def _render_coming_soon_future(self) -> None:
+        """Render placeholder for future components."""
         with ui.card().classes('w-full bg-grey-1'):
             with ui.column().classes('items-center p-8 gap-4'):
                 ui.icon('construction').classes('text-6xl text-grey-5')
                 ui.label('Additional Dashboard Components Coming Soon').classes('text-h6 text-grey-7')
                 ui.label(
-                    'Phase 5+ will add: Outlier Detection, Cumulative Analytics, Export Tools, Batch Comparison'
+                    'Future phases will add: Outlier Detection, Cumulative Analytics, Trend Analysis'
                 ).classes('text-sm text-grey-6')
 
     def _setup_auto_refresh(self) -> None:
@@ -323,6 +342,10 @@ class DashboardTab:
 
         if self._media_gallery:
             self._media_gallery.set_session_filter(session_id)
+
+        # Update Phase 5 components with new session filter
+        if self._export_tools:
+            self._export_tools.set_session_filter(session_id)
 
     def _on_status_click(self, status: str) -> None:
         """Handle status pie chart slice click.
