@@ -14,7 +14,7 @@ class SessionSelectorCard:
     def __init__(
         self,
         state_repo: BatchStateRepository,
-        on_session_change: Callable[[str | None], None] | None = None
+        on_session_change: Callable[[str | None], None] | None = None,
     ):
         """Initialize session selector card.
 
@@ -30,52 +30,51 @@ class SessionSelectorCard:
 
     def render(self) -> None:
         """Render the session selector card."""
-        with ui.card().classes('w-full') as self.container:
+        with ui.card().classes("w-full") as self.container:
             self._render_content()
 
     def _render_content(self) -> None:
         """Render the content inside the container."""
         # Header
-        with ui.row().classes('w-full justify-between items-center mb-4'):
-                ui.label('Session Filter').classes('text-h6 text-primary')
-                ui.button(
-                    '',
-                    icon='refresh',
-                    on_click=self._refresh_sessions
-                ).props('flat dense round').tooltip('Refresh sessions list')
+        with ui.row().classes("w-full justify-between items-center mb-4"):
+            ui.label("Session Filter").classes("text-h6 text-primary")
+            ui.button("", icon="refresh", on_click=self._refresh_sessions).props(
+                "flat dense round"
+            ).tooltip("Refresh sessions list")
 
-            # Get all sessions
-            sessions = self._state_repo.get_all_sessions()
+        # Get all sessions
+        sessions = self._state_repo.get_all_sessions()
 
-            # Build options list
-            options = [{'label': 'All Sessions (Cumulative)', 'value': None}]
+        # Build options list
+        options = [{"label": "All Sessions (Cumulative)", "value": None}]
 
-            for session in sessions:
-                # Format session label
-                created_at = datetime.fromisoformat(session['created_at'].replace('Z', '+00:00'))
-                label = f"{created_at.strftime('%Y-%m-%d %H:%M')} - {session['session_id'][:8]}... ({session['status']})"
+        for session in sessions:
+            # Format session label
+            created_at = datetime.fromisoformat(session["created_at"].replace("Z", "+00:00"))
+            label = f"{created_at.strftime('%Y-%m-%d %H:%M')} - {session['session_id'][:8]}... ({session['status']})"
 
-                options.append({
-                    'label': label,
-                    'value': session['session_id']
-                })
+            options.append({"label": label, "value": session["session_id"]})
 
-            # Session selector
-            with ui.row().classes('w-full gap-4 items-center'):
-                ui.label('View:').classes('text-sm font-bold')
+        # Session selector
+        with ui.row().classes("w-full gap-4 items-center"):
+            ui.label("View:").classes("text-sm font-bold")
 
-                self.selector = ui.select(
-                    options=[opt['label'] for opt in options],
-                    value='All Sessions (Cumulative)',
-                    on_change=self._on_session_selected
-                ).props('outlined dense').classes('flex-grow')
+            self.selector = (
+                ui.select(
+                    options=[opt["label"] for opt in options],
+                    value="All Sessions (Cumulative)",
+                    on_change=self._on_session_selected,
+                )
+                .props("outlined dense")
+                .classes("flex-grow")
+            )
 
-                # Store mapping of labels to session IDs
-                self._option_map = {opt['label']: opt['value'] for opt in options}
+            # Store mapping of labels to session IDs
+            self._option_map = {opt["label"]: opt["value"] for opt in options}
 
-            # Session details (if specific session selected)
-            if self.selected_session_id:
-                self._render_session_details()
+        # Session details (if specific session selected)
+        if self.selected_session_id:
+            self._render_session_details()
 
     def _on_session_selected(self, event) -> None:
         """Handle session selection change.
@@ -98,9 +97,9 @@ class SessionSelectorCard:
 
         # Notify user
         if self.selected_session_id:
-            ui.notify(f'Viewing session: {self.selected_session_id[:16]}...', type='info')
+            ui.notify(f"Viewing session: {self.selected_session_id[:16]}...", type="info")
         else:
-            ui.notify('Viewing all sessions (cumulative)', type='info')
+            ui.notify("Viewing all sessions (cumulative)", type="info")
 
     def _render_session_details(self) -> None:
         """Render details for selected session."""
@@ -112,49 +111,52 @@ class SessionSelectorCard:
             return
 
         # Session details card
-        with ui.card().classes('bg-blue-1 mt-4'):
-            with ui.column().classes('gap-2 p-2'):
+        with ui.card().classes("bg-blue-1 mt-4"):
+            with ui.column().classes("gap-2 p-2"):
                 # Session ID
-                with ui.row().classes('items-center gap-2'):
-                    ui.icon('fingerprint').classes('text-blue')
-                    ui.label(f'Session ID: {session["session_id"]}').classes('text-sm font-mono')
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("fingerprint").classes("text-blue")
+                    ui.label(f"Session ID: {session['session_id']}").classes("text-sm font-mono")
 
                 # Created at
-                created_at = datetime.fromisoformat(session['created_at'].replace('Z', '+00:00'))
-                with ui.row().classes('items-center gap-2'):
-                    ui.icon('schedule').classes('text-blue')
-                    ui.label(f'Created: {created_at.strftime("%Y-%m-%d %H:%M:%S")}').classes('text-sm')
+                created_at = datetime.fromisoformat(session["created_at"].replace("Z", "+00:00"))
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("schedule").classes("text-blue")
+                    ui.label(f"Created: {created_at.strftime('%Y-%m-%d %H:%M:%S')}").classes(
+                        "text-sm"
+                    )
 
                 # Status
                 status_color = {
-                    'queued': 'grey',
-                    'running': 'blue',
-                    'paused': 'orange',
-                    'completed': 'green',
-                    'failed': 'red'
-                }.get(session['status'], 'grey')
+                    "queued": "grey",
+                    "running": "blue",
+                    "paused": "orange",
+                    "completed": "green",
+                    "failed": "red",
+                }.get(session["status"], "grey")
 
-                with ui.row().classes('items-center gap-2'):
-                    ui.icon('info').classes(f'text-{status_color}')
-                    ui.label(f'Status: {session["status"]}').classes(f'text-sm text-{status_color} font-bold')
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("info").classes(f"text-{status_color}")
+                    ui.label(f"Status: {session['status']}").classes(
+                        f"text-sm text-{status_color} font-bold"
+                    )
 
                 # Progress
-                completed_count = session['completed_count'] or 0
-                total_items = session['total_items'] or 0
-                error_count = session['error_count'] or 0
+                completed_count = session["completed_count"] or 0
+                total_items = session["total_items"] or 0
+                error_count = session["error_count"] or 0
 
-                with ui.row().classes('items-center gap-2'):
-                    ui.icon('analytics').classes('text-blue')
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("analytics").classes("text-blue")
                     ui.label(
-                        f'Progress: {completed_count}/{total_items} items '
-                        f'({error_count} errors)'
-                    ).classes('text-sm')
+                        f"Progress: {completed_count}/{total_items} items ({error_count} errors)"
+                    ).classes("text-sm")
 
                 # Progress bar
                 progress_pct = (completed_count / total_items) * 100 if total_items > 0 else 0
                 ui.linear_progress(
                     value=completed_count / total_items if total_items > 0 else 0
-                ).props('size=15px color=blue')
+                ).props("size=15px color=blue")
 
     def _refresh_sessions(self) -> None:
         """Refresh sessions list."""

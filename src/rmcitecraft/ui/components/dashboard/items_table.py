@@ -51,17 +51,17 @@ class ItemsTable:
         """Render the content inside the container."""
         # Header
         with ui.row().classes('w-full justify-between items-center mb-4'):
-                ui.label('Batch Items').classes('text-h6 text-primary')
+            ui.label('Batch Items').classes('text-h6 text-primary')
 
-                with ui.row().classes('gap-2'):
-                    ui.button(
-                        '',
-                        icon='refresh',
-                        on_click=self.update
-                    ).props('flat dense round').tooltip('Refresh table')
+            with ui.row().classes('gap-2'):
+                ui.button(
+                    '',
+                    icon='refresh',
+                    on_click=self.update
+                ).props('flat dense round').tooltip('Refresh table')
 
-            # Search and filters
-            with ui.row().classes('w-full gap-4 mb-4'):
+        # Search and filters
+        with ui.row().classes('w-full gap-4 mb-4'):
                 # Search input
                 self.search_input = ui.input(
                     placeholder='Search by name or PersonID...'
@@ -84,11 +84,11 @@ class ItemsTable:
                     on_change=lambda e: self._on_page_size_change(e.value)
                 ).props('outlined dense').classes('w-32')
 
-            # Get filtered items
-            items = self._get_filtered_items()
+        # Get filtered items
+        items = self._get_filtered_items()
 
-            # Table
-            if items:
+        # Table
+        if items:
                 # Define columns
                 columns = [
                     {'name': 'person_id', 'label': 'PersonID', 'field': 'person_id', 'sortable': True, 'align': 'left'},
@@ -146,7 +146,7 @@ class ItemsTable:
                         f'Showing {len(rows)} of {total_items} items'
                     ).classes('text-sm text-grey-7')
 
-            else:
+        else:
                 # Empty state
                 with ui.column().classes('items-center p-8'):
                     ui.icon('inbox').classes('text-6xl text-grey-5')
