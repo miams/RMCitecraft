@@ -8,6 +8,9 @@ from rmcitecraft.ui.components.dashboard.items_table import ItemsTable
 from rmcitecraft.ui.components.dashboard.item_detail import ItemDetailPanel
 from rmcitecraft.ui.components.dashboard.photos_stats import PhotosStatsCard
 from rmcitecraft.ui.components.dashboard.citations_stats import CitationsStatsCard
+from rmcitecraft.ui.components.dashboard.error_analysis import ErrorAnalysisCard
+from rmcitecraft.ui.components.dashboard.performance_heatmap import PerformanceHeatmapCard
+from rmcitecraft.ui.components.dashboard.media_gallery import MediaGalleryCard
 
 __all__ = [
     'MasterProgressCard',
@@ -18,4 +21,7 @@ __all__ = [
     'ItemDetailPanel',
     'PhotosStatsCard',
     'CitationsStatsCard',
+    'ErrorAnalysisCard',
+    'PerformanceHeatmapCard',
+    'MediaGalleryCard',
 ]

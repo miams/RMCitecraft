@@ -6,9 +6,12 @@ from rmcitecraft.config import Config
 from rmcitecraft.database.batch_state_repository import BatchStateRepository
 from rmcitecraft.ui.components.dashboard import (
     CitationsStatsCard,
+    ErrorAnalysisCard,
     ItemDetailPanel,
     ItemsTable,
     MasterProgressCard,
+    MediaGalleryCard,
+    PerformanceHeatmapCard,
     PhotosStatsCard,
     ProcessingTimelineChart,
     SessionSelectorCard,
@@ -42,6 +45,9 @@ class DashboardTab:
         self._processing_timeline = None
         self._photos_stats = None
         self._citations_stats = None
+        self._error_analysis = None
+        self._performance_heatmap = None
+        self._media_gallery = None
         self._items_table = None
         self._item_detail = None
         self.current_session_id: str | None = None
@@ -117,8 +123,31 @@ class DashboardTab:
                 )
                 self._item_detail.render()
 
-            # Phase 4+ placeholder
-            self._render_coming_soon_phase4()
+            # Phase 4: Error Analysis & Performance (2-column layout)
+            with ui.grid(columns=2).classes('w-full gap-4'):
+                # Error Analysis (tree map)
+                self._error_analysis = ErrorAnalysisCard(
+                    self._state_repo,
+                    session_id=self.current_session_id
+                )
+                self._error_analysis.render()
+
+                # Performance Heatmap
+                self._performance_heatmap = PerformanceHeatmapCard(
+                    self._state_repo,
+                    session_id=self.current_session_id
+                )
+                self._performance_heatmap.render()
+
+            # Phase 4: Media Gallery (full width)
+            self._media_gallery = MediaGalleryCard(
+                self._state_repo,
+                session_id=self.current_session_id
+            )
+            self._media_gallery.render()
+
+            # Phase 5+ placeholder
+            self._render_coming_soon_phase5()
 
             # Setup auto-refresh
             self._setup_auto_refresh()
@@ -161,17 +190,14 @@ class DashboardTab:
                         on_click=self._refresh_all_components
                     ).props('dense outline')
 
-    def _render_coming_soon_phase4(self) -> None:
-        """Render placeholder for Phase 4+ components."""
+    def _render_coming_soon_phase5(self) -> None:
+        """Render placeholder for Phase 5+ components."""
         with ui.card().classes('w-full bg-grey-1'):
             with ui.column().classes('items-center p-8 gap-4'):
                 ui.icon('construction').classes('text-6xl text-grey-5')
                 ui.label('Additional Dashboard Components Coming Soon').classes('text-h6 text-grey-7')
                 ui.label(
-                    'Phase 4 will add: Error Analysis (tree map), Performance Heatmap, Media Gallery'
-                ).classes('text-sm text-grey-6')
-                ui.label(
-                    'Phase 5+ will add: Outlier Detection, Cumulative Analytics, Export Tools'
+                    'Phase 5+ will add: Outlier Detection, Cumulative Analytics, Export Tools, Batch Comparison'
                 ).classes('text-sm text-grey-6')
 
     def _setup_auto_refresh(self) -> None:
@@ -252,6 +278,16 @@ class DashboardTab:
         if self._items_table:
             self._items_table.update()
 
+        # Refresh Phase 4 components
+        if self._error_analysis:
+            self._error_analysis.update()
+
+        if self._performance_heatmap:
+            self._performance_heatmap.update()
+
+        if self._media_gallery:
+            self._media_gallery.update()
+
     def _on_session_change(self, session_id: str | None) -> None:
         """Handle session filter change.
 
@@ -277,6 +313,16 @@ class DashboardTab:
         # Update Phase 3 components with new session filter
         if self._items_table:
             self._items_table.set_session_filter(session_id)
+
+        # Update Phase 4 components with new session filter
+        if self._error_analysis:
+            self._error_analysis.set_session_filter(session_id)
+
+        if self._performance_heatmap:
+            self._performance_heatmap.set_session_filter(session_id)
+
+        if self._media_gallery:
+            self._media_gallery.set_session_filter(session_id)
 
     def _on_status_click(self, status: str) -> None:
         """Handle status pie chart slice click.
