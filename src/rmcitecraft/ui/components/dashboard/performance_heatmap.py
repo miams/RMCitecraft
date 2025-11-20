@@ -165,14 +165,8 @@ class PerformanceHeatmapCard:
         echart_options = {
             'tooltip': {
                 'position': 'top',
-                'formatter': '''function(params) {
-                    var operations = ''' + str(operations).replace("'", '"') + ''';
-                    var metricTypes = ["Avg Duration", "Min Duration", "Max Duration", "Success Rate"];
-                    var unit = params.value[0] < 3 ? 'ms' : '%';
-                    return operations[params.value[1]] + '<br/>' +
-                           metricTypes[params.value[0]] + ': ' +
-                           params.value[2].toFixed(1) + unit;
-                }'''
+                # Build tooltip content with operation and metric labels
+                'formatter': '{b}<br/>{c}' + (' ms' if metric_types else '')
             },
             'grid': {
                 'height': '70%',
@@ -184,6 +178,10 @@ class PerformanceHeatmapCard:
                 'data': metric_types,
                 'splitArea': {
                     'show': True
+                },
+                'axisLabel': {
+                    'interval': 0,
+                    'rotate': 0
                 }
             },
             'yAxis': {
@@ -191,6 +189,9 @@ class PerformanceHeatmapCard:
                 'data': operations,
                 'splitArea': {
                     'show': True
+                },
+                'axisLabel': {
+                    'interval': 0
                 }
             },
             'visualMap': {
@@ -211,7 +212,8 @@ class PerformanceHeatmapCard:
                     'data': heatmap_data,
                     'label': {
                         'show': True,
-                        'formatter': 'function(params) { return params.value[2].toFixed(0); }'
+                        'fontSize': 11,
+                        'color': '#000'
                     },
                     'emphasis': {
                         'itemStyle': {
