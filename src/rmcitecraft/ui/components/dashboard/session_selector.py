@@ -85,6 +85,12 @@ class SessionSelectorCard:
         selected_label = event.value
         self.selected_session_id = self._option_map.get(selected_label)
 
+        # Notify user BEFORE clearing container to avoid slot deletion error
+        if self.selected_session_id:
+            ui.notify(f"Viewing session: {self.selected_session_id[:16]}...", type="info")
+        else:
+            ui.notify("Viewing all sessions (cumulative)", type="info")
+
         # Call callback if provided
         if self._on_session_change:
             self._on_session_change(self.selected_session_id)
@@ -94,12 +100,6 @@ class SessionSelectorCard:
             self.container.clear()
             with self.container:
                 self._render_content()
-
-        # Notify user
-        if self.selected_session_id:
-            ui.notify(f"Viewing session: {self.selected_session_id[:16]}...", type="info")
-        else:
-            ui.notify("Viewing all sessions (cumulative)", type="info")
 
     def _render_session_details(self) -> None:
         """Render details for selected session."""

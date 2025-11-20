@@ -1,5 +1,7 @@
 """Master Progress Card component for dashboard."""
 
+from typing import Callable
+
 from nicegui import ui
 
 from rmcitecraft.database.batch_state_repository import BatchStateRepository
@@ -8,15 +10,22 @@ from rmcitecraft.database.batch_state_repository import BatchStateRepository
 class MasterProgressCard:
     """Master progress card showing overall batch processing progress toward goal."""
 
-    def __init__(self, state_repo: BatchStateRepository, total_goal: int = 5000):
+    def __init__(
+        self,
+        state_repo: BatchStateRepository,
+        total_goal: int = 5000,
+        on_metric_click: Callable[[str], None] | None = None,
+    ):
         """Initialize master progress card.
 
         Args:
             state_repo: Batch state repository
             total_goal: Total number of items to process (default: 5000)
+            on_metric_click: Callback when user clicks a metric (receives metric name)
         """
         self._state_repo = state_repo  # Private
         self.total_goal = total_goal
+        self._on_metric_click = on_metric_click  # Private
         self.container = None
         self.progress_bar = None
         self.stat_boxes = {}
@@ -30,7 +39,13 @@ class MasterProgressCard:
         """Render the content inside the container."""
         # Header
         with ui.row().classes('w-full justify-between items-center mb-4'):
-            ui.label('Master Progress').classes('text-h6 text-primary')
+            with ui.row().classes('items-center gap-2'):
+                ui.label('Master Progress').classes('text-h6 text-primary')
+                ui.button(
+                    '',
+                    icon='info',
+                    on_click=self._show_progress_info
+                ).props('flat dense round size=sm').tooltip('What is Master Progress?')
             ui.button(
                 '',
                 icon='refresh',
@@ -64,39 +79,70 @@ class MasterProgressCard:
                 'Total Goal',
                 f'{self.total_goal:,}',
                 'flag',
-                'blue'
+                'blue',
+                'Total number of Find a Grave records to process',
+                None
             )
             self.stat_boxes['completed'] = self._create_stat_box(
                 'Completed',
                 f'{completed:,}',
                 'check_circle',
-                'green'
+                'green',
+                'Successfully processed records with citations and images linked',
+                lambda: self._on_metric_click('completed') if self._on_metric_click else None
             )
             self.stat_boxes['remaining'] = self._create_stat_box(
                 'Remaining',
                 f'{self.total_goal - completed:,}',
                 'pending',
-                'orange'
+                'orange',
+                'Records still to be processed to reach your goal',
+                lambda: self._on_metric_click('pending') if self._on_metric_click else None
             )
             self.stat_boxes['success_rate'] = self._create_stat_box(
                 'Success Rate',
                 f'{self._calculate_success_rate(completed, failed):.1f}%',
                 'analytics',
-                'purple'
+                'purple',
+                'Percentage of records successfully processed without errors',
+                None
             )
 
         # Additional stats row
         with ui.grid(columns=3).classes('w-full gap-4 mt-4'):
-            self._create_small_stat_box('Failed', f'{failed:,}', 'error', 'red')
-            self._create_small_stat_box('Pending', f'{pending:,}', 'schedule', 'amber')
-            self._create_small_stat_box('Skipped', f'{skipped:,}', 'skip_next', 'grey')
+            self._create_small_stat_box(
+                'Failed',
+                f'{failed:,}',
+                'error',
+                'red',
+                'Records that encountered errors during processing - click to view',
+                lambda: self._on_metric_click('failed') if self._on_metric_click else None
+            )
+            self._create_small_stat_box(
+                'Pending',
+                f'{pending:,}',
+                'schedule',
+                'amber',
+                'Records queued for processing - click to view',
+                lambda: self._on_metric_click('pending') if self._on_metric_click else None
+            )
+            self._create_small_stat_box(
+                'Skipped',
+                f'{skipped:,}',
+                'skip_next',
+                'grey',
+                'Records skipped during processing - click to view',
+                lambda: self._on_metric_click('skipped') if self._on_metric_click else None
+            )
 
     def _create_stat_box(
         self,
         label: str,
         value: str,
         icon: str,
-        color: str
+        color: str,
+        tooltip: str,
+        on_click: Callable[[], None] | None = None
     ) -> ui.card:
         """Create a statistics box.
 
@@ -105,11 +151,20 @@ class MasterProgressCard:
             value: Stat value
             icon: Material icon name
             color: Color name
+            tooltip: Tooltip text explaining the metric
+            on_click: Optional click handler
 
         Returns:
             Card element containing the stat box
         """
-        with ui.card().classes(f'bg-{color}-1') as card:
+        card_classes = f'bg-{color}-1'
+        if on_click:
+            card_classes += ' cursor-pointer hover:shadow-lg transition-shadow'
+
+        with ui.card().classes(card_classes) as card:
+            if on_click:
+                card.on('click', on_click)
+            card.tooltip(tooltip)
             with ui.row().classes('items-center gap-3 p-2'):
                 ui.icon(icon).classes(f'text-4xl text-{color}')
                 with ui.column().classes('gap-0'):
@@ -122,7 +177,9 @@ class MasterProgressCard:
         label: str,
         value: str,
         icon: str,
-        color: str
+        color: str,
+        tooltip: str,
+        on_click: Callable[[], None] | None = None
     ) -> None:
         """Create a small statistics box.
 
@@ -131,8 +188,17 @@ class MasterProgressCard:
             value: Stat value
             icon: Material icon name
             color: Color name
+            tooltip: Tooltip text explaining the metric
+            on_click: Optional click handler
         """
-        with ui.card().classes('bg-grey-1'):
+        card_classes = 'bg-grey-1'
+        if on_click:
+            card_classes += ' cursor-pointer hover:shadow-lg transition-shadow'
+
+        with ui.card().classes(card_classes) as card:
+            if on_click:
+                card.on('click', on_click)
+            card.tooltip(tooltip)
             with ui.row().classes('items-center gap-2 p-2'):
                 ui.icon(icon).classes(f'text-2xl text-{color}')
                 with ui.column().classes('gap-0'):
@@ -153,6 +219,38 @@ class MasterProgressCard:
         if total == 0:
             return 0.0
         return (completed / total) * 100
+
+    def _show_progress_info(self) -> None:
+        """Show information dialog explaining Master Progress."""
+        with ui.dialog() as dialog, ui.card().classes('p-6'):
+            ui.label('Master Progress Explained').classes('text-h6 text-primary mb-4')
+
+            with ui.column().classes('gap-4'):
+                ui.markdown('''
+                **What is Master Progress?**
+
+                Master Progress tracks your overall project goal across all processing sessions.
+
+                **Key Metrics:**
+
+                - **Total Goal**: The target number of Find a Grave records you want to process
+                - **Completed**: Records successfully processed with citations created and images linked
+                - **Remaining**: Records still needed to reach your goal (Goal - Completed)
+                - **Success Rate**: Percentage of attempted records that completed successfully
+
+                **Business Value:**
+
+                - Track progress toward your genealogy research goals
+                - Identify error rates and processing efficiency
+                - Monitor completion timeline and remaining work
+
+                **Click on any metric** to filter the Items Table and view those specific records.
+                ''')
+
+                with ui.row().classes('w-full justify-end'):
+                    ui.button('Close', on_click=dialog.close).props('color=primary')
+
+        dialog.open()
 
     def update(self) -> None:
         """Update the progress card with latest data."""
