@@ -36,8 +36,12 @@ class ProcessingTimelineChart:
     def render(self) -> None:
         """Render the processing timeline chart."""
         with ui.card().classes('w-full') as self.container:
-            # Header
-            with ui.row().classes('w-full justify-between items-center mb-4'):
+            self._render_content()
+
+    def _render_content(self) -> None:
+        """Render the content inside the container."""
+        # Header
+        with ui.row().classes('w-full justify-between items-center mb-4'):
                 ui.label('Processing Timeline').classes('text-h6 text-primary')
 
                 with ui.row().classes('gap-2'):
@@ -251,7 +255,7 @@ class ProcessingTimelineChart:
         if self.container:
             self.container.clear()
             with self.container:
-                self.render()
+                self._render_content()
 
     def set_session_filter(self, session_id: str | None) -> None:
         """Set the session filter and update chart.

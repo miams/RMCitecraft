@@ -24,68 +24,72 @@ class MasterProgressCard:
     def render(self) -> None:
         """Render the master progress card."""
         with ui.card().classes('w-full') as self.container:
-            # Header
-            with ui.row().classes('w-full justify-between items-center mb-4'):
-                ui.label('Master Progress').classes('text-h6 text-primary')
-                ui.button(
-                    '',
-                    icon='refresh',
-                    on_click=self.update
-                ).props('flat dense round').tooltip('Refresh progress')
+            self._render_content()
 
-            # Get current progress
-            progress = self._state_repo.get_master_progress()
-            completed = progress['completed']
-            failed = progress['failed']
-            pending = progress['pending']
-            skipped = progress['skipped']
-            total_items = progress['total_items']
+    def _render_content(self) -> None:
+        """Render the content inside the container."""
+        # Header
+        with ui.row().classes('w-full justify-between items-center mb-4'):
+            ui.label('Master Progress').classes('text-h6 text-primary')
+            ui.button(
+                '',
+                icon='refresh',
+                on_click=self.update
+            ).props('flat dense round').tooltip('Refresh progress')
 
-            # Calculate progress percentage
-            progress_pct = (completed / self.total_goal) * 100 if self.total_goal > 0 else 0
+        # Get current progress
+        progress = self._state_repo.get_master_progress()
+        completed = progress['completed']
+        failed = progress['failed']
+        pending = progress['pending']
+        skipped = progress['skipped']
+        total_items = progress['total_items']
 
-            # Progress bar
-            with ui.column().classes('w-full gap-1'):
-                with ui.row().classes('w-full justify-between'):
-                    ui.label(f'{completed:,} / {self.total_goal:,} items completed').classes('text-sm')
-                    ui.label(f'{progress_pct:.1f}%').classes('text-sm font-bold text-green')
+        # Calculate progress percentage
+        progress_pct = (completed / self.total_goal) * 100 if self.total_goal > 0 else 0
 
-                self.progress_bar = ui.linear_progress(
-                    value=completed / self.total_goal if self.total_goal > 0 else 0
-                ).props('size=25px color=green')
+        # Progress bar
+        with ui.column().classes('w-full gap-1'):
+            with ui.row().classes('w-full justify-between'):
+                ui.label(f'{completed:,} / {self.total_goal:,} items completed').classes('text-sm')
+                ui.label(f'{progress_pct:.1f}%').classes('text-sm font-bold text-green')
 
-            # Statistics grid
-            with ui.grid(columns=4).classes('w-full gap-4 mt-6'):
-                self.stat_boxes['total'] = self._create_stat_box(
-                    'Total Goal',
-                    f'{self.total_goal:,}',
-                    'flag',
-                    'blue'
-                )
-                self.stat_boxes['completed'] = self._create_stat_box(
-                    'Completed',
-                    f'{completed:,}',
-                    'check_circle',
-                    'green'
-                )
-                self.stat_boxes['remaining'] = self._create_stat_box(
-                    'Remaining',
-                    f'{self.total_goal - completed:,}',
-                    'pending',
-                    'orange'
-                )
-                self.stat_boxes['success_rate'] = self._create_stat_box(
-                    'Success Rate',
-                    f'{self._calculate_success_rate(completed, failed):.1f}%',
-                    'analytics',
-                    'purple'
-                )
+            self.progress_bar = ui.linear_progress(
+                value=completed / self.total_goal if self.total_goal > 0 else 0
+            ).props('size=25px color=green')
 
-            # Additional stats row
-            with ui.grid(columns=3).classes('w-full gap-4 mt-4'):
-                self._create_small_stat_box('Failed', f'{failed:,}', 'error', 'red')
-                self._create_small_stat_box('Pending', f'{pending:,}', 'schedule', 'amber')
-                self._create_small_stat_box('Skipped', f'{skipped:,}', 'skip_next', 'grey')
+        # Statistics grid
+        with ui.grid(columns=4).classes('w-full gap-4 mt-6'):
+            self.stat_boxes['total'] = self._create_stat_box(
+                'Total Goal',
+                f'{self.total_goal:,}',
+                'flag',
+                'blue'
+            )
+            self.stat_boxes['completed'] = self._create_stat_box(
+                'Completed',
+                f'{completed:,}',
+                'check_circle',
+                'green'
+            )
+            self.stat_boxes['remaining'] = self._create_stat_box(
+                'Remaining',
+                f'{self.total_goal - completed:,}',
+                'pending',
+                'orange'
+            )
+            self.stat_boxes['success_rate'] = self._create_stat_box(
+                'Success Rate',
+                f'{self._calculate_success_rate(completed, failed):.1f}%',
+                'analytics',
+                'purple'
+            )
+
+        # Additional stats row
+        with ui.grid(columns=3).classes('w-full gap-4 mt-4'):
+            self._create_small_stat_box('Failed', f'{failed:,}', 'error', 'red')
+            self._create_small_stat_box('Pending', f'{pending:,}', 'schedule', 'amber')
+            self._create_small_stat_box('Skipped', f'{skipped:,}', 'skip_next', 'grey')
 
     def _create_stat_box(
         self,
@@ -169,4 +173,4 @@ class MasterProgressCard:
         if self.container:
             self.container.clear()
             with self.container:
-                self.render()
+                self._render_content()

@@ -31,8 +31,12 @@ class SessionSelectorCard:
     def render(self) -> None:
         """Render the session selector card."""
         with ui.card().classes('w-full') as self.container:
-            # Header
-            with ui.row().classes('w-full justify-between items-center mb-4'):
+            self._render_content()
+
+    def _render_content(self) -> None:
+        """Render the content inside the container."""
+        # Header
+        with ui.row().classes('w-full justify-between items-center mb-4'):
                 ui.label('Session Filter').classes('text-h6 text-primary')
                 ui.button(
                     '',
@@ -90,7 +94,7 @@ class SessionSelectorCard:
         if self.container:
             self.container.clear()
             with self.container:
-                self.render()
+                self._render_content()
 
         # Notify user
         if self.selected_session_id:
@@ -157,7 +161,7 @@ class SessionSelectorCard:
         if self.container:
             self.container.clear()
             with self.container:
-                self.render()
+                self._render_content()
 
     def get_selected_session_id(self) -> str | None:
         """Get currently selected session ID.

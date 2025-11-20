@@ -45,8 +45,12 @@ class ItemsTable:
     def render(self) -> None:
         """Render the items table."""
         with ui.card().classes('w-full') as self.container:
-            # Header
-            with ui.row().classes('w-full justify-between items-center mb-4'):
+            self._render_content()
+
+    def _render_content(self) -> None:
+        """Render the content inside the container."""
+        # Header
+        with ui.row().classes('w-full justify-between items-center mb-4'):
                 ui.label('Batch Items').classes('text-h6 text-primary')
 
                 with ui.row().classes('gap-2'):
@@ -301,7 +305,7 @@ class ItemsTable:
         if self.container:
             self.container.clear()
             with self.container:
-                self.render()
+                self._render_content()
 
     def update(self, session_id: str | None = None) -> None:
         """Update the table with new data.
