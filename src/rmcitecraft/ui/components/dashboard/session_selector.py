@@ -22,8 +22,8 @@ class SessionSelectorCard:
             state_repo: Batch state repository
             on_session_change: Callback function when session changes (receives session_id or None for all)
         """
-        self.state_repo = state_repo
-        self.on_session_change = on_session_change
+        self._state_repo = state_repo  # Private
+        self._on_session_change = on_session_change  # Private to avoid JSON serialization
         self.selected_session_id: str | None = None
         self.selector = None
         self.container = None
@@ -41,7 +41,7 @@ class SessionSelectorCard:
                 ).props('flat dense round').tooltip('Refresh sessions list')
 
             # Get all sessions
-            sessions = self.state_repo.get_all_sessions()
+            sessions = self._state_repo.get_all_sessions()
 
             # Build options list
             options = [{'label': 'All Sessions (Cumulative)', 'value': None}]
@@ -83,8 +83,8 @@ class SessionSelectorCard:
         self.selected_session_id = self._option_map.get(selected_label)
 
         # Call callback if provided
-        if self.on_session_change:
-            self.on_session_change(self.selected_session_id)
+        if self._on_session_change:
+            self._on_session_change(self.selected_session_id)
 
         # Refresh session details
         if self.container:
@@ -103,7 +103,7 @@ class SessionSelectorCard:
         if not self.selected_session_id:
             return
 
-        session = self.state_repo.get_session(self.selected_session_id)
+        session = self._state_repo.get_session(self.selected_session_id)
         if not session:
             return
 

@@ -26,10 +26,10 @@ class ProcessingTimelineChart:
             limit: Maximum number of items to display (default: 100)
             on_point_click: Callback when user clicks a data point (receives item data)
         """
-        self.state_repo = state_repo
+        self._state_repo = state_repo  # Private
         self.session_id = session_id
         self.limit = limit
-        self.on_point_click = on_point_click
+        self._on_point_click = on_point_click  # Private to avoid JSON serialization
         self.chart = None
         self.container = None
 
@@ -56,7 +56,7 @@ class ProcessingTimelineChart:
                     ).props('flat dense round').tooltip('Refresh timeline')
 
             # Get timeline data
-            timeline_data = self.state_repo.get_processing_timeline(
+            timeline_data = self._state_repo.get_processing_timeline(
                 session_id=self.session_id,
                 limit=self.limit
             )
@@ -116,25 +116,27 @@ class ProcessingTimelineChart:
                 else:
                     return '#FFC107'  # Yellow for pending
 
-            # Build series data with colors
-            series_data = [
+            # Build series data with colors and tooltips
+            series_data_with_tooltip = [
                 {
                     'value': status,
-                    'itemStyle': {'color': get_status_color(status)}
+                    'itemStyle': {'color': get_status_color(status)},
+                    'tooltip': {
+                        'formatter': (
+                            f"{person_names[i]}<br/>"
+                            f"PersonID: {person_ids[i]}<br/>"
+                            f"Time: {timestamps[i]}<br/>"
+                            f"Status: {'✓ Completed' if status == 1 else '✗ Failed' if status == 0 else '⋯ Pending'}"
+                        )
+                    }
                 }
-                for status in statuses
+                for i, status in enumerate(statuses)
             ]
 
             # ECharts timeline configuration
             chart_options = {
                 'tooltip': {
-                    'trigger': 'axis',
-                    'formatter': lambda params: (
-                        f"{person_names[params[0]['dataIndex']]}<br/>"
-                        f"PersonID: {person_ids[params[0]['dataIndex']]}<br/>"
-                        f"Time: {timestamps[params[0]['dataIndex']]}<br/>"
-                        f"Status: {'✓ Completed' if params[0]['value'] == 1 else '✗ Failed' if params[0]['value'] == 0 else '⋯ Pending'}"
-                    ) if params else ''
+                    'trigger': 'item',  # Changed from 'axis' to 'item'
                 },
                 'grid': {
                     'left': '3%',
@@ -160,17 +162,21 @@ class ProcessingTimelineChart:
                     'min': 0,
                     'max': 1,
                     'axisLabel': {
-                        'formatter': lambda value: (
-                            'Completed' if value == 1 else
-                            'Failed' if value == 0 else
-                            'Pending'
-                        )
-                    }
+                        'formatter': '{value}',  # Simple template string
+                        'interval': 0,
+                        'align': 'center',
+                    },
+                    # Use fixed labels at y=0, 0.5, 1
+                    'data': [
+                        {'value': 0, 'textStyle': {'color': '#000'}},
+                        {'value': 0.5, 'textStyle': {'color': '#000'}},
+                        {'value': 1, 'textStyle': {'color': '#000'}}
+                    ]
                 },
                 'series': [{
                     'name': 'Processing Status',
                     'type': 'scatter',
-                    'data': series_data,
+                    'data': series_data_with_tooltip,  # Use tooltip-enhanced data
                     'symbolSize': 8,
                     'emphasis': {
                         'itemStyle': {

@@ -27,86 +27,83 @@ class DashboardTab:
         Args:
             config: Application configuration
         """
-        self.config = config
-        self.state_repo = BatchStateRepository()
+        self._config = config  # Private to avoid JSON serialization
+        self._state_repo = BatchStateRepository()
         self.auto_refresh_enabled = True
         self.refresh_interval = 5  # seconds
-        self.refresh_timer = None
+        self._refresh_timer = None
 
         # Components
-        self.master_progress = None
-        self.session_selector = None
-        self.status_distribution = None
-        self.processing_timeline = None
-        self.items_table = None
-        self.item_detail = None
+        self._master_progress = None
+        self._session_selector = None
+        self._status_distribution = None
+        self._processing_timeline = None
+        self._items_table = None
+        self._item_detail = None
         self.current_session_id: str | None = None
 
     def render(self) -> None:
-        """Render the dashboard tab."""
+        """Render the complete dashboard with all phases."""
+        from loguru import logger
+        logger.info("DashboardTab.render() starting - FULL DASHBOARD")
+
+        # Main container
         with ui.column().classes('w-full p-4 gap-6'):
-            # Header
+            # Header with controls
             self._render_header()
 
-            # Master Progress Card
-            self.master_progress = MasterProgressCard(
-                state_repo=self.state_repo,
-                total_goal=5000
-            )
-            self.master_progress.render()
+            # Phase 1: Master Progress + Session Selector
+            self._master_progress = MasterProgressCard(self._state_repo)
+            self._master_progress.render()
 
-            # Session Selector Card
-            self.session_selector = SessionSelectorCard(
-                state_repo=self.state_repo,
+            self._session_selector = SessionSelectorCard(
+                self._state_repo,
                 on_session_change=self._on_session_change
             )
-            self.session_selector.render()
+            self._session_selector.render()
 
-            # Phase 2: Status & Timeline Charts
-            with ui.row().classes('w-full gap-4'):
-                # Status Distribution (left half)
-                with ui.column().classes('flex-1'):
-                    self.status_distribution = StatusDistributionChart(
-                        state_repo=self.state_repo,
-                        session_id=self.current_session_id,
-                        on_status_click=self._on_status_click
-                    )
-                    self.status_distribution.render()
+            # Phase 2: Charts (2-column layout)
+            with ui.grid(columns=2).classes('w-full gap-4'):
+                # Status Distribution Chart
+                self._status_distribution = StatusDistributionChart(
+                    self._state_repo,
+                    session_id=self.current_session_id,
+                    on_status_click=self._on_status_click
+                )
+                self._status_distribution.render()
 
-                # Processing Timeline (right half)
-                with ui.column().classes('flex-1'):
-                    self.processing_timeline = ProcessingTimelineChart(
-                        state_repo=self.state_repo,
-                        session_id=self.current_session_id,
-                        limit=100,
-                        on_point_click=self._on_timeline_point_click
-                    )
-                    self.processing_timeline.render()
+                # Processing Timeline Chart
+                self._processing_timeline = ProcessingTimelineChart(
+                    self._state_repo,
+                    session_id=self.current_session_id,
+                    on_point_click=self._on_timeline_point_click
+                )
+                self._processing_timeline.render()
 
-            # Phase 3: Items Table & Detail Panel
-            with ui.row().classes('w-full gap-4'):
-                # Items Table (2/3 width)
-                with ui.column().classes('flex-grow').style('flex-basis: 66%'):
-                    self.items_table = ItemsTable(
-                        state_repo=self.state_repo,
-                        session_id=self.current_session_id,
-                        on_row_click=self._on_table_row_click,
-                        page_size=50
-                    )
-                    self.items_table.render()
+            # Phase 3: Items Table + Detail Panel (2-column layout)
+            with ui.grid(columns=2).classes('w-full gap-4'):
+                # Items Table (searchable/filterable)
+                self._items_table = ItemsTable(
+                    self._state_repo,
+                    session_id=self.current_session_id,
+                    on_row_click=self._on_table_row_click
+                )
+                self._items_table.render()
 
-                # Item Detail Panel (1/3 width)
-                with ui.column().classes('flex-grow').style('flex-basis: 33%'):
-                    self.item_detail = ItemDetailPanel(
-                        rm_database_path=self.config.rm_database_path
-                    )
-                    self.item_detail.render()
+                # Item Detail Panel (RootsMagic drill-down)
+                self._item_detail = ItemDetailPanel(
+                    rm_database_path=self._config.rm_database_path
+                )
+                self._item_detail.render()
 
-            # Placeholder for Phase 4+ components
+            # Phase 4+ placeholder
             self._render_coming_soon_phase4()
 
-        # Start auto-refresh timer
-        self._setup_auto_refresh()
+            # Setup auto-refresh
+            self._setup_auto_refresh()
+
+        logger.info("Complete dashboard rendered successfully")
+
 
     def _render_header(self) -> None:
         """Render dashboard header with controls."""
@@ -158,10 +155,10 @@ class DashboardTab:
 
     def _setup_auto_refresh(self) -> None:
         """Setup auto-refresh timer."""
-        if self.refresh_timer:
-            self.refresh_timer.deactivate()
+        if self._refresh_timer:
+            self._refresh_timer.deactivate()
 
-        self.refresh_timer = ui.timer(
+        self._refresh_timer = ui.timer(
             self.refresh_interval,
             self._refresh_all_components,
             active=self.auto_refresh_enabled
@@ -176,10 +173,10 @@ class DashboardTab:
         self.auto_refresh_enabled = event.value
 
         if self.auto_refresh_enabled:
-            self.refresh_timer.activate()
+            self._refresh_timer.activate()
             ui.notify('Auto-refresh enabled', type='positive')
         else:
-            self.refresh_timer.deactivate()
+            self._refresh_timer.deactivate()
             ui.notify('Auto-refresh disabled', type='info')
 
     def _change_refresh_interval(self, event) -> None:
@@ -191,10 +188,10 @@ class DashboardTab:
         self.refresh_interval = event.value
 
         # Recreate timer with new interval
-        if self.refresh_timer:
-            self.refresh_timer.deactivate()
+        if self._refresh_timer:
+            self._refresh_timer.deactivate()
 
-        self.refresh_timer = ui.timer(
+        self._refresh_timer = ui.timer(
             self.refresh_interval,
             self._refresh_all_components,
             active=self.auto_refresh_enabled
@@ -204,28 +201,28 @@ class DashboardTab:
 
     def _refresh_all_components(self) -> None:
         """Refresh all dashboard components with latest data."""
-        if not self.auto_refresh_enabled and self.refresh_timer:
+        if not self.auto_refresh_enabled and self._refresh_timer:
             # Manual refresh - notify user
             ui.notify('Refreshing dashboard...', type='info', position='top')
 
         # Refresh master progress
-        if self.master_progress:
-            self.master_progress.update()
+        if self._master_progress:
+            self._master_progress.update()
 
         # Refresh session selector
-        if self.session_selector:
-            self.session_selector._refresh_sessions()
+        if self._session_selector:
+            self._session_selector._refresh_sessions()
 
         # Refresh Phase 2 charts
-        if self.status_distribution:
-            self.status_distribution.update()
+        if self._status_distribution:
+            self._status_distribution.update()
 
-        if self.processing_timeline:
-            self.processing_timeline.update()
+        if self._processing_timeline:
+            self._processing_timeline.update()
 
         # Refresh Phase 3 components
-        if self.items_table:
-            self.items_table.update()
+        if self._items_table:
+            self._items_table.update()
 
     def _on_session_change(self, session_id: str | None) -> None:
         """Handle session filter change.
@@ -236,15 +233,15 @@ class DashboardTab:
         self.current_session_id = session_id
 
         # Update Phase 2 charts with new session filter
-        if self.status_distribution:
-            self.status_distribution.set_session_filter(session_id)
+        if self._status_distribution:
+            self._status_distribution.set_session_filter(session_id)
 
-        if self.processing_timeline:
-            self.processing_timeline.set_session_filter(session_id)
+        if self._processing_timeline:
+            self._processing_timeline.set_session_filter(session_id)
 
         # Update Phase 3 components with new session filter
-        if self.items_table:
-            self.items_table.set_session_filter(session_id)
+        if self._items_table:
+            self._items_table.set_session_filter(session_id)
 
     def _on_status_click(self, status: str) -> None:
         """Handle status pie chart slice click.
@@ -253,8 +250,8 @@ class DashboardTab:
             status: Clicked status name
         """
         # Filter items table by clicked status
-        if self.items_table:
-            self.items_table.set_status_filter(status)
+        if self._items_table:
+            self._items_table.set_status_filter(status)
             ui.notify(f'Filtered table by status: {status}', type='info')
 
     def _on_timeline_point_click(self, item_data: dict) -> None:
@@ -264,8 +261,8 @@ class DashboardTab:
             item_data: Timeline item data
         """
         # Show item detail panel
-        if self.item_detail and item_data:
-            self.item_detail.update(item_data)
+        if self._item_detail and item_data:
+            self._item_detail.update(item_data)
             ui.notify(f'Viewing details for: {item_data.get("full_name", "Unknown")}', type='info')
 
     def _on_table_row_click(self, item_data: dict) -> None:
@@ -275,6 +272,6 @@ class DashboardTab:
             item_data: Table row item data
         """
         # Show item detail panel
-        if self.item_detail:
-            self.item_detail.update(item_data)
+        if self._item_detail:
+            self._item_detail.update(item_data)
             ui.notify(f'Viewing details for: {item_data.get("person_name", "Unknown")}', type='info')

@@ -15,7 +15,7 @@ class MasterProgressCard:
             state_repo: Batch state repository
             total_goal: Total number of items to process (default: 5000)
         """
-        self.state_repo = state_repo
+        self._state_repo = state_repo  # Private
         self.total_goal = total_goal
         self.container = None
         self.progress_bar = None
@@ -34,7 +34,7 @@ class MasterProgressCard:
                 ).props('flat dense round').tooltip('Refresh progress')
 
             # Get current progress
-            progress = self.state_repo.get_master_progress()
+            progress = self._state_repo.get_master_progress()
             completed = progress['completed']
             failed = progress['failed']
             pending = progress['pending']
@@ -153,7 +153,7 @@ class MasterProgressCard:
     def update(self) -> None:
         """Update the progress card with latest data."""
         # Get latest progress
-        progress = self.state_repo.get_master_progress()
+        progress = self._state_repo.get_master_progress()
         completed = progress['completed']
         failed = progress['failed']
         pending = progress['pending']

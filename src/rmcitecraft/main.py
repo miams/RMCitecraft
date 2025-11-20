@@ -312,10 +312,21 @@ def setup_app() -> None:
 
         def show_dashboard() -> None:
             """Show batch operations dashboard view."""
-            view_container.clear()
-            with view_container:
-                dashboard = DashboardTab(config)
-                dashboard.render()
+            try:
+                logger.info("show_dashboard() called - clearing view container")
+                view_container.clear()
+                logger.info("Creating DashboardTab instance")
+                with view_container:
+                    dashboard = DashboardTab(config)
+                    logger.info("Rendering dashboard")
+                    dashboard.render()
+                logger.info("Dashboard rendered successfully")
+            except Exception as e:
+                logger.error(f"Error rendering dashboard: {e}", exc_info=True)
+                # Show error to user
+                view_container.clear()
+                with view_container:
+                    ui.label(f"Error loading dashboard: {e}").classes("text-red-500 text-xl p-8")
 
         # Show home by default
         show_home()

@@ -25,9 +25,9 @@ class ItemsTable:
             on_row_click: Callback when user clicks a row (receives item data)
             page_size: Number of items per page (default: 50)
         """
-        self.state_repo = state_repo
+        self._state_repo = state_repo  # Private
         self.session_id = session_id
-        self.on_row_click = on_row_click
+        self._on_row_click = on_row_click  # Private to avoid JSON serialization
         self.page_size = page_size
 
         # Filter state
@@ -158,13 +158,13 @@ class ItemsTable:
         """
         # Get items from repository
         if self.session_id:
-            items = self.state_repo.get_session_items(self.session_id)
+            items = self._state_repo.get_session_items(self.session_id)
         else:
             # Get all items across all sessions
             items = []
-            sessions = self.state_repo.get_all_sessions()
+            sessions = self._state_repo.get_all_sessions()
             for session in sessions:
-                items.extend(self.state_repo.get_session_items(session['session_id']))
+                items.extend(self._state_repo.get_session_items(session['session_id']))
 
         # Apply search filter
         if self.search_query:
@@ -281,10 +281,10 @@ class ItemsTable:
         Args:
             event: Click event with row data
         """
-        if self.on_row_click:
+        if self._on_row_click:
             item_data = event.args.get('_item_data')
             if item_data:
-                self.on_row_click(item_data)
+                self._on_row_click(item_data)
 
     def _on_open_url(self, event) -> None:
         """Handle open URL click.

@@ -23,9 +23,9 @@ class StatusDistributionChart:
             session_id: Optional session identifier (None = all sessions)
             on_status_click: Callback when user clicks a status slice (receives status name)
         """
-        self.state_repo = state_repo
+        self._state_repo = state_repo  # Private
         self.session_id = session_id
-        self.on_status_click = on_status_click
+        self._on_status_click = on_status_click  # Private to avoid JSON serialization
         self.chart = None
         self.container = None
 
@@ -42,7 +42,7 @@ class StatusDistributionChart:
                 ).props('flat dense round').tooltip('Refresh chart')
 
             # Get status distribution
-            status_data = self.state_repo.get_status_distribution(self.session_id)
+            status_data = self._state_repo.get_status_distribution(self.session_id)
 
             # Map status values to display names
             status_mapping = {
