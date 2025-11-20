@@ -113,7 +113,7 @@ class ErrorAnalysisCard:
         echart_options = {
             'tooltip': {
                 'trigger': 'item',
-                'formatter': lambda params: f"{params['name']}<br/>Count: {params['value']}<br/>Percentage: {params['data']['percentage']:.1f}%"
+                'formatter': '{b}<br/>Count: {c}<br/>Percentage: {d}%'
             },
             'series': [
                 {

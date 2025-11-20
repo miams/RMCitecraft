@@ -165,11 +165,14 @@ class PerformanceHeatmapCard:
         echart_options = {
             'tooltip': {
                 'position': 'top',
-                'formatter': lambda params: (
-                    f"{operations[params['value'][1]]}<br/>"
-                    f"{metric_types[params['value'][0]]}: "
-                    f"{params['value'][2]:.1f}{'ms' if params['value'][0] < 3 else '%'}"
-                )
+                'formatter': '''function(params) {
+                    var operations = ''' + str(operations).replace("'", '"') + ''';
+                    var metricTypes = ["Avg Duration", "Min Duration", "Max Duration", "Success Rate"];
+                    var unit = params.value[0] < 3 ? 'ms' : '%';
+                    return operations[params.value[1]] + '<br/>' +
+                           metricTypes[params.value[0]] + ': ' +
+                           params.value[2].toFixed(1) + unit;
+                }'''
             },
             'grid': {
                 'height': '70%',
@@ -208,7 +211,7 @@ class PerformanceHeatmapCard:
                     'data': heatmap_data,
                     'label': {
                         'show': True,
-                        'formatter': lambda params: f"{params['value'][2]:.0f}"
+                        'formatter': 'function(params) { return params.value[2].toFixed(0); }'
                     },
                     'emphasis': {
                         'itemStyle': {
