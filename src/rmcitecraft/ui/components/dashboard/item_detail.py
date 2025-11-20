@@ -102,10 +102,11 @@ class ItemDetailPanel:
                 if item.get('memorial_url'):
                     with ui.row().classes('items-center gap-2'):
                         ui.label('Memorial URL:').classes('font-bold text-sm')
+                        memorial_url = item['memorial_url']
                         ui.button(
                             'Open Find a Grave',
                             icon='open_in_new',
-                            on_click=lambda: ui.open(item['memorial_url'], new_tab=True)
+                            on_click=lambda url=memorial_url: ui.run_javascript(f'window.open("{url}", "_blank")')
                         ).props('dense outline size=sm color=blue')
 
     def _render_person_info(self) -> None:
@@ -136,8 +137,6 @@ class ItemDetailPanel:
 
                         # Birth
                         birth_info = []
-                        if person.get('BirthYear'):
-                            birth_info.append(str(person['BirthYear']))
                         if person.get('birth_date'):
                             birth_info.append(person['birth_date'])
                         if person.get('birth_place'):
@@ -147,8 +146,6 @@ class ItemDetailPanel:
 
                         # Death
                         death_info = []
-                        if person.get('DeathYear'):
-                            death_info.append(str(person['DeathYear']))
                         if person.get('death_date'):
                             death_info.append(person['death_date'])
                         if person.get('death_place'):

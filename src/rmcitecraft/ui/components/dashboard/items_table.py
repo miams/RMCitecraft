@@ -298,7 +298,7 @@ class ItemsTable:
         """
         memorial_url = event.args.get('memorial_url')
         if memorial_url:
-            ui.open(memorial_url, new_tab=True)
+            ui.run_javascript(f'window.open("{memorial_url}", "_blank")')
 
     def _rebuild_table(self) -> None:
         """Rebuild the table with current filters."""

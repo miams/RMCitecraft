@@ -9,6 +9,31 @@ from pathlib import Path
 from typing import Any
 
 
+def _get_db_connection(db_path: str) -> sqlite3.Connection:
+    """Create database connection with ICU extension loaded.
+
+    Args:
+        db_path: Path to RootsMagic database
+
+    Returns:
+        Connection with ICU extension and RMNOCASE collation
+    """
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+
+    # Load ICU extension for RMNOCASE collation
+    conn.enable_load_extension(True)
+    try:
+        conn.load_extension('./sqlite-extension/icu.dylib')
+        conn.execute(
+            "SELECT icu_load_collation('en_US@colStrength=primary;caseLevel=off;normalization=on','RMNOCASE')"
+        )
+    finally:
+        conn.enable_load_extension(False)
+
+    return conn
+
+
 def get_person_details(db_path: str, person_id: int) -> dict[str, Any] | None:
     """Get person details from RootsMagic database.
 
@@ -19,8 +44,7 @@ def get_person_details(db_path: str, person_id: int) -> dict[str, Any] | None:
     Returns:
         Dict with person details or None if not found
     """
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+    conn = _get_db_connection(db_path)
     cursor = conn.cursor()
 
     try:
@@ -29,8 +53,6 @@ def get_person_details(db_path: str, person_id: int) -> dict[str, Any] | None:
             SELECT
                 p.PersonID,
                 p.Sex,
-                p.BirthYear,
-                p.DeathYear,
                 n.Surname,
                 n.Given,
                 n.Prefix,
@@ -96,8 +118,7 @@ def get_person_families(db_path: str, person_id: int) -> dict[str, list[dict]]:
     Returns:
         Dict with 'spouse_families' and 'parent_families' lists
     """
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+    conn = _get_db_connection(db_path)
     cursor = conn.cursor()
 
     families = {'spouse_families': [], 'parent_families': []}
@@ -156,8 +177,7 @@ def get_person_citations(db_path: str, person_id: int) -> list[dict[str, Any]]:
     Returns:
         List of citation dicts
     """
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+    conn = _get_db_connection(db_path)
     cursor = conn.cursor()
 
     try:
@@ -173,7 +193,7 @@ def get_person_citations(db_path: str, person_id: int) -> list[dict[str, Any]]:
             JOIN CitationTable c ON cl.CitationID = c.CitationID
             JOIN SourceTable s ON c.SourceID = s.SourceID
             WHERE cl.OwnerType = 0 AND cl.OwnerID = ?
-            ORDER BY s.Name
+            ORDER BY s.Name COLLATE RMNOCASE
         """, (person_id,))
 
         return [dict(row) for row in cursor.fetchall()]
@@ -192,8 +212,7 @@ def get_source_details(db_path: str, source_id: int) -> dict[str, Any] | None:
     Returns:
         Dict with source details or None if not found
     """
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+    conn = _get_db_connection(db_path)
     cursor = conn.cursor()
 
     try:
