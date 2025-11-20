@@ -4,7 +4,12 @@ from nicegui import ui
 
 from rmcitecraft.config import Config
 from rmcitecraft.database.batch_state_repository import BatchStateRepository
-from rmcitecraft.ui.components.dashboard import MasterProgressCard, SessionSelectorCard
+from rmcitecraft.ui.components.dashboard import (
+    MasterProgressCard,
+    ProcessingTimelineChart,
+    SessionSelectorCard,
+    StatusDistributionChart,
+)
 
 
 class DashboardTab:
@@ -29,6 +34,8 @@ class DashboardTab:
         # Components
         self.master_progress = None
         self.session_selector = None
+        self.status_distribution = None
+        self.processing_timeline = None
         self.current_session_id: str | None = None
 
     def render(self) -> None:
@@ -51,8 +58,27 @@ class DashboardTab:
             )
             self.session_selector.render()
 
-            # Placeholder for Phase 2+ components
-            self._render_coming_soon()
+            # Phase 2: Status & Timeline Charts
+            with ui.row().classes('w-full gap-4'):
+                # Status Distribution (left half)
+                with ui.column().classes('flex-1'):
+                    self.status_distribution = StatusDistributionChart(
+                        state_repo=self.state_repo,
+                        session_id=self.current_session_id
+                    )
+                    self.status_distribution.render()
+
+                # Processing Timeline (right half)
+                with ui.column().classes('flex-1'):
+                    self.processing_timeline = ProcessingTimelineChart(
+                        state_repo=self.state_repo,
+                        session_id=self.current_session_id,
+                        limit=100
+                    )
+                    self.processing_timeline.render()
+
+            # Placeholder for Phase 3+ components
+            self._render_coming_soon_phase3()
 
         # Start auto-refresh timer
         self._setup_auto_refresh()
@@ -92,20 +118,20 @@ class DashboardTab:
                         on_click=self._refresh_all_components
                     ).props('dense outline')
 
-    def _render_coming_soon(self) -> None:
-        """Render placeholder for Phase 2+ components."""
+    def _render_coming_soon_phase3(self) -> None:
+        """Render placeholder for Phase 3+ components."""
         with ui.card().classes('w-full bg-grey-1'):
             with ui.column().classes('items-center p-8 gap-4'):
                 ui.icon('construction').classes('text-6xl text-grey-5')
                 ui.label('Additional Dashboard Components Coming Soon').classes('text-h6 text-grey-7')
                 ui.label(
-                    'Phase 2 will add: Status Distribution Chart, Processing Timeline, Items Table'
+                    'Phase 3 will add: Items Table (searchable/filterable), Item Detail Panel'
                 ).classes('text-sm text-grey-6')
                 ui.label(
-                    'Phase 3 will add: Error Analysis, Performance Heatmap, Item Detail Panel'
+                    'Phase 4 will add: Error Analysis, Performance Heatmap'
                 ).classes('text-sm text-grey-6')
                 ui.label(
-                    'Phase 4+ will add: Outlier Detection, Cumulative Analytics, Export Tools'
+                    'Phase 5+ will add: Outlier Detection, Cumulative Analytics, Export Tools'
                 ).classes('text-sm text-grey-6')
 
     def _setup_auto_refresh(self) -> None:
@@ -168,7 +194,12 @@ class DashboardTab:
         if self.session_selector:
             self.session_selector._refresh_sessions()
 
-        # Future: Refresh other components when added in Phase 2+
+        # Refresh Phase 2 charts
+        if self.status_distribution:
+            self.status_distribution.update()
+
+        if self.processing_timeline:
+            self.processing_timeline.update()
 
     def _on_session_change(self, session_id: str | None) -> None:
         """Handle session filter change.
@@ -178,5 +209,9 @@ class DashboardTab:
         """
         self.current_session_id = session_id
 
-        # Future: Update all filtered components (charts, tables, etc.)
-        # For Phase 1, just update the stored session ID
+        # Update Phase 2 charts with new session filter
+        if self.status_distribution:
+            self.status_distribution.set_session_filter(session_id)
+
+        if self.processing_timeline:
+            self.processing_timeline.set_session_filter(session_id)
