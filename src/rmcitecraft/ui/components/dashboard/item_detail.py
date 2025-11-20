@@ -5,6 +5,7 @@ from datetime import datetime
 from nicegui import ui
 
 from rmcitecraft.database import batch_dashboard_queries
+from rmcitecraft.utils.rm_date import format_rm_date_display
 
 
 class ItemDetailPanel:
@@ -138,7 +139,9 @@ class ItemDetailPanel:
                         # Birth
                         birth_info = []
                         if person.get('birth_date'):
-                            birth_info.append(person['birth_date'])
+                            # Format RootsMagic date for display
+                            formatted_date = format_rm_date_display(person['birth_date'])
+                            birth_info.append(formatted_date)
                         if person.get('birth_place'):
                             birth_info.append(person['birth_place'])
                         if birth_info:
@@ -147,7 +150,9 @@ class ItemDetailPanel:
                         # Death
                         death_info = []
                         if person.get('death_date'):
-                            death_info.append(person['death_date'])
+                            # Format RootsMagic date for display
+                            formatted_date = format_rm_date_display(person['death_date'])
+                            death_info.append(formatted_date)
                         if person.get('death_place'):
                             death_info.append(person['death_place'])
                         if death_info:
@@ -194,7 +199,7 @@ class ItemDetailPanel:
                 ui.label(f'Error loading family data: {e}').classes('text-red text-sm p-2')
 
     def _render_citations_info(self) -> None:
-        """Render RootsMagic citations information."""
+        """Render RootsMagic citations information with formatted fields."""
         item = self.current_item
         if not item:
             return
@@ -213,11 +218,28 @@ class ItemDetailPanel:
                         ui.label(f'Found {len(citations)} citation(s)').classes('text-sm font-bold')
 
                         for citation in citations:
-                            with ui.card().classes('w-full bg-grey-1 p-2'):
+                            with ui.card().classes('w-full bg-grey-1 p-3'):
+                                # Citation header
                                 ui.label(citation['source_name']).classes('text-sm font-bold')
                                 if citation.get('CitationName'):
-                                    ui.label(citation['CitationName']).classes('text-xs text-grey-7')
-                                ui.label(f"Citation ID: {citation['CitationID']} | Source ID: {citation['SourceID']}").classes('text-xs text-grey-6')
+                                    ui.label(citation['CitationName']).classes('text-xs text-grey-7 mb-2')
+                                ui.label(f"Citation ID: {citation['CitationID']} | Source ID: {citation['SourceID']}").classes('text-xs text-grey-6 mb-3')
+
+                                # Formatted citation fields
+                                if citation.get('Footnote'):
+                                    with ui.column().classes('gap-1 mt-2'):
+                                        ui.label('Footnote:').classes('text-xs font-bold text-blue')
+                                        ui.html(citation['Footnote']).classes('text-xs bg-white p-2 rounded')
+
+                                if citation.get('ShortFootnote'):
+                                    with ui.column().classes('gap-1 mt-2'):
+                                        ui.label('Short Footnote:').classes('text-xs font-bold text-green')
+                                        ui.html(citation['ShortFootnote']).classes('text-xs bg-white p-2 rounded')
+
+                                if citation.get('Bibliography'):
+                                    with ui.column().classes('gap-1 mt-2'):
+                                        ui.label('Bibliography:').classes('text-xs font-bold text-purple')
+                                        ui.html(citation['Bibliography']).classes('text-xs bg-white p-2 rounded')
                     else:
                         ui.label('No citations found').classes('text-sm text-grey-6')
 

@@ -168,15 +168,17 @@ def get_person_families(db_path: str, person_id: int) -> dict[str, list[dict]]:
 
 
 def get_person_citations(db_path: str, person_id: int) -> list[dict[str, Any]]:
-    """Get all citations for person.
+    """Get all citations for person with formatted fields.
 
     Args:
         db_path: Path to RootsMagic database
         person_id: RootsMagic PersonID
 
     Returns:
-        List of citation dicts
+        List of citation dicts including Footnote, ShortFootnote, Bibliography
     """
+    import xml.etree.ElementTree as ET
+
     conn = _get_db_connection(db_path)
     cursor = conn.cursor()
 
@@ -188,6 +190,9 @@ def get_person_citations(db_path: str, person_id: int) -> list[dict[str, Any]]:
                 c.CitationName,
                 s.Name as source_name,
                 s.SourceID,
+                s.TemplateID,
+                s.Fields as source_fields,
+                c.Fields as citation_fields,
                 cl.OwnerType
             FROM CitationLinkTable cl
             JOIN CitationTable c ON cl.CitationID = c.CitationID
@@ -196,7 +201,42 @@ def get_person_citations(db_path: str, person_id: int) -> list[dict[str, Any]]:
             ORDER BY s.Name COLLATE RMNOCASE
         """, (person_id,))
 
-        return [dict(row) for row in cursor.fetchall()]
+        citations = []
+        for row in cursor.fetchall():
+            citation = dict(row)
+
+            # Parse formatted fields from SourceTable.Fields BLOB (for free-form sources)
+            if citation['TemplateID'] == 0 and citation.get('source_fields'):
+                try:
+                    root = ET.fromstring(citation['source_fields'])
+
+                    # Extract Footnote, ShortFootnote, Bibliography
+                    for field in root.findall('.//Field'):
+                        name = field.find('Name')
+                        value = field.find('Value')
+
+                        if name is not None and value is not None:
+                            field_name = name.text
+                            field_value = value.text or ''
+
+                            if field_name == 'Footnote':
+                                citation['Footnote'] = field_value
+                            elif field_name == 'ShortFootnote':
+                                citation['ShortFootnote'] = field_value
+                            elif field_name == 'Bibliography':
+                                citation['Bibliography'] = field_value
+
+                except Exception:
+                    # If parsing fails, skip formatted fields
+                    pass
+
+            # Remove BLOB fields from output (not JSON serializable)
+            citation.pop('source_fields', None)
+            citation.pop('citation_fields', None)
+
+            citations.append(citation)
+
+        return citations
 
     finally:
         conn.close()
