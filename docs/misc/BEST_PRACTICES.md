@@ -354,5 +354,5 @@ Every line in SKILL.md should earn its place by being:
 ---
 
 **See also**:
-- `.claude/skills/frontend-design/SKILL.md` - Well-crafted example
-- `.claude/skills/frontend-design/REFERENCE.md` - Reference document pattern
+- `docs/misc/SKILL.md` - Well-crafted example
+- `docs/misc/REFERENCE.md` - Reference document pattern
