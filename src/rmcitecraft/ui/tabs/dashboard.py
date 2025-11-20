@@ -5,9 +5,11 @@ from nicegui import ui
 from rmcitecraft.config import Config
 from rmcitecraft.database.batch_state_repository import BatchStateRepository
 from rmcitecraft.ui.components.dashboard import (
+    CitationsStatsCard,
     ItemDetailPanel,
     ItemsTable,
     MasterProgressCard,
+    PhotosStatsCard,
     ProcessingTimelineChart,
     SessionSelectorCard,
     StatusDistributionChart,
@@ -38,6 +40,8 @@ class DashboardTab:
         self._session_selector = None
         self._status_distribution = None
         self._processing_timeline = None
+        self._photos_stats = None
+        self._citations_stats = None
         self._items_table = None
         self._item_detail = None
         self.current_session_id: str | None = None
@@ -79,6 +83,23 @@ class DashboardTab:
                     on_point_click=self._on_timeline_point_click
                 )
                 self._processing_timeline.render()
+
+            # Phase 2.5: Photos & Citations Statistics (2-column layout)
+            with ui.grid(columns=2).classes('w-full gap-4'):
+                # Photos Statistics
+                self._photos_stats = PhotosStatsCard(
+                    self._state_repo,
+                    session_id=self.current_session_id
+                )
+                self._photos_stats.render()
+
+                # Citations Statistics
+                self._citations_stats = CitationsStatsCard(
+                    self._state_repo,
+                    self._config.rm_database_path,
+                    session_id=self.current_session_id
+                )
+                self._citations_stats.render()
 
             # Phase 3: Items Table + Detail Panel (2-column layout)
             with ui.grid(columns=2).classes('w-full gap-4'):
@@ -147,7 +168,7 @@ class DashboardTab:
                 ui.icon('construction').classes('text-6xl text-grey-5')
                 ui.label('Additional Dashboard Components Coming Soon').classes('text-h6 text-grey-7')
                 ui.label(
-                    'Phase 4 will add: Error Analysis (tree map), Performance Heatmap'
+                    'Phase 4 will add: Error Analysis (tree map), Performance Heatmap, Media Gallery'
                 ).classes('text-sm text-grey-6')
                 ui.label(
                     'Phase 5+ will add: Outlier Detection, Cumulative Analytics, Export Tools'
@@ -220,6 +241,13 @@ class DashboardTab:
         if self._processing_timeline:
             self._processing_timeline.update()
 
+        # Refresh Phase 2.5 statistics
+        if self._photos_stats:
+            self._photos_stats.update()
+
+        if self._citations_stats:
+            self._citations_stats.update()
+
         # Refresh Phase 3 components
         if self._items_table:
             self._items_table.update()
@@ -238,6 +266,13 @@ class DashboardTab:
 
         if self._processing_timeline:
             self._processing_timeline.set_session_filter(session_id)
+
+        # Update Phase 2.5 statistics with new session filter
+        if self._photos_stats:
+            self._photos_stats.set_session_filter(session_id)
+
+        if self._citations_stats:
+            self._citations_stats.set_session_filter(session_id)
 
         # Update Phase 3 components with new session filter
         if self._items_table:

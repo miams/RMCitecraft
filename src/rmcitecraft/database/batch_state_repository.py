@@ -829,3 +829,148 @@ class BatchStateRepository:
             """)
 
             return [dict(row) for row in cursor.fetchall()]
+
+    def get_photo_statistics(self, session_id: str | None = None) -> dict[str, Any]:
+        """Get photo statistics including breakdown by photo type.
+
+        Args:
+            session_id: Optional session identifier (None = all sessions)
+
+        Returns:
+            Dict with total_photos, photos_by_type, items_with_photos
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Get items with photos
+            if session_id:
+                cursor.execute("""
+                    SELECT downloaded_image_paths, extracted_data
+                    FROM batch_items
+                    WHERE session_id = ?
+                      AND downloaded_image_paths IS NOT NULL
+                      AND downloaded_image_paths != '[]'
+                """, (session_id,))
+            else:
+                cursor.execute("""
+                    SELECT downloaded_image_paths, extracted_data
+                    FROM batch_items
+                    WHERE downloaded_image_paths IS NOT NULL
+                      AND downloaded_image_paths != '[]'
+                """)
+
+            # Count photos by type
+            photo_types: dict[str, int] = {}
+            total_photos = 0
+            items_with_photos = 0
+
+            for row in cursor.fetchall():
+                items_with_photos += 1
+
+                # Count downloaded images
+                if row['downloaded_image_paths']:
+                    paths = json.loads(row['downloaded_image_paths'])
+                    total_photos += len(paths)
+
+                # Parse extracted data for photo types
+                if row['extracted_data']:
+                    try:
+                        data = json.loads(row['extracted_data'])
+                        photos = data.get('photos', [])
+                        for photo in photos:
+                            photo_type = photo.get('type', 'Unknown')
+                            photo_types[photo_type] = photo_types.get(photo_type, 0) + 1
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+
+            return {
+                'total_photos': total_photos,
+                'items_with_photos': items_with_photos,
+                'photos_by_type': photo_types,
+            }
+
+    def get_citation_statistics(
+        self,
+        rm_database_path: str,
+        session_id: str | None = None
+    ) -> dict[str, Any]:
+        """Get citation statistics including breakdown by application type.
+
+        Queries both batch state DB and RootsMagic DB to determine how
+        citations are applied (to persons, events, families, etc.).
+
+        Args:
+            rm_database_path: Path to RootsMagic database
+            session_id: Optional session identifier (None = all sessions)
+
+        Returns:
+            Dict with total_citations, citations_by_owner_type, items_with_citations
+        """
+        # Get citation IDs from batch state
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            if session_id:
+                cursor.execute("""
+                    SELECT created_citation_id, created_source_id
+                    FROM batch_items
+                    WHERE session_id = ?
+                      AND created_citation_id IS NOT NULL
+                """, (session_id,))
+            else:
+                cursor.execute("""
+                    SELECT created_citation_id, created_source_id
+                    FROM batch_items
+                    WHERE created_citation_id IS NOT NULL
+                """)
+
+            citation_ids = [row['created_citation_id'] for row in cursor.fetchall()]
+            items_with_citations = len(citation_ids)
+
+        if not citation_ids:
+            return {
+                'total_citations': 0,
+                'items_with_citations': 0,
+                'citations_by_owner_type': {},
+            }
+
+        # Query RootsMagic database for citation links
+        rm_conn = sqlite3.connect(rm_database_path)
+        rm_conn.row_factory = sqlite3.Row
+        rm_cursor = rm_conn.cursor()
+
+        try:
+            # Get citation links
+            placeholders = ','.join('?' * len(citation_ids))
+            rm_cursor.execute(f"""
+                SELECT OwnerType, COUNT(*) as count
+                FROM CitationLinkTable
+                WHERE CitationID IN ({placeholders})
+                GROUP BY OwnerType
+            """, citation_ids)
+
+            # Map OwnerType to readable names
+            owner_type_names = {
+                0: 'Person',
+                1: 'Family',
+                2: 'Event',
+                3: 'Source',
+                4: 'Citation',
+                5: 'Place',
+                6: 'Name',
+                7: 'MediaLink',
+            }
+
+            citations_by_owner_type = {}
+            for row in rm_cursor.fetchall():
+                owner_type_name = owner_type_names.get(row['OwnerType'], f'Type {row["OwnerType"]}')
+                citations_by_owner_type[owner_type_name] = row['count']
+
+        finally:
+            rm_conn.close()
+
+        return {
+            'total_citations': items_with_citations,
+            'items_with_citations': items_with_citations,
+            'citations_by_owner_type': citations_by_owner_type,
+        }

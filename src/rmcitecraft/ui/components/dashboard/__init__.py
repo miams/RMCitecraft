@@ -6,6 +6,8 @@ from rmcitecraft.ui.components.dashboard.status_distribution import StatusDistri
 from rmcitecraft.ui.components.dashboard.processing_timeline import ProcessingTimelineChart
 from rmcitecraft.ui.components.dashboard.items_table import ItemsTable
 from rmcitecraft.ui.components.dashboard.item_detail import ItemDetailPanel
+from rmcitecraft.ui.components.dashboard.photos_stats import PhotosStatsCard
+from rmcitecraft.ui.components.dashboard.citations_stats import CitationsStatsCard
 
 __all__ = [
     'MasterProgressCard',
@@ -14,4 +16,6 @@ __all__ = [
     'ProcessingTimelineChart',
     'ItemsTable',
     'ItemDetailPanel',
+    'PhotosStatsCard',
+    'CitationsStatsCard',
 ]
