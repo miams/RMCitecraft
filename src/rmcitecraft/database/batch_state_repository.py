@@ -656,3 +656,176 @@ class BatchStateRepository:
                 }
 
             return metrics
+
+    # =========================================================================
+    # Dashboard Query Operations
+    # =========================================================================
+
+    def get_master_progress(self) -> dict[str, int]:
+        """Get overall progress across all sessions.
+
+        Returns:
+            Dict with total_items, completed, failed, pending, skipped counts
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total_items,
+                    SUM(CASE WHEN status IN ('completed', 'complete', 'created_citation') THEN 1 ELSE 0 END) as completed,
+                    SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+                    SUM(CASE WHEN status IN ('pending', 'queued') THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) as skipped
+                FROM batch_items
+            """)
+
+            row = cursor.fetchone()
+            return {
+                'total_items': row['total_items'] or 0,
+                'completed': row['completed'] or 0,
+                'failed': row['failed'] or 0,
+                'pending': row['pending'] or 0,
+                'skipped': row['skipped'] or 0,
+            }
+
+    def get_status_distribution(self, session_id: str | None = None) -> dict[str, int]:
+        """Get status distribution for specific session or all sessions.
+
+        Args:
+            session_id: Optional session identifier (None = all sessions)
+
+        Returns:
+            Dict mapping status to count
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            if session_id:
+                cursor.execute("""
+                    SELECT status, COUNT(*) as count
+                    FROM batch_items
+                    WHERE session_id = ?
+                    GROUP BY status
+                """, (session_id,))
+            else:
+                cursor.execute("""
+                    SELECT status, COUNT(*) as count
+                    FROM batch_items
+                    GROUP BY status
+                """)
+
+            return {row['status']: row['count'] for row in cursor.fetchall()}
+
+    def get_processing_timeline(
+        self,
+        session_id: str | None = None,
+        limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """Get processing timeline data for visualization.
+
+        Args:
+            session_id: Optional session identifier (None = all sessions)
+            limit: Maximum number of items to return
+
+        Returns:
+            List of items with timestamp, duration, name, person_id
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            if session_id:
+                cursor.execute("""
+                    SELECT
+                        updated_at as timestamp,
+                        person_id,
+                        person_name as full_name,
+                        status,
+                        error_message
+                    FROM batch_items
+                    WHERE session_id = ?
+                      AND updated_at IS NOT NULL
+                    ORDER BY updated_at DESC
+                    LIMIT ?
+                """, (session_id, limit))
+            else:
+                cursor.execute("""
+                    SELECT
+                        updated_at as timestamp,
+                        person_id,
+                        person_name as full_name,
+                        status,
+                        error_message
+                    FROM batch_items
+                    WHERE updated_at IS NOT NULL
+                    ORDER BY updated_at DESC
+                    LIMIT ?
+                """, (limit,))
+
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_error_distribution(self, session_id: str | None = None) -> dict[str, int]:
+        """Get error distribution by error type.
+
+        Args:
+            session_id: Optional session identifier (None = all sessions)
+
+        Returns:
+            Dict mapping error type to count
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            if session_id:
+                cursor.execute("""
+                    SELECT
+                        COALESCE(
+                            CASE
+                                WHEN error_message LIKE '%Network%' OR error_message LIKE '%timeout%' THEN 'Network Error'
+                                WHEN error_message LIKE '%Extract%' OR error_message LIKE '%parsing%' THEN 'Extraction Error'
+                                WHEN error_message LIKE '%Validat%' THEN 'Validation Error'
+                                ELSE 'Unknown Error'
+                            END,
+                            'Unknown Error'
+                        ) as error_type,
+                        COUNT(*) as count
+                    FROM batch_items
+                    WHERE session_id = ?
+                      AND status = 'failed'
+                      AND error_message IS NOT NULL
+                    GROUP BY error_type
+                """, (session_id,))
+            else:
+                cursor.execute("""
+                    SELECT
+                        COALESCE(
+                            CASE
+                                WHEN error_message LIKE '%Network%' OR error_message LIKE '%timeout%' THEN 'Network Error'
+                                WHEN error_message LIKE '%Extract%' OR error_message LIKE '%parsing%' THEN 'Extraction Error'
+                                WHEN error_message LIKE '%Validat%' THEN 'Validation Error'
+                                ELSE 'Unknown Error'
+                            END,
+                            'Unknown Error'
+                        ) as error_type,
+                        COUNT(*) as count
+                    FROM batch_items
+                    WHERE status = 'failed'
+                      AND error_message IS NOT NULL
+                    GROUP BY error_type
+                """)
+
+            return {row['error_type']: row['count'] for row in cursor.fetchall()}
+
+    def get_all_sessions(self) -> list[dict[str, Any]]:
+        """Get all batch sessions ordered by creation date.
+
+        Returns:
+            List of session data dicts
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM batch_sessions
+                ORDER BY created_at DESC
+            """)
+
+            return [dict(row) for row in cursor.fetchall()]
