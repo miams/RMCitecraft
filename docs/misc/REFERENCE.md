@@ -622,12 +622,535 @@ self._on_click = callback
 
 ---
 
+## User Journey Documentation
+
+### Analyzing Existing Applications
+
+Before redesigning an interface, systematically analyze existing user journey documentation.
+
+#### Reading User Journey Maps
+
+**Document Structure to Look For**:
+```markdown
+docs/USER_JOURNEY_MAP.md
+├── Application Overview
+│   ├── Core Workflows
+│   ├── Navigation Structure
+│   └── User Personas
+├── Journey 1: [Workflow Name]
+│   ├── Overview
+│   ├── User Persona
+│   ├── User Goals
+│   ├── Workflow Steps (1-10+)
+│   └── Key UI Components
+├── Journey 2: [Another Workflow]
+...
+└── Less-Used Interfaces
+    ├── Dialog flows
+    ├── Settings
+    └── Edge case handling
+```
+
+**Extraction Checklist**:
+- [ ] Identify all user personas (who uses this?)
+- [ ] Map critical workflows (what do they do most often?)
+- [ ] Note pain points (where do they struggle?)
+- [ ] List all UI components (what exists now?)
+- [ ] Find edge cases (what's rarely used but important?)
+- [ ] Understand technical constraints (framework, performance limits)
+
+#### Example: Analyzing RMCitecraft User Journey
+
+**From `docs/USER_JOURNEY_MAP.md`**:
+
+**User Personas Identified**:
+1. Genealogist processing 20-500 census citations
+2. Genealogist processing Find a Grave memorials
+3. Genealogist reviewing citations before database write
+
+**Critical Workflows**:
+1. Census Batch Processing (3-panel layout: Queue | Data Entry | Image Viewer)
+2. Find a Grave Batch Processing (2-panel: Queue | Detail with extraction)
+3. Citation Management (2-panel: Pending Queue | Citation Detail)
+4. Dashboard Monitoring (4 phases: Overview | Charts | Detail | Analytics)
+
+**Pain Points Discovered**:
+- Census data entry requires window switching (alt-tab between app and FamilySearch)
+- Missing data fields require manual lookup (no integrated image viewer)
+- Validation errors appear after submission (no live preview)
+- Place validation dialog appears mid-batch (interrupts flow)
+
+**Less-Used But Critical**:
+- Place Validation Dialog (gazetteer validation, duplicate detection)
+- Resume Session Dialog (crash recovery)
+- Settings Dialog (configuration)
+
+### Creating Comparative Documentation
+
+#### Template: Before/After Journey Improvement
+
+```markdown
+# Journey Improvement: [Workflow Name]
+
+## Problem Analysis
+
+### Current State (Before)
+
+**Pain Points**:
+- [Specific problem 1]: Description and impact
+- [Specific problem 2]: Description and impact
+- [Specific problem 3]: Description and impact
+
+**Current Workflow**:
+1. User action → System response → Time spent
+2. User action → System response → Time spent
+3. ...
+
+**Metrics** (if available):
+- Average time per task: X minutes
+- Error rate: Y%
+- User satisfaction: Z/10
+
+**Screenshot**:
+![Current State](screenshots/before_[workflow].png)
+
+### Proposed Design (After)
+
+**Solutions**:
+- ✅ [Solution 1]: How it solves pain point 1
+- ✅ [Solution 2]: How it solves pain point 2
+- ✅ [Solution 3]: How it solves pain point 3
+
+**New Workflow**:
+1. User action → System response → Time spent
+2. User action → System response → Time spent
+3. ...
+
+**Expected Metrics**:
+- Average time per task: X minutes (Y% reduction)
+- Error rate: Z% (W% reduction)
+- User satisfaction: Q/10 (improvement)
+
+**Screenshot**:
+![Proposed Design](screenshots/after_[workflow].png)
+
+## Design Improvements
+
+### Improvement 1: [Feature Name]
+
+**What Changed**:
+- Before: [Description]
+- After: [Description]
+
+**Why It's Better**:
+- [Benefit 1]
+- [Benefit 2]
+
+**Implementation Notes**:
+- Technical approach
+- Complexity estimate
+- Dependencies
+
+### Improvement 2: [Feature Name]
+...
+
+## Benefits Summary
+
+| Metric | Before | After | Improvement |
+|--------|--------|-------|-------------|
+| Time per task | 2 min | 45 sec | 62% faster |
+| Window switches | 5-10 | 0 | Eliminated |
+| Validation errors | 15% | 3% | 80% reduction |
+| User satisfaction | 6/10 | 9/10 | +50% |
+
+## Implementation Plan
+
+1. **Phase 1**: Core layout changes (1-2 days)
+2. **Phase 2**: Integrated components (2-3 days)
+3. **Phase 3**: Testing and refinement (1 day)
+
+**Total Effort**: 4-6 days
+```
+
+#### Real Example: Census Batch Processing Redesign
+
+```markdown
+# Journey Improvement: Census Batch Processing
+
+## Problem Analysis
+
+### Current State (Before)
+
+**Pain Points**:
+- **Window Switching**: Users alt-tab between RMCitecraft and FamilySearch browser to view census image while entering data (5-10 switches per citation)
+- **No Live Preview**: Can't see generated citation until after submitting form (causes re-work if data is wrong)
+- **Separate Image Viewer**: Image opens in external browser, requires manual navigation to FamilySearch each time
+
+**Current Workflow**:
+1. Click citation in queue → 5 sec
+2. Open FamilySearch link in browser → 10 sec
+3. Alt-tab to browser → 2 sec
+4. Find person on census page → 15-30 sec
+5. Alt-tab back to app → 2 sec
+6. Enter ED field → 5 sec
+7. Alt-tab to browser to check → 2 sec
+8. Alt-tab back → 2 sec
+9. Enter sheet field → 5 sec
+10. Repeat for 3-5 more fields → 30-60 sec
+11. Submit form → 2 sec
+12. **Total: ~2 minutes per citation**
+
+**Metrics**:
+- Average time: 2 minutes per citation
+- Window switches: 8-10 per citation
+- Validation errors: 15% (typos from squinting at distant window)
+
+![Current State](screenshots/before_census_batch.png)
+
+### Proposed Design (After)
+
+**Solutions**:
+- ✅ **Integrated Image Viewer**: Embed FamilySearch image in right panel (eliminate alt-tabbing)
+- ✅ **Live Citation Preview**: Show formatted citation as user types (immediate feedback)
+- ✅ **Smart Field Focus**: Auto-advance to next field after valid input (keyboard efficiency)
+- ✅ **Zoom Controls**: In-app zoom for image (no need to squint)
+
+**New Workflow**:
+1. Click citation in queue → 5 sec
+2. View census image in integrated panel → 0 sec (already visible)
+3. Enter ED field (with image visible) → 5 sec
+4. Auto-advance to sheet field → 0 sec
+5. Enter sheet → 5 sec
+6. Enter line → 5 sec
+7. Enter family → 5 sec
+8. See live preview of citation → 0 sec (continuous)
+9. Submit form → 2 sec
+10. **Total: ~45 seconds per citation**
+
+**Expected Metrics**:
+- Average time: 45 seconds (62% reduction)
+- Window switches: 0 (eliminated)
+- Validation errors: 3% (clear visibility, live preview)
+
+![Proposed Design](screenshots/after_census_batch.png)
+
+## Design Improvements
+
+### Improvement 1: Integrated Image Viewer
+
+**What Changed**:
+- Before: FamilySearch link opens external browser
+- After: Census image embedded in right panel with zoom controls
+
+**Why It's Better**:
+- No context switching (eyes stay on single screen)
+- Reduced cognitive load (no need to remember data while switching)
+- Faster (no browser navigation delay)
+- Better ergonomics (adjustable zoom, pan controls)
+
+**Implementation**:
+```python
+# Image viewer component with FamilySearch integration
+class IntegratedImageViewer:
+    def __init__(self, familysearch_url):
+        self.url = familysearch_url
+        self.zoom_level = 1.0
+
+    def render(self):
+        with ui.card().classes('h-full'):
+            # Image with zoom controls
+            with ui.column().classes('w-full h-full'):
+                # Zoom controls
+                with ui.row().classes('gap-1'):
+                    ui.button('−', on_click=self.zoom_out).props('dense')
+                    ui.label(f'{int(self.zoom_level * 100)}%')
+                    ui.button('+', on_click=self.zoom_in).props('dense')
+                    ui.button('Reset', on_click=self.reset_zoom)
+
+                # Image viewer
+                ui.interactive_image(
+                    self.url,
+                    on_mouse=self.handle_pan
+                ).classes('w-full').style(f'transform: scale({self.zoom_level})')
+```
+
+### Improvement 2: Live Citation Preview
+
+**What Changed**:
+- Before: Citation appears only after clicking "Update"
+- After: Citation updates in real-time as user types
+
+**Why It's Better**:
+- Immediate validation feedback
+- See formatting before committing
+- Catch typos instantly
+- Confidence in data accuracy
+
+**Implementation**:
+```python
+def _on_field_change(self, field: str, value: str):
+    """Update form data and regenerate citation preview."""
+    self.form_data[field] = value
+
+    # Merge with extracted data
+    merged = {**self.citation.extracted_data, **self.form_data}
+
+    # Generate preview
+    preview = self.formatter.format_citation(merged)
+
+    # Update preview display (reactive)
+    self.preview_footnote.text = preview['footnote']
+    self.preview_short.text = preview['short_footnote']
+```
+
+### Improvement 3: Smart Field Navigation
+
+**What Changed**:
+- Before: Manual tab/click to next field
+- After: Auto-advance after valid input
+
+**Why It's Better**:
+- Faster keyboard workflow
+- Eyes stay on image (no need to look at keyboard)
+- Natural flow (like a wizard)
+
+## Benefits Summary
+
+| Metric | Before | After | Improvement |
+|--------|--------|-------|-------------|
+| Time per citation | 2 min | 45 sec | **62% faster** |
+| Window switches | 8-10 | 0 | **Eliminated** |
+| Validation errors | 15% | 3% | **80% reduction** |
+| Eye strain | High | Low | **Significant** |
+| Workflow interruptions | 10-15 | 0 | **Eliminated** |
+
+**Estimated ROI**:
+- For 100 citations: Save 1.9 hours (115 minutes)
+- For 500 citations: Save 9.6 hours (575 minutes)
+- Error correction time reduced by ~80%
+
+## Implementation Plan
+
+### Phase 1: Layout Restructuring (Day 1-2)
+- Modify 3-panel layout proportions (20% queue | 40% form | 40% image)
+- Add image viewer component
+- Integrate FamilySearch image loading
+
+### Phase 2: Interactive Features (Day 3-4)
+- Implement zoom/pan controls
+- Add live citation preview
+- Wire up reactive updates
+
+### Phase 3: Smart Navigation (Day 5)
+- Auto-advance logic
+- Keyboard shortcuts
+- Field validation
+
+### Phase 4: Testing & Polish (Day 6)
+- Playwright automated tests
+- User acceptance testing
+- Performance optimization
+
+**Total Effort**: 6 days
+```
+
+### Capturing Comparative Screenshots
+
+#### Automated Screenshot Workflow
+
+```python
+import asyncio
+from pathlib import Path
+from playwright.async_api import async_playwright
+
+async def capture_before_after_screenshots():
+    """Capture before and after screenshots for design comparison."""
+
+    screenshots_dir = Path('docs/screenshots/design_comparison')
+    screenshots_dir.mkdir(parents=True, exist_ok=True)
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+        page = await browser.new_page(viewport={'width': 1920, 'height': 1080})
+
+        # ==== BEFORE STATE ====
+        print("Capturing BEFORE state...")
+
+        # Navigate to current design
+        await page.goto('http://localhost:8080/census-batch')
+        await page.wait_for_selector('.citation-queue')
+
+        # Load sample data
+        await page.click('button:has-text("Load")')
+        await page.fill('input[label="Number of citations"]', '5')
+        await page.click('button:has-text("Load"):visible')
+        await page.wait_for_timeout(2000)
+
+        # Select a citation
+        await page.click('.citation-queue .citation-item:first-child')
+        await page.wait_for_timeout(1000)
+
+        # Capture full workflow
+        await page.screenshot(
+            path=screenshots_dir / 'before_census_batch_full.png',
+            full_page=True
+        )
+
+        # Capture specific pain point (separate window requirement)
+        await page.click('a:has-text("FamilySearch")')  # Opens external window
+        await page.wait_for_timeout(2000)
+
+        # Capture both windows (requires OS-level screenshot)
+        await page.screenshot(path=screenshots_dir / 'before_window_switching.png')
+
+        # ==== APPLY DESIGN CHANGES ====
+        print("Applying design improvements...")
+
+        # Option 1: Use feature flag to enable new design
+        await page.goto('http://localhost:8080/census-batch?redesign=true')
+
+        # Option 2: Inject CSS/JS for new layout
+        await page.add_style_tag(content="""
+            .census-batch-container {
+                display: grid;
+                grid-template-columns: 20% 40% 40%;
+                gap: 1rem;
+            }
+            .integrated-image-viewer {
+                display: block;
+                height: 100%;
+            }
+        """)
+
+        # Option 3: Deploy to staging environment
+        # await page.goto('http://localhost:8081/census-batch')  # Staging with new design
+
+        # ==== AFTER STATE ====
+        print("Capturing AFTER state...")
+
+        await page.wait_for_selector('.citation-queue')
+        await page.wait_for_timeout(2000)
+
+        # Capture new design with integrated image viewer
+        await page.screenshot(
+            path=screenshots_dir / 'after_census_batch_full.png',
+            full_page=True
+        )
+
+        # Capture live preview feature
+        await page.fill('input[name="enumeration_district"]', '96-413')
+        await page.wait_for_timeout(500)  # Let live preview update
+
+        await page.screenshot(path=screenshots_dir / 'after_live_preview.png')
+
+        # ==== SIDE-BY-SIDE COMPARISON ====
+        print("Creating comparison images...")
+
+        # Use PIL to create side-by-side comparison
+        from PIL import Image
+
+        before = Image.open(screenshots_dir / 'before_census_batch_full.png')
+        after = Image.open(screenshots_dir / 'after_census_batch_full.png')
+
+        # Resize to same height
+        height = min(before.height, after.height)
+        before_resized = before.resize((int(before.width * height / before.height), height))
+        after_resized = after.resize((int(after.width * height / after.height), height))
+
+        # Create side-by-side
+        comparison = Image.new('RGB', (before_resized.width + after_resized.width, height))
+        comparison.paste(before_resized, (0, 0))
+        comparison.paste(after_resized, (before_resized.width, 0))
+
+        comparison.save(screenshots_dir / 'comparison_side_by_side.png')
+
+        print(f"Screenshots saved to: {screenshots_dir}")
+
+        await browser.close()
+
+if __name__ == "__main__":
+    asyncio.run(capture_before_after_screenshots())
+```
+
+#### Annotating Screenshots
+
+Use image annotation tools to highlight improvements:
+
+```python
+from PIL import Image, ImageDraw, ImageFont
+
+def annotate_screenshot(image_path, annotations):
+    """Add arrows and callouts to screenshot."""
+
+    img = Image.open(image_path)
+    draw = ImageDraw.Draw(img)
+
+    # Load font
+    try:
+        font = ImageFont.truetype("Arial.ttf", 24)
+    except:
+        font = ImageFont.load_default()
+
+    for annotation in annotations:
+        # Draw arrow
+        x1, y1 = annotation['start']
+        x2, y2 = annotation['end']
+        draw.line([x1, y1, x2, y2], fill='red', width=3)
+
+        # Draw arrowhead
+        draw.polygon([
+            (x2, y2),
+            (x2 - 10, y2 - 5),
+            (x2 - 10, y2 + 5)
+        ], fill='red')
+
+        # Draw text callout
+        text = annotation['text']
+        bbox = draw.textbbox((x2 + 10, y2 - 20), text, font=font)
+        draw.rectangle(bbox, fill='yellow', outline='red')
+        draw.text((x2 + 10, y2 - 20), text, fill='black', font=font)
+
+    img.save(image_path.replace('.png', '_annotated.png'))
+
+# Example usage
+annotate_screenshot('docs/screenshots/after_census_batch_full.png', [
+    {
+        'start': (1200, 400),
+        'end': (1400, 500),
+        'text': '✅ Integrated image viewer\n(no window switching!)'
+    },
+    {
+        'start': (600, 800),
+        'end': (800, 900),
+        'text': '✅ Live citation preview\n(see results as you type)'
+    }
+])
+```
+
+### Documentation Checklist
+
+Before/After user journey documentation should include:
+
+- [ ] **Problem statement** - Specific pain points with current design
+- [ ] **Solution overview** - High-level approach to solving problems
+- [ ] **Workflow comparison** - Step-by-step before/after
+- [ ] **Time metrics** - Quantify improvements (seconds, minutes)
+- [ ] **Error reduction** - Show validation/accuracy improvements
+- [ ] **Screenshots** - Before, After, and Side-by-side comparison
+- [ ] **Annotated images** - Highlight key improvements with arrows/callouts
+- [ ] **Benefits summary table** - Quantified improvements
+- [ ] **Implementation plan** - Effort estimate and phasing
+- [ ] **ROI calculation** - Time saved over batch sizes
+
+---
+
 ## Additional Resources
 
 - **Playwright Docs**: https://playwright.dev/python/
 - **Chrome DevTools Protocol**: https://chromedevtools.github.io/devtools-protocol/
 - **Web Performance API**: https://developer.mozilla.org/en-US/docs/Web/API/Performance
 - **Accessibility Testing**: https://www.deque.com/axe/
+- **PIL (Image Manipulation)**: https://pillow.readthedocs.io/
 
 ---
 
