@@ -253,8 +253,6 @@ class ProcessingTimelineChart:
             with self.container:
                 self.render()
 
-        ui.notify('Processing timeline updated', type='positive', position='top')
-
     def set_session_filter(self, session_id: str | None) -> None:
         """Set the session filter and update chart.
 

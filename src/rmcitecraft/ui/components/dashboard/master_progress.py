@@ -170,5 +170,3 @@ class MasterProgressCard:
             self.container.clear()
             with self.container:
                 self.render()
-
-        ui.notify('Progress updated', type='positive', position='top')

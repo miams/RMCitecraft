@@ -159,8 +159,6 @@ class SessionSelectorCard:
             with self.container:
                 self.render()
 
-        ui.notify('Sessions list refreshed', type='positive')
-
     def get_selected_session_id(self) -> str | None:
         """Get currently selected session ID.
 

@@ -313,7 +313,6 @@ class ItemsTable:
             self.session_id = session_id
 
         self._rebuild_table()
-        ui.notify('Items table updated', type='positive', position='top')
 
     def set_session_filter(self, session_id: str | None) -> None:
         """Set the session filter and update table.
