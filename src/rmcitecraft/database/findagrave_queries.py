@@ -42,23 +42,29 @@ def find_findagrave_people(db_path: str, limit: int | None = None, offset: int =
 
     try:
         # Find all people with "Find a Grave" URLs
+        # IMPORTANT: Use GROUP BY OwnerID to handle edge cases:
+        # 1. People can have multiple names in NameTable -> filter IsPrimary=1
+        # 2. People can have multiple Find a Grave URLs -> pick first URL (MIN(LinkID))
+        # This ensures exactly one row per person to avoid UNIQUE constraint errors in batch_items
         cursor.execute("""
             SELECT
-                u.LinkID,
+                MIN(u.LinkID) as LinkID,
                 u.OwnerID as PersonID,
-                u.URL,
-                u.Note,
-                n.Surname,
-                n.Given,
-                n.BirthYear,
-                n.DeathYear,
-                p.Sex
+                MIN(u.URL) as URL,
+                MIN(u.Note) as Note,
+                MAX(n.Surname) as Surname,
+                MAX(n.Given) as Given,
+                MAX(n.BirthYear) as BirthYear,
+                MAX(n.DeathYear) as DeathYear,
+                MAX(p.Sex) as Sex
             FROM URLTable u
             JOIN PersonTable p ON u.OwnerID = p.PersonID
             JOIN NameTable n ON p.PersonID = n.OwnerID
             WHERE u.OwnerType = 0
             AND u.Name = 'Find a Grave'
-            ORDER BY n.Surname COLLATE RMNOCASE, n.Given COLLATE RMNOCASE
+            AND n.IsPrimary = 1
+            GROUP BY u.OwnerID
+            ORDER BY MAX(n.Surname) COLLATE RMNOCASE, MAX(n.Given) COLLATE RMNOCASE
         """)
 
         all_urls = cursor.fetchall()
