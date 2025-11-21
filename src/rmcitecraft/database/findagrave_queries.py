@@ -953,7 +953,7 @@ def create_burial_event_and_link_citation(
 
         # 4. Get death date for burial "after" date
         cursor.execute("""
-            SELECT Date
+            SELECT Date, SortDate
             FROM EventTable
             WHERE OwnerID = ?
             AND OwnerType = 0
@@ -965,10 +965,12 @@ def create_burial_event_and_link_citation(
         sort_date = 0
 
         if death_event and death_event[0]:
-            # Extract date from death event (format: D.+YYYYMMDD..)
+            # Extract date and SortDate from death event
             death_date_str = death_event[0]
+            death_sort_date = death_event[1] if death_event[1] else 0
+
             if '+' in death_date_str:
-                # Extract YYYYMMDD portion
+                # Extract YYYYMMDD portion (format: D.+YYYYMMDD..)
                 date_part = death_date_str.split('+')[1].split('.')[0]
                 if date_part and len(date_part) >= 8:
                     # Check if death date is precise (has day, not just year or year-month)
@@ -982,13 +984,19 @@ def create_burial_event_and_link_citation(
                         # Position 2 'A' = After modifier
                         burial_date = f"DA+{date_part}..+00000000.."
 
-                        # SortDate = death date + 1 day (for chronological sorting)
-                        from datetime import datetime, timedelta
-                        death_dt = datetime.strptime(date_part, "%Y%m%d")
-                        burial_dt = death_dt + timedelta(days=1)
-                        sort_date = int(burial_dt.strftime("%Y%m%d"))
+                        # SortDate = death SortDate + ~1 day
+                        # From RootsMagic documentation: 1 year ≈ 10^13 SortDate units
+                        # Therefore: 1 day ≈ 10^13 / 365.25 ≈ 27,378,507,871 SortDate units
+                        ONE_DAY_SORTDATE = 27_378_507_871
 
-                        logger.info(f"Burial date (after death): {burial_date}, SortDate: {sort_date}")
+                        if death_sort_date and death_sort_date != 9223372036854775807:
+                            # Death has valid SortDate, add 1 day to it
+                            sort_date = death_sort_date + ONE_DAY_SORTDATE
+                        else:
+                            # Death SortDate unknown/invalid, use 0 (no specific date)
+                            sort_date = 0
+
+                        logger.info(f"Burial date (after death): {burial_date}, Death SortDate: {death_sort_date}, Burial SortDate: {sort_date}")
                     else:
                         logger.info(f"Death date not precise (YYYY-MM-DD: {date_part[:4]}-{month}-{day}), leaving burial date blank")
 

@@ -223,9 +223,19 @@ class ExportToolsCard:
         report.write("SESSIONS\n")
         report.write("-" * 80 + "\n")
         for i, session in enumerate(sessions, 1):
+            # Format created_at without microseconds
+            created_str = session['created_at']
+            try:
+                # Parse ISO timestamp and format without microseconds
+                created_dt = datetime.fromisoformat(created_str.replace('Z', '+00:00'))
+                created_formatted = created_dt.strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                # Fallback if parsing fails
+                created_formatted = created_str
+
             report.write(f"\n{i}. Session {session['session_id']}\n")
             report.write(f"   Status:         {session['status']}\n")
-            report.write(f"   Created:        {session['created_at']}\n")
+            report.write(f"   Created:        {created_formatted}\n")
             report.write(f"   Total Items:    {session.get('total_items', 0):,}\n")
             report.write(f"   Completed:      {session.get('completed_count', 0):,}\n")
             report.write(f"   Errors:         {session.get('error_count', 0):,}\n")

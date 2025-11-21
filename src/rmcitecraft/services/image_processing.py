@@ -237,30 +237,30 @@ class ImageProcessingService:
                 given_name=metadata.given_name,
                 extension=extension,
             )
-            metadata.final_filename = filename
 
-            # Check for duplicate (thread-safe database access)
+            # Check for duplicate and add numbered suffix if needed
             db_conn = self._get_db_connection()
             try:
                 image_repo = ImageRepository(db_conn)
                 existing_media_id = image_repo.find_media_by_file(filename)
+
+                if existing_media_id:
+                    # Find unique filename with numbered suffix (_1, _2, _3, etc.)
+                    number = 1
+                    numbered_filename = self.filename_gen.add_number_suffix(filename, number)
+
+                    while image_repo.find_media_by_file(numbered_filename):
+                        number += 1
+                        numbered_filename = self.filename_gen.add_number_suffix(filename, number)
+
+                    filename = numbered_filename
+                    logger.info(
+                        f"Duplicate filename detected, using numbered suffix: {filename}"
+                    )
             finally:
                 db_conn.close()
 
-            if existing_media_id:
-                logger.info(
-                    f"Duplicate image detected: {filename} (existing MediaID={existing_media_id})"
-                )
-                metadata.update_status(ImageStatus.DUPLICATE)
-                metadata.media_id = existing_media_id
-
-                # Link existing media to new citation if needed
-                self._link_existing_media(metadata)
-
-                # Delete downloaded file (duplicate)
-                file_path.unlink()
-
-                return metadata
+            metadata.final_filename = filename
 
             # Move and organize file
             metadata.update_status(ImageStatus.PROCESSING)

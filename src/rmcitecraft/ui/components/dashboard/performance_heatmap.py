@@ -156,10 +156,12 @@ class PerformanceHeatmapCard:
         heatmap_data = []
         for i, op in enumerate(operations):
             op_metrics = metrics[op]
-            heatmap_data.append([0, i, op_metrics['avg_duration_ms']])
-            heatmap_data.append([1, i, op_metrics['min_duration_ms']])
-            heatmap_data.append([2, i, op_metrics['max_duration_ms']])
-            heatmap_data.append([3, i, op_metrics['success_rate'] * 100])  # Convert to percentage
+            # Round to 0.01 ms precision for display
+            # Format: [x_index, y_index, value]
+            heatmap_data.append([0, i, round(op_metrics['avg_duration_ms'], 2)])
+            heatmap_data.append([1, i, round(op_metrics['min_duration_ms'], 2)])
+            heatmap_data.append([2, i, round(op_metrics['max_duration_ms'], 2)])
+            heatmap_data.append([3, i, round(op_metrics['success_rate'] * 100, 2)])  # Convert to percentage
 
         # ECharts heatmap configuration
         echart_options = {

@@ -253,3 +253,26 @@ class FilenameGenerator:
             True if filename matches standard format
         """
         return self.parse_filename(filename) is not None
+
+    def add_number_suffix(self, filename: str, number: int) -> str:
+        """
+        Add numbered suffix to filename before extension.
+
+        Args:
+            filename: Original filename
+            number: Suffix number (1, 2, 3, etc.)
+
+        Returns:
+            Filename with numbered suffix
+
+        Examples:
+            >>> gen = FilenameGenerator()
+            >>> gen.add_number_suffix("1925, Texas, Dallas - Iams, Iris.jpg", 1)
+            '1925, Texas, Dallas - Iams, Iris_1.jpg'
+            >>> gen.add_number_suffix("1925, Texas, Dallas - Iams, Iris.jpg", 2)
+            '1925, Texas, Dallas - Iams, Iris_2.jpg'
+        """
+        path = Path(filename)
+        stem = path.stem
+        extension = path.suffix
+        return f"{stem}_{number}{extension}"
