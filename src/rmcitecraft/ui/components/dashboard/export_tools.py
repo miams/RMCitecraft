@@ -2,14 +2,14 @@
 
 import csv
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import StringIO
 from pathlib import Path
 from typing import Callable
 
 from nicegui import ui
 
-from rmcitecraft.database.batch_state_repository import BatchStateRepository
+from rmcitecraft.database.batch_state_repository import FindAGraveBatchStateRepository
 
 
 class ExportToolsCard:
@@ -17,7 +17,7 @@ class ExportToolsCard:
 
     def __init__(
         self,
-        state_repo: BatchStateRepository,
+        state_repo: FindAGraveBatchStateRepository,
         session_id: str | None = None,
         on_export_complete: Callable[[str, str], None] | None = None,
     ):
@@ -121,12 +121,37 @@ class ExportToolsCard:
 
         for item in items:
             # Calculate image info
-            image_paths = item.get('downloaded_image_paths', [])
-            if isinstance(image_paths, str):
+            image_paths = item.get('downloaded_image_paths')
+
+            # Handle None, empty list, or JSON string
+            if image_paths is None:
+                image_paths = []
+            elif isinstance(image_paths, str):
                 try:
                     image_paths = json.loads(image_paths)
+                    if not image_paths:  # Empty list or empty string after parsing
+                        image_paths = []
                 except json.JSONDecodeError:
                     image_paths = []
+            elif not isinstance(image_paths, list):
+                image_paths = []
+
+            # Format dates to nearest second (remove microseconds)
+            def format_timestamp(ts: str | None) -> str:
+                if not ts:
+                    return ''
+                try:
+                    # Parse ISO timestamp
+                    dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                    # Round to nearest second
+                    if dt.microsecond >= 500000:
+                        dt = dt.replace(microsecond=0) + timedelta(seconds=1)
+                    else:
+                        dt = dt.replace(microsecond=0)
+                    # Format without microseconds and timezone
+                    return dt.strftime('%Y-%m-%d %H:%M:%S')
+                except (ValueError, AttributeError):
+                    return str(ts)
 
             writer.writerow({
                 'id': item['id'],
@@ -138,9 +163,9 @@ class ExportToolsCard:
                 'status': item['status'],
                 'error_message': item.get('error_message', ''),
                 'retry_count': item.get('retry_count', 0),
-                'created_at': item.get('created_at', ''),
-                'updated_at': item.get('updated_at', ''),
-                'last_attempt_at': item.get('last_attempt_at', ''),
+                'created_at': format_timestamp(item.get('created_at')),
+                'updated_at': format_timestamp(item.get('updated_at')),
+                'last_attempt_at': format_timestamp(item.get('last_attempt_at')),
                 'created_citation_id': item.get('created_citation_id', ''),
                 'created_source_id': item.get('created_source_id', ''),
                 'created_burial_event_id': item.get('created_burial_event_id', ''),

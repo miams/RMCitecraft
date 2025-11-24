@@ -487,13 +487,14 @@ class ImageRepository:
         Update SourceTable.Name field to replace empty brackets [] with citation details.
 
         Only updates if the Name field contains exactly "[]" (empty brackets).
+        Removes trailing comma after bracket if present.
 
         Args:
             source_id: SourceID to update
             bracket_content: Generated bracket content, e.g., "[citing enumeration district (ED) 16-628, sheet 17, line 16]"
 
         Example:
-            Before: "Fed Census: 1950, Colorado, Denver [] Shepherd, William C."
+            Before: "Fed Census: 1950, Colorado, Denver [], Shepherd, William C."
             After:  "Fed Census: 1950, Colorado, Denver [citing enumeration district (ED) 16-628, sheet 17, line 16] Shepherd, William C."
         """
         cursor = self.conn.cursor()
@@ -517,7 +518,11 @@ class ImageRepository:
                 return
 
             # Replace [] with bracket content
-            updated_name = current_name.replace("[]", bracket_content)
+            # Remove trailing comma after bracket if present (e.g., "[], " → " ")
+            if "[], " in current_name:
+                updated_name = current_name.replace("[], ", f"{bracket_content} ")
+            else:
+                updated_name = current_name.replace("[]", bracket_content)
 
             # Get current UTCModDate
             utc_mod_date = self._get_utc_timestamp()

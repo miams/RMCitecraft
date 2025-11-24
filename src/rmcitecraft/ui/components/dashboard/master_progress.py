@@ -4,7 +4,7 @@ from typing import Callable
 
 from nicegui import ui
 
-from rmcitecraft.database.batch_state_repository import BatchStateRepository
+from rmcitecraft.database.batch_state_repository import FindAGraveBatchStateRepository
 
 
 class MasterProgressCard:
@@ -12,7 +12,7 @@ class MasterProgressCard:
 
     def __init__(
         self,
-        state_repo: BatchStateRepository,
+        state_repo: FindAGraveBatchStateRepository,
         total_goal: int = 5000,
         on_metric_click: Callable[[str], None] | None = None,
     ):

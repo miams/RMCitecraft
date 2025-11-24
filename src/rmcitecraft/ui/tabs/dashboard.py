@@ -3,7 +3,7 @@
 from nicegui import ui
 
 from rmcitecraft.config import Config
-from rmcitecraft.database.batch_state_repository import BatchStateRepository
+from rmcitecraft.database.batch_state_repository import FindAGraveBatchStateRepository
 from rmcitecraft.ui.components.dashboard import (
     BatchComparisonCard,
     CitationsStatsCard,
@@ -35,7 +35,7 @@ class DashboardTab:
             config: Application configuration
         """
         self._config = config  # Private to avoid JSON serialization
-        self._state_repo = BatchStateRepository()
+        self._state_repo = FindAGraveBatchStateRepository()
         self.auto_refresh_enabled = True
         self.refresh_interval = 5  # seconds
         self._refresh_timer = None

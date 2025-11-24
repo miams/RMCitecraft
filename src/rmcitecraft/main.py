@@ -15,7 +15,6 @@ from rmcitecraft.ui.components.error_panel import create_error_panel
 from rmcitecraft.ui.tabs.citation_manager import CitationManagerTab
 from rmcitecraft.ui.tabs.batch_processing import BatchProcessingTab
 from rmcitecraft.ui.tabs.findagrave_batch import FindAGraveBatchTab
-from rmcitecraft.ui.tabs.dashboard import DashboardTab
 
 
 def _cleanup_services(file_watcher: FileWatcher | None) -> None:
@@ -136,12 +135,6 @@ def setup_app() -> None:
                     on_click=lambda: show_citation_manager()
                 ).props("flat").classes("text-white")
 
-                ui.button(
-                    "Dashboard",
-                    icon="dashboard",
-                    on_click=lambda: show_dashboard()
-                ).props("flat").classes("text-white")
-
             with ui.row().classes("items-center gap-4"):
                 ui.label("Citation Assistant for RootsMagic").classes("text-sm")
                 ui.button(icon="settings", on_click=lambda: settings_dialog()).props(
@@ -166,7 +159,6 @@ def setup_app() -> None:
                 with ui.row().classes("w-full max-w-5xl gap-4 justify-center"):
                     ui.button("Census Batch", icon="playlist_add_check", on_click=lambda: show_batch_processing()).props("size=lg").classes("bg-blue-600 text-white")
                     ui.button("Find a Grave", icon="account_box", on_click=lambda: show_findagrave_batch()).props("size=lg").classes("bg-green-600 text-white")
-                    ui.button("Dashboard", icon="dashboard", on_click=lambda: show_dashboard()).props("size=lg").classes("bg-orange-600 text-white")
                     ui.button("Citation Manager", icon="format_quote", on_click=lambda: show_citation_manager()).props("size=lg").classes("bg-purple-600 text-white")
 
                 # Core Features
@@ -309,24 +301,6 @@ def setup_app() -> None:
             with view_container:
                 citation_manager = CitationManagerTab()
                 citation_manager.render()
-
-        def show_dashboard() -> None:
-            """Show batch operations dashboard view."""
-            try:
-                logger.info("show_dashboard() called - clearing view container")
-                view_container.clear()
-                logger.info("Creating DashboardTab instance")
-                with view_container:
-                    dashboard = DashboardTab(config)
-                    logger.info("Rendering dashboard")
-                    dashboard.render()
-                logger.info("Dashboard rendered successfully")
-            except Exception as e:
-                logger.error(f"Error rendering dashboard: {e}", exc_info=True)
-                # Show error to user
-                view_container.clear()
-                with view_container:
-                    ui.label(f"Error loading dashboard: {e}").classes("text-red-500 text-xl p-8")
 
         # Show home by default
         show_home()

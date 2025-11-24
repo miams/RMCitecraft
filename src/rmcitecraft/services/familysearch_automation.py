@@ -1,57 +1,94 @@
 r"""
 FamilySearch Automation Service using Playwright
 
-Connects to user's existing Chrome browser to:
+Launches Chrome with persistent context to:
 - Extract census citation data from FamilySearch pages
 - Automate census image downloads
 - Handle FamilySearch dialogs and navigation
 
-Requires Chrome to be launched with remote debugging:
-    /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
-        --remote-debugging-port=9222 \
-        --user-data-dir="$HOME/Library/Application Support/Google/Chrome-RMCitecraft"
+Uses persistent Chrome profile for login persistence:
+    - Profile directory: ~/chrome-debug-profile
+    - Login once to FamilySearch, stays logged in across sessions
+    - Separate from your main Chrome browser
 
-Note: Must use separate profile directory (not default Chrome profile) for debugging.
+Note: Playwright launches and manages Chrome directly (not CDP connection).
 """
 
 import asyncio
+import os
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
-from playwright.async_api import Browser, Page, async_playwright
+from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
-# Chrome DevTools Protocol endpoint
-CHROME_CDP_URL = "http://localhost:9222"
+# Chrome profile directory (persistent login)
+CHROME_PROFILE_DIR = os.path.expanduser("~/chrome-debug-profile")
 
 
 class FamilySearchAutomation:
-    """Automates FamilySearch interactions using Playwright connected to user's Chrome."""
+    """Automates FamilySearch interactions using Playwright-launched Chrome."""
 
     def __init__(self):
         """Initialize automation service."""
-        self.browser: Browser | None = None
+        self.browser: BrowserContext | None = None
         self.playwright = None
 
     async def connect_to_chrome(self) -> bool:
         """
-        Connect to existing Chrome browser via CDP.
+        Connect to Chrome browser for FamilySearch automation.
+
+        Strategy:
+        1. First try to connect to existing Chrome (CDP on port 9222)
+        2. If that fails, launch new Chrome with persistent context
+
+        Uses persistent user profile to maintain FamilySearch login across sessions.
 
         Returns:
             True if connected successfully, False otherwise
         """
+        self.playwright = await async_playwright().start()
+
+        # Try connecting to existing Chrome first (via CDP)
         try:
-            logger.info("Connecting to Chrome browser via CDP...")
-            self.playwright = await async_playwright().start()
-            self.browser = await self.playwright.chromium.connect_over_cdp(CHROME_CDP_URL)
-            logger.info(f"Connected to Chrome - {len(self.browser.contexts)} context(s)")
+            logger.info("Attempting to connect to existing Chrome via CDP...")
+            browser = await self.playwright.chromium.connect_over_cdp("http://localhost:9222")
+
+            # CDP returns a Browser, but we need BrowserContext
+            contexts = browser.contexts
+            if contexts:
+                self.browser = contexts[0]  # Use first context
+                logger.info(
+                    f"Connected to existing Chrome via CDP - {len(self.browser.pages)} page(s)"
+                )
+                return True
+            else:
+                logger.warning("CDP connection has no contexts")
+                await browser.close()
+        except Exception as e:
+            logger.info(f"CDP connection failed (Chrome may not be running): {e}")
+
+        # Fallback: Launch new Chrome with persistent context
+        try:
+            logger.info("Launching new Chrome with persistent context...")
+            self.browser = await self.playwright.chromium.launch_persistent_context(
+                user_data_dir=CHROME_PROFILE_DIR,
+                headless=False,  # Keep visible so user can log in if needed
+                channel="chrome",  # Use system Chrome
+                args=[
+                    "--remote-debugging-port=9222",
+                    "--disable-blink-features=AutomationControlled",
+                ],
+            )
+
+            logger.info(f"Launched Chrome with persistent context - {len(self.browser.pages)} page(s)")
             return True
         except Exception as e:
-            logger.error(f"Failed to connect to Chrome: {e}")
+            logger.error(f"Failed to launch Chrome: {e}")
             logger.warning(
-                "Make sure Chrome is running with: "
-                "--remote-debugging-port=9222 --user-data-dir=..."
+                "Make sure Chrome is not already running with the same profile directory"
             )
             return False
 
@@ -117,9 +154,17 @@ class FamilySearchAutomation:
             login_status = await page.evaluate("""
                 () => {
                     // Check for sign-in button (not logged in)
-                    const signInButton = document.querySelector('a[href*="signin"], button:has-text("Sign In")');
-                    if (signInButton && signInButton.textContent.toLowerCase().includes('sign in')) {
-                        return { loggedIn: false, indicator: 'sign-in-button-found' };
+                    const signInLink = document.querySelector('a[href*="signin"]');
+                    if (signInLink && signInLink.textContent.toLowerCase().includes('sign in')) {
+                        return { loggedIn: false, indicator: 'sign-in-link-found' };
+                    }
+
+                    // Check for sign-in button by text content
+                    const buttons = document.querySelectorAll('button');
+                    for (const button of buttons) {
+                        if (button.textContent.toLowerCase().includes('sign in')) {
+                            return { loggedIn: false, indicator: 'sign-in-button-found' };
+                        }
                     }
 
                     // Check for user menu/account elements (logged in)
@@ -133,6 +178,21 @@ class FamilySearchAutomation:
                     const bodyText = document.body.innerText;
                     if (bodyText.includes('My Account') || bodyText.includes('Sign Out')) {
                         return { loggedIn: true, indicator: 'account-text-found' };
+                    }
+
+                    // Check for FamilySearch portal page (usually means logged in)
+                    const url = window.location.href;
+                    if (url.includes('/en/home/portal') || url.includes('/en/discovery')) {
+                        return { loggedIn: true, indicator: 'portal-url' };
+                    }
+
+                    // Check for common header elements on logged-in pages
+                    const header = document.querySelector('header, [role="banner"]');
+                    if (header) {
+                        const headerText = header.innerText || '';
+                        if (headerText.includes('Family Tree') || headerText.includes('Search') || headerText.includes('Memories')) {
+                            return { loggedIn: true, indicator: 'logged-in-navigation' };
+                        }
                     }
 
                     // Cannot determine
@@ -165,13 +225,8 @@ class FamilySearchAutomation:
             if not await self.connect_to_chrome():
                 return None
 
-        # Get default context (user's Chrome session)
-        contexts = self.browser.contexts
-        if not contexts:
-            logger.error("No browser contexts available")
-            return None
-
-        context = contexts[0]
+        # self.browser is now a BrowserContext directly (from launch_persistent_context)
+        context = self.browser
 
         # Look for existing FamilySearch tab
         pages = context.pages
@@ -180,9 +235,8 @@ class FamilySearchAutomation:
                 logger.info(f"Found existing FamilySearch tab: {page.url}")
                 return page
 
-        # If no FamilySearch tab found, use any existing page
-        # Note: context.new_page() can hang when connected via CDP (known Playwright limitation)
-        # For production use, user should have FamilySearch already open
+        # If no FamilySearch tab found, create a new page (safe with launched browser)
+        # With launch_persistent_context, we can safely call new_page()
         if pages:
             logger.info(f"No FamilySearch tab found, using existing page: {pages[0].url}")
             logger.warning(
@@ -302,6 +356,12 @@ class FamilySearchAutomation:
             # Page (1790-1870, 1950)
             citation_data["page"] = page_number
 
+            # Special case for 1950: FamilySearch calls it "Page Number" but citations use "sheet" terminology
+            # Copy page number to sheet for consistent formatting with Evidence Explained standards
+            if census_year == 1950 and page_number and not citation_data.get("sheet"):
+                citation_data["sheet"] = page_number
+                logger.debug(f"1950 census: Copied page number '{page_number}' to sheet field")
+
             citation_data["line"] = table_data.get("line", "")
             citation_data["familyNumber"] = table_data.get("family", "")
             citation_data["dwellingNumber"] = table_data.get("dwelling", "")
@@ -325,15 +385,34 @@ class FamilySearchAutomation:
             citation_data["arkUrl"] = page.url
 
             # Extract image viewer URL (convert relative URL to absolute)
-            image_link = await page.query_selector('a[href*="/ark:/61903/3:1:"]')
+            # Try multiple selectors for image links - FamilySearch uses different patterns
+            image_selectors = [
+                'a[href*="/ark:/61903/3:1:"]',  # Standard ARK pattern for images
+                'a[href*="/ark:/61903/3:"]',    # More general ARK pattern
+                'a[href*="image-viewer"]',      # Image viewer link
+                '[data-testid="view-image-link"]',  # Data-testid attribute
+                'a:has-text("View Image")',    # Link text pattern
+            ]
+
+            image_link = None
+            for selector in image_selectors:
+                try:
+                    image_link = await page.query_selector(selector)
+                    if image_link:
+                        break
+                except Exception:
+                    continue
+
             if image_link:
                 href = await image_link.get_attribute("href")
                 # Convert relative URL to absolute
                 if href and href.startswith("/"):
                     href = f"https://www.familysearch.org{href}"
                 citation_data["imageViewerUrl"] = href or ""
+                logger.debug(f"Found image viewer URL: {href}")
             else:
                 citation_data["imageViewerUrl"] = ""
+                logger.warning(f"Could not find image viewer URL on page: {url}")
 
             # Extract page title
             citation_data["pageTitle"] = await page.title()
@@ -457,7 +536,7 @@ class FamilySearchAutomation:
                                 result.pageNumber = value;
                             }}
                             // Line number (1850-1950, excluding 1790-1840)
-                            else if ({str(extract_line).lower()} && label.includes('line')) {{
+                            else if ({str(extract_line).lower()} && (label === 'line number' || label === 'line' || label === 'line no.')) {{
                                 result.line = value;
                             }}
                             // Family number (optional, all years)
@@ -498,7 +577,14 @@ class FamilySearchAutomation:
 
         # Map camelCase to snake_case
         transformed['person_name'] = raw_data.get('personName', '')
-        transformed['familysearch_url'] = raw_data.get('arkUrl', '')
+
+        # Clean FamilySearch URL: Remove query parameters (e.g., ?lang=en)
+        raw_url = raw_data.get('arkUrl', '')
+        transformed['familysearch_url'] = raw_url.split('?')[0] if raw_url else ''
+
+        # Generate access date in Evidence Explained format: "24 July 2015"
+        now = datetime.now()
+        transformed['access_date'] = now.strftime("%d %B %Y")
 
         # Parse eventPlace: "St. Louis, Missouri, United States" → state + county
         # For 1920 census: "Township, ED XX, County, State, United States"
@@ -511,22 +597,31 @@ class FamilySearchAutomation:
         # For 1920 census, ED is often embedded in eventPlace instead of separate table row
         transformed['enumeration_district'] = raw_data.get('enumerationDistrict', '')
 
-        # 1920 Census Special Case: Extract ED and township from Event Place (Original)
+        # Extract locality/township from Event Place
+        # Format: "Locality, County, State, Country" or "Township, ED XX, County, State, Country" (1920)
+        # Examples:
+        #   - "Cumberland, Allegany, Maryland, United States" -> locality = "Cumberland"
+        #   - "Jerusalem, ED 48, Davie, North Carolina, United States" -> locality = "Jerusalem"
+        if event_place and not transformed.get('town_ward'):
+            parts = [p.strip() for p in event_place.split(',')]
+            if parts:
+                # First part is typically the locality (city, township, ward, etc.)
+                # Skip if it's just the county name repeated (some records don't have locality)
+                first_part = parts[0]
+                # Also skip if first part is "ED XX" pattern (malformed data)
+                if first_part and not re.match(r'^ED\s+\d+', first_part, re.IGNORECASE):
+                    # Check if first part is different from county (avoid duplicate)
+                    if len(parts) >= 2 and first_part.lower() != transformed['county'].lower():
+                        transformed['town_ward'] = first_part
+                        logger.debug(f"Extracted locality '{first_part}' from Event Place: {event_place}")
+
+        # 1920 Census Special Case: Also extract ED from Event Place (Original) if not already set
         # Format: "Township, ED XX, County, State, United States"
-        # Example: "Jerusalem, ED 48, Davie, North Carolina, United States"
         if not transformed['enumeration_district'] and event_place:
             ed_match = re.search(r'\bED\s+(\d+)', event_place, re.IGNORECASE)
             if ed_match:
                 transformed['enumeration_district'] = ed_match.group(1)
                 logger.debug(f"Extracted ED {ed_match.group(1)} from Event Place (Original): {event_place}")
-
-                # Also extract township/ward (first part before ED)
-                # Split and find the part before "ED XX"
-                parts = [p.strip() for p in event_place.split(',')]
-                if parts and not re.match(r'^ED\s+\d+', parts[0], re.IGNORECASE):
-                    # First part is the township/ward
-                    transformed['town_ward'] = parts[0]
-                    logger.debug(f"Extracted township/ward '{parts[0]}' from Event Place (Original)")
 
         transformed['sheet'] = raw_data.get('sheet', '')
         transformed['page'] = raw_data.get('page', '')  # For 1790-1870, 1950
@@ -693,27 +788,60 @@ class FamilySearchAutomation:
                 logger.info(f"Already on image viewer page: {page.url}")
             else:
                 logger.info(f"Navigating to image viewer: {image_viewer_url}")
-                # Note: CDP connections can be slow/unreliable with navigation
-                # Use domcontentloaded (DOM ready) instead of load (all resources) for speed
+                # WORKAROUND: page.goto() hangs with launch_persistent_context()
+                # Use JavaScript location.href instead
                 try:
-                    await page.goto(image_viewer_url, wait_until="domcontentloaded", timeout=15000)
+                    logger.info("Using JavaScript navigation (location.href)...")
+                    await page.evaluate(f"window.location.href = '{image_viewer_url}'")
+                    logger.info("JavaScript navigation executed, waiting for page to load...")
+                    # Wait for page to load (longer since we're not using goto's wait_until)
+                    await asyncio.sleep(3.0)
                 except Exception as e:
-                    logger.warning(f"Navigation to image viewer timed out or failed: {e}")
-                    # Check if we're at least on FamilySearch
-                    if "familysearch.org" not in page.url:
+                    logger.error(f"JavaScript navigation to image viewer failed: {e}")
+                    # Check if we at least partially navigated
+                    try:
+                        current_url = page.url
+                        logger.info(f"Current URL after failed navigation: {current_url}")
+                        if "familysearch.org" not in current_url:
+                            raise ValueError(f"Navigation failed and not on FamilySearch: {current_url}")
+                    except Exception as recovery_error:
+                        logger.error(f"Failed to recover from navigation error: {recovery_error}")
                         raise
 
-            # Give page a moment to render (don't wait for all resources)
-            await asyncio.sleep(0.5)
+            # Additional wait for page to render
+            logger.info("Waiting for page to fully render...")
+            await asyncio.sleep(1.5)
 
-            # Wait for download button to appear (up to 15 seconds)
+            # Wait for download button to appear
+            # Use manual retry loop instead of wait_for_selector (which hangs with CDP)
             logger.info("Waiting for download button...")
-            try:
-                download_button = await page.wait_for_selector(
-                    'button[data-testid="download-image-button"]', timeout=15000
-                )
-            except Exception:
+            download_button = None
+            selector = 'button[data-testid="download-image-button"]'
+
+            # Manual retry with timeout (15 seconds total, check every 0.5 seconds)
+            for attempt in range(30):
+                try:
+                    download_button = await page.query_selector(selector)
+                    if download_button:
+                        logger.info(f"Found download button (attempt {attempt + 1})")
+                        break
+                except Exception as e:
+                    logger.debug(f"Query selector error: {e}")
+
+                await asyncio.sleep(0.5)
+
+            if not download_button:
+                # Log page content for debugging
                 logger.error("Download button not found after 15 seconds")
+                try:
+                    page_title = await page.title()
+                    page_url = page.url
+                    logger.error(f"Current page: {page_title} ({page_url})")
+                    # Get all buttons on the page for debugging
+                    buttons = await page.query_selector_all("button")
+                    logger.error(f"Found {len(buttons)} buttons on page")
+                except Exception as e:
+                    logger.error(f"Failed to get page info: {e}")
                 return False
 
             # Click download button to open dialog

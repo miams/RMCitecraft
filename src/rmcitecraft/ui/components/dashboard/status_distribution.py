@@ -4,7 +4,7 @@ from typing import Callable
 
 from nicegui import ui
 
-from rmcitecraft.database.batch_state_repository import BatchStateRepository
+from rmcitecraft.database.batch_state_repository import FindAGraveBatchStateRepository
 
 
 class StatusDistributionChart:
@@ -12,7 +12,7 @@ class StatusDistributionChart:
 
     def __init__(
         self,
-        state_repo: BatchStateRepository,
+        state_repo: FindAGraveBatchStateRepository,
         session_id: str | None = None,
         on_status_click: Callable[[str], None] | None = None
     ):

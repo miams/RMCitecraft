@@ -4,7 +4,7 @@ from typing import Callable
 
 from nicegui import ui
 
-from rmcitecraft.database.batch_state_repository import BatchStateRepository
+from rmcitecraft.database.batch_state_repository import FindAGraveBatchStateRepository
 
 
 class ErrorAnalysisCard:
@@ -12,7 +12,7 @@ class ErrorAnalysisCard:
 
     def __init__(
         self,
-        state_repo: BatchStateRepository,
+        state_repo: FindAGraveBatchStateRepository,
         session_id: str | None = None,
         on_error_click: Callable[[str], None] | None = None,
     ):

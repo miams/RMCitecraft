@@ -5,7 +5,7 @@ from typing import Callable
 
 from nicegui import ui
 
-from rmcitecraft.database.batch_state_repository import BatchStateRepository
+from rmcitecraft.database.batch_state_repository import FindAGraveBatchStateRepository
 
 
 class ProcessingTimelineChart:
@@ -13,7 +13,7 @@ class ProcessingTimelineChart:
 
     def __init__(
         self,
-        state_repo: BatchStateRepository,
+        state_repo: FindAGraveBatchStateRepository,
         session_id: str | None = None,
         limit: int = 100,
         on_point_click: Callable[[dict], None] | None = None,

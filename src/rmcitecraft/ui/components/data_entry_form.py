@@ -38,6 +38,7 @@ class DataEntryFormComponent:
         # UI references
         self.container: ui.column | None = None
         self.preview_container: ui.column | None = None
+        self.field_badges: dict[str, ui.label] = {}  # Store badge references for dynamic updates
 
         # Citation formatter for live preview
         self.formatter = CitationFormatter()
@@ -65,64 +66,85 @@ class DataEntryFormComponent:
         # 1. Citation has missing fields (needs data entry)
         # 2. Citation is in QUEUED status (not yet processed - allow manual entry)
         # 3. Citation is in MANUAL_REVIEW status (processed but needs manual data)
+        # 4. Citation is COMPLETE (allow manual override/correction)
         show_form = (
             missing_fields
             or self.citation.status.value == "queued"
             or self.citation.status.value == "manual_review"
+            or self.citation.status.value == "complete"
         )
 
         if show_form:
             with ui.card().classes("w-full p-2"):
-                # Heading with Update button parallel and right-aligned
-                with ui.row().classes("w-full items-center justify-between mb-2"):
-                    if missing_fields:
-                        ui.label("Missing Required Fields").classes("font-semibold text-sm")
-                    else:
-                        with ui.column().classes("gap-0"):
-                            ui.label("Manual Data Entry").classes("font-semibold text-sm")
-                            ui.label("Enter census data from the FamilySearch image").classes("text-xs text-gray-600")
+                # Heading (no Update button - changes auto-save)
+                if missing_fields:
+                    ui.label("Missing Required Fields").classes("font-semibold text-sm mb-2")
+                else:
+                    with ui.column().classes("gap-0 mb-2"):
+                        ui.label("Manual Data Entry").classes("font-semibold text-sm")
+                        ui.label("Enter census data from the FamilySearch image (auto-saves)").classes("text-xs text-gray-600")
 
-                    # Update button right-aligned
-                    ui.button(
-                        "Update",
-                        icon="check",
-                        on_click=self._on_submit_click,
-                    ).props("dense color=primary")
-
-                # Show input fields for missing fields, or all key fields if QUEUED
+                # Show input fields for missing fields, or all key fields if QUEUED/COMPLETE
                 fields_to_show = missing_fields if missing_fields else self._get_default_census_fields()
 
                 for field in fields_to_show:
                     self._render_field_input(field)
 
         else:
-            # No missing fields and already processed
+            # Should not reach here (all statuses now show form)
             ui.label("✅ All required fields complete").classes("text-green-600 font-semibold")
 
         # Citation preview (shows completed citations or live preview)
         self._render_citation_preview()
 
     def _render_field_input(self, field: str) -> None:
-        """Render input field for missing data.
+        """Render input field for missing data with badge indicators.
+
+        Badge colors:
+        - GREEN: Auto-extracted value (from FamilySearch)
+        - RED: Missing value (showing placeholder)
+        - BLUE: Manually entered/updated value
 
         Args:
             field: Field name (snake_case)
         """
-        # Get current value from form data or merged data
+        # Determine value source using citation.manual_data (set by controller)
+        # Check form_data first (current session edits), then manual_data (persisted edits)
+        is_manual = (field in self.form_data and self.form_data[field]) or \
+                    (hasattr(self.citation, 'manual_data') and field in self.citation.manual_data and self.citation.manual_data[field])
+        is_extracted = not is_manual and field in self.citation.extracted_data and self.citation.extracted_data[field]
+        is_missing = not is_manual and not is_extracted
+
+        # Get current value (form_data > merged_data fallback)
         current_value = self.form_data.get(field, self.citation.merged_data.get(field, ''))
+
+        # Determine badge style
+        if is_manual:
+            badge_text = "Manual"
+            badge_class = "text-[9px] px-1 py-0 rounded bg-blue-100 text-blue-700"
+        elif is_extracted:
+            badge_text = "Auto"
+            badge_class = "text-[9px] px-1 py-0 rounded bg-green-100 text-green-700"
+        else:
+            badge_text = "Missing"
+            badge_class = "text-[9px] px-1 py-0 rounded bg-red-100 text-red-600"
 
         # DEBUG: Log what we're reading
         from loguru import logger
-        logger.debug(f"Field '{field}': form_data={self.form_data.get(field)}, merged_data={self.citation.merged_data.get(field)}, final value='{current_value}'")
+        logger.debug(f"Field '{field}': source={badge_text}, value='{current_value}', is_manual={is_manual}, is_extracted={is_extracted}")
 
         # Field label and hint
         label, hint, placeholder = self._get_field_metadata(field)
 
         with ui.column().classes("w-full gap-0 mb-2"):
-            # Label
-            ui.label(f"{label}:").classes("font-medium text-xs")
+            # Label with source indicator badge
+            with ui.row().classes("w-full items-center gap-1"):
+                ui.label(f"{label}:").classes("font-medium text-xs")
+                # Store badge reference for dynamic updates
+                badge = ui.label(badge_text).classes(badge_class)
+                self.field_badges[field] = badge
 
-            # Input field with faded placeholder
+            # Input field (no color class - doesn't work in NiceGUI)
             field_input = ui.input(
                 placeholder=placeholder,
                 value=current_value,
@@ -310,13 +332,28 @@ class DataEntryFormComponent:
                 ui.label(f"Preview unavailable: {str(e)}").classes("text-xs text-orange-600 italic")
 
     def _on_field_change(self, field: str, value: str) -> None:
-        """Handle field value change.
+        """Handle field value change and update badge.
 
         Args:
             field: Field name
             value: New value
         """
         self.form_data[field] = value
+
+        # Update badge to show "Manual" (blue) since user typed
+        if field in self.field_badges:
+            badge = self.field_badges[field]
+            if value:  # User entered a value
+                badge.text = "Manual"
+                badge.classes(replace="text-[9px] px-1 py-0 rounded bg-blue-100 text-blue-700")
+            else:  # User cleared the value
+                # Check if it's in extracted_data (back to Auto) or missing
+                if field in self.citation.extracted_data and self.citation.extracted_data[field]:
+                    badge.text = "Auto"
+                    badge.classes(replace="text-[9px] px-1 py-0 rounded bg-green-100 text-green-700")
+                else:
+                    badge.text = "Missing"
+                    badge.classes(replace="text-[9px] px-1 py-0 rounded bg-red-100 text-red-600")
 
         # Trigger callback
         if self.on_data_change:
@@ -337,6 +374,7 @@ class DataEntryFormComponent:
 
     def refresh(self) -> None:
         """Refresh the component UI."""
+        self.field_badges = {}  # Clear badge references before re-render
         if self.container:
             self.container.clear()
             with self.container:
@@ -351,6 +389,7 @@ class DataEntryFormComponent:
         from loguru import logger
         self.citation = citation
         self.form_data = {}  # Reset form data
+        self.field_badges = {}  # Clear badge references
 
         # DEBUG: Log citation data
         if citation:

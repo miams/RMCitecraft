@@ -4,7 +4,7 @@ from typing import Callable
 
 from nicegui import ui
 
-from rmcitecraft.database.batch_state_repository import BatchStateRepository
+from rmcitecraft.database.batch_state_repository import FindAGraveBatchStateRepository
 
 
 class BatchComparisonCard:
@@ -12,7 +12,7 @@ class BatchComparisonCard:
 
     def __init__(
         self,
-        state_repo: BatchStateRepository,
+        state_repo: FindAGraveBatchStateRepository,
         on_comparison_change: Callable[[str, str], None] | None = None,
     ):
         """Initialize batch comparison card.

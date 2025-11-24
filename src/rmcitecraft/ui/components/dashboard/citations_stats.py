@@ -4,7 +4,7 @@ from typing import Callable
 
 from nicegui import ui
 
-from rmcitecraft.database.batch_state_repository import BatchStateRepository
+from rmcitecraft.database.batch_state_repository import FindAGraveBatchStateRepository
 
 
 class CitationsStatsCard:
@@ -12,7 +12,7 @@ class CitationsStatsCard:
 
     def __init__(
         self,
-        state_repo: BatchStateRepository,
+        state_repo: FindAGraveBatchStateRepository,
         rm_database_path: str,
         session_id: str | None = None,
         on_click: Callable[[], None] | None = None,

@@ -5,7 +5,7 @@ from typing import Callable
 
 from nicegui import ui
 
-from rmcitecraft.database.batch_state_repository import BatchStateRepository
+from rmcitecraft.database.batch_state_repository import FindAGraveBatchStateRepository
 
 
 class SessionSelectorCard:
@@ -13,7 +13,7 @@ class SessionSelectorCard:
 
     def __init__(
         self,
-        state_repo: BatchStateRepository,
+        state_repo: FindAGraveBatchStateRepository,
         on_session_change: Callable[[str | None], None] | None = None,
     ):
         """Initialize session selector card.

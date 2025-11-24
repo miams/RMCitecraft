@@ -160,6 +160,11 @@ def format_1930_census_short_footnote(
     if extraction.enumeration_district:
         ed_str = f", E.D. {extraction.enumeration_district}"
 
+    # Line number (optional but preferred)
+    line_str = ""
+    if extraction.line:
+        line_str = f", line {extraction.line}"
+
     # Build short footnote
     # Note: No "pop. sch." for 1910-1940 (only population schedules survived)
     short_footnote = (
@@ -167,7 +172,8 @@ def format_1930_census_short_footnote(
         f"{place.county} Co., {state_abbrev}"
         f"{locality_str}"
         f"{ed_str}, "
-        f"sheet {extraction.sheet}, "
+        f"sheet {extraction.sheet}"
+        f"{line_str}, "
         f"{extraction.person_name}."
     )
 
@@ -288,8 +294,14 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
     sheet = data.get('sheet', '[sheet]')
     line = data.get('line', '[line]')
     person = data.get('person_name', '[Person Name]')
-    url = data.get('familysearch_url', '[URL]')
-    access_date = data.get('access_date', '[date]')
+
+    # Clean URL: Remove query parameters (e.g., ?lang=en) if not already cleaned
+    raw_url = data.get('familysearch_url', '[URL]')
+    url = raw_url.split('?')[0] if raw_url and raw_url != '[URL]' else raw_url
+
+    # Use provided access date or generate current date in Evidence Explained format
+    from datetime import datetime
+    access_date = data.get('access_date') or datetime.now().strftime("%d %B %Y")
 
     # Footnote
     locality_str = f", {locality}" if locality else ""
@@ -304,18 +316,27 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
     state_abbr = STATE_ABBREVIATIONS.get(state, state)
     # For 1910-1940: Omit "pop. sch." (only population schedules survived)
     pop_sch_str = "" if 1910 <= year <= 1940 else "pop. sch., "
+
+    # Locality (optional - only include if available)
+    locality_str = f", {locality}" if locality else ""
+
+    # Line number (optional but preferred)
+    line_str = f", line {line}" if line else ""
+
     short_footnote = (
-        f"{year} U.S. census, {county} Co., {state_abbr}, {pop_sch_str}"
-        f"{locality or '[locality]'}, E.D. {ed}, sheet {sheet}, {person}."
+        f"{year} U.S. census, {county} Co., {state_abbr}{locality_str}, "
+        f"E.D. {ed}, sheet {sheet}{line_str}, {person}."
     )
 
     # Bibliography
     # For 1910-1940: Omit "Population Schedule" (only schedules that survived)
     schedule_str = "" if 1910 <= year <= 1940 else "Population Schedule. "
+    # Extract year from access_date for bibliography (e.g., "24 July 2015" -> "2015")
+    access_year = access_date.split()[-1] if access_date else str(datetime.now().year)
     bibliography = (
         f"U.S. {state}. {county} County. {year} U.S Census. {schedule_str}"
         f"Imaged. \"United States Census, {year}\". <i>FamilySearch</i> "
-        f"{url} : [year]."
+        f"{url} : {access_year}."
     )
 
     return {

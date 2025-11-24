@@ -6,7 +6,7 @@ from typing import Callable
 
 from nicegui import ui
 
-from rmcitecraft.database.batch_state_repository import BatchStateRepository
+from rmcitecraft.database.batch_state_repository import FindAGraveBatchStateRepository
 
 
 class MediaGalleryCard:
@@ -14,7 +14,7 @@ class MediaGalleryCard:
 
     def __init__(
         self,
-        state_repo: BatchStateRepository,
+        state_repo: FindAGraveBatchStateRepository,
         session_id: str | None = None,
         on_image_click: Callable[[dict], None] | None = None,
         max_display: int = 50,

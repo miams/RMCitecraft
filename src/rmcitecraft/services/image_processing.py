@@ -70,13 +70,14 @@ class ImageProcessingService:
         SQLite connections cannot be shared across threads.
 
         Returns:
-            New database connection with ICU extension loaded
+            New database connection with ICU extension loaded (read-write mode)
         """
         from rmcitecraft.database.connection import connect_rmtree
 
         return connect_rmtree(
             db_path=self.db_path,
             extension_path=self.icu_extension_path,
+            read_only=False,  # Image processing needs write access
         )
 
     def register_pending_image(self, metadata: ImageMetadata) -> None:

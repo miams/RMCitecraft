@@ -4,24 +4,42 @@ This tab provides the batch citation processing interface with three panels:
 - Left: Citation queue with status and filters
 - Center: Data entry form for missing fields
 - Right: Census image viewer
+
+Implements robust batch processing architecture with:
+- State persistence (CensusBatchStateRepository)
+- Adaptive timeout management
+- Retry strategy with exponential backoff
+- Page health monitoring and crash recovery
+- Six-phase processing loop
+- Resume capability for interrupted batches
 """
 
 import asyncio
+import time
+from datetime import datetime
 from pathlib import Path
 
 from loguru import logger
 from nicegui import ui
 
 from rmcitecraft.config import get_config
+from rmcitecraft.database.census_batch_state_repository import CensusBatchStateRepository
 from rmcitecraft.repositories import DatabaseConnection
+from rmcitecraft.services.adaptive_timeout import AdaptiveTimeoutManager, TimingContext
 from rmcitecraft.services.batch_processing import (
     BatchProcessingController,
     CitationBatchItem,
     BatchProcessingState,
+    CitationStatus,
 )
 from rmcitecraft.services.familysearch_automation import FamilySearchAutomation
 from rmcitecraft.services.image_processing import get_image_processing_service
 from rmcitecraft.services.message_log import get_message_log, MessageType
+from rmcitecraft.services.page_health_monitor import (
+    PageHealthMonitor,
+    PageRecoveryManager,
+)
+from rmcitecraft.services.retry_strategy import RetryConfig, RetryStrategy
 from rmcitecraft.ui.components.citation_queue import CitationQueueComponent
 from rmcitecraft.ui.components.data_entry_form import DataEntryFormComponent
 from rmcitecraft.ui.components.image_viewer import create_census_image_viewer
@@ -46,6 +64,14 @@ class BatchProcessingTab:
             logger.warning(f"Image processing service not available: {e}")
             self.image_service = None
 
+        # Robustness components (same pattern as Find a Grave)
+        self._init_robustness_components()
+
+        # State tracking for robustness
+        self.current_session_id: str | None = None
+        self.current_state_item_id: int | None = None
+        self.checkpoint_counter = 0
+
         # State
         self.selected_census_year: int | None = None
         self.selected_citation_ids: set[int] = set()  # Track selected citations
@@ -62,23 +88,76 @@ class BatchProcessingTab:
         self.header_container: ui.card | None = None
         self.status_bar_container: ui.row | None = None
 
+    def _init_robustness_components(self) -> None:
+        """Initialize robustness components for crash recovery and adaptive timeouts.
+
+        These components are SEPARATE from Find a Grave and use census-specific
+        tables and configuration settings.
+        """
+        # State repository for persistence (uses census_batch_* tables)
+        try:
+            self.state_repository = CensusBatchStateRepository(
+                db_path=self.config.census_state_db_path
+            )
+            logger.info("Census batch state repository initialized")
+        except FileNotFoundError:
+            # State DB doesn't exist yet - will be created by FindAGraveBatchStateRepository
+            # when it runs migrations (both share the same DB file)
+            logger.warning(
+                "Census batch state database not found. "
+                "Run Find a Grave batch first to initialize migrations, "
+                "or state tracking will be disabled."
+            )
+            self.state_repository = None
+
+        # Page health monitor for crash detection
+        self.health_monitor = PageHealthMonitor(health_check_timeout_ms=2000)
+        self.recovery_manager = PageRecoveryManager(self.health_monitor)
+
+        # Adaptive timeout manager for dynamic timeout adjustment
+        self.timeout_manager = AdaptiveTimeoutManager(
+            base_timeout_seconds=self.config.census_base_timeout_seconds,
+            window_size=self.config.census_timeout_window_size,
+        )
+
+        # Retry strategy with exponential backoff
+        self.retry_strategy = RetryStrategy(
+            config=RetryConfig(
+                max_retries=self.config.census_max_retries,
+                base_delay_seconds=self.config.census_retry_base_delay_seconds,
+            )
+        )
+
     def render(self) -> None:
-        """Render the batch processing tab."""
-        with ui.column().classes("w-full h-full gap-1 p-1"):
-            # Header with session controls (compact)
-            self._render_session_header()
+        """Render the batch processing tab with sub-tabs."""
+        with ui.column().classes("w-full h-full"):
+            # Create sub-tabs for Batch Processing and Dashboard
+            with ui.tabs().classes('w-full') as tabs:
+                batch_tab = ui.tab('Batch Processing', icon='playlist_add_check')
+                dashboard_tab = ui.tab('Dashboard', icon='dashboard')
 
-            # Three-panel layout container
-            with ui.row().classes("w-full flex-grow flex-nowrap gap-0") as self.three_panel_container:
-                self._render_three_panels()
+            with ui.tab_panels(tabs, value=batch_tab).classes('w-full h-full'):
+                # Tab 1: Batch Processing
+                with ui.tab_panel(batch_tab).classes('w-full h-full'):
+                    with ui.column().classes("w-full h-full gap-1 p-1"):
+                        # Header with session controls (compact)
+                        self._render_session_header()
 
-            # Bottom status bar (only visible in Batch Processing)
-            with ui.row().classes("w-full items-center bg-gray-100 px-2 py-1 border-t") as self.status_bar_container:
-                self._render_status_bar()
+                        # Three-panel layout container
+                        with ui.row().classes("w-full flex-grow flex-nowrap gap-0") as self.three_panel_container:
+                            self._render_three_panels()
 
-            # Message log panel at bottom
-            self.message_log_panel = MessageLogPanel(self.message_log)
-            self.message_log_panel.render()
+                        # Bottom status bar (only visible in Batch Processing)
+                        with ui.row().classes("w-full items-center bg-gray-100 px-2 py-1 border-t") as self.status_bar_container:
+                            self._render_status_bar()
+
+                        # Message log panel at bottom
+                        self.message_log_panel = MessageLogPanel(self.message_log)
+                        self.message_log_panel.render()
+
+                # Tab 2: Census Dashboard
+                with ui.tab_panel(dashboard_tab).classes('w-full h-full'):
+                    self._render_census_dashboard()
 
     def _render_three_panels(self) -> None:
         """Render the three-panel layout."""
@@ -180,6 +259,19 @@ class BatchProcessingTab:
                     on_click=self._show_load_dialog,
                 ).props("dense outline")
 
+                ui.button(
+                    "Resume",
+                    icon="replay",
+                    on_click=self._show_resume_dialog,
+                ).props("dense outline").tooltip("Resume interrupted session")
+
+                ui.button(
+                    icon="delete_sweep",
+                    on_click=self._show_reset_state_db_dialog,
+                ).props("dense flat color=orange").tooltip(
+                    "Reset state DB (use after RootsMagic restore)"
+                )
+
                 if self.controller.session:
                     ui.button(
                         "Process",
@@ -275,7 +367,7 @@ class BatchProcessingTab:
 
         try:
             # Import the find function from batch script
-            from process_census_batch import find_census_citations
+            from scripts.process_census_batch import find_census_citations
 
             # Find citations
             db_path = str(self.config.rm_database_path)
@@ -346,8 +438,219 @@ class BatchProcessingTab:
             logger.error(f"Failed to load citations: {e}")
             self._notify_and_log(f"Error loading citations: {e}", type="negative")
 
+    def _show_resume_dialog(self) -> None:
+        """Show dialog to resume an interrupted batch session."""
+        if not self.state_repository:
+            ui.notify("State repository not available", type="warning")
+            return
+
+        # Get resumable sessions
+        sessions = self.state_repository.get_resumable_sessions()
+
+        if not sessions:
+            ui.notify("No resumable sessions found", type="info")
+            return
+
+        with ui.dialog() as dialog, ui.card().classes("w-[600px]"):
+            ui.label("Resume Census Batch Session").classes("font-bold text-lg mb-4")
+
+            ui.label(
+                "Select a session to resume. Sessions are saved automatically "
+                "and can be resumed after crashes or pauses."
+            ).classes("text-sm text-gray-600 mb-4")
+
+            # Session table
+            columns = [
+                {'name': 'session_id', 'label': 'Session ID', 'field': 'session_id', 'align': 'left'},
+                {'name': 'created', 'label': 'Created', 'field': 'created_at', 'align': 'left'},
+                {'name': 'status', 'label': 'Status', 'field': 'status', 'align': 'center'},
+                {'name': 'progress', 'label': 'Progress', 'field': 'progress', 'align': 'center'},
+                {'name': 'year', 'label': 'Census Year', 'field': 'census_year', 'align': 'center'},
+            ]
+
+            rows = []
+            for s in sessions:
+                total = s['total_items']
+                completed = s['completed_count']
+                progress = f"{completed}/{total}" if total > 0 else "0/0"
+                rows.append({
+                    'session_id': s['session_id'],
+                    'created_at': s['created_at'][:19] if s['created_at'] else 'N/A',
+                    'status': s['status'],
+                    'progress': progress,
+                    'census_year': s['census_year'] or 'All',
+                })
+
+            table = ui.table(
+                columns=columns,
+                rows=rows,
+                row_key='session_id',
+                selection='single',
+            ).classes('w-full')
+
+            with ui.row().classes("w-full justify-end gap-2 mt-4"):
+                ui.button("Cancel", on_click=dialog.close).props("flat")
+
+                async def resume_selected():
+                    selected = table.selected
+                    if selected:
+                        session_id = selected[0]['session_id']
+                        dialog.close()
+                        await self._resume_session(session_id)
+
+                ui.button(
+                    "Resume",
+                    icon="play_arrow",
+                    on_click=resume_selected,
+                ).props("color=primary")
+
+        dialog.open()
+
+    async def _resume_session(self, session_id: str) -> None:
+        """Resume a batch session from the state database.
+
+        Args:
+            session_id: Session ID to resume
+        """
+        if not self.state_repository:
+            ui.notify("State repository not available", type="warning")
+            return
+
+        # Get session info
+        session = self.state_repository.get_session(session_id)
+        if not session:
+            ui.notify(f"Session {session_id} not found", type="negative")
+            return
+
+        # Get incomplete items
+        items = self.state_repository.get_session_items(session_id)
+        incomplete_items = [
+            item for item in items
+            if item['status'] not in ('complete', 'extracted', 'created_citation')
+        ]
+
+        if not incomplete_items:
+            ui.notify("All items in session are complete", type="info")
+            return
+
+        # Set current session ID for state tracking
+        self.current_session_id = session_id
+
+        # Load citations for incomplete items
+        census_year = session.get('census_year')
+        self._notify_and_log(
+            f"Resuming session {session_id}: {len(incomplete_items)} items remaining",
+            type="info"
+        )
+
+        # Create a new controller session from incomplete items
+        # (This requires loading the citations from RootsMagic again)
+        from scripts.process_census_batch import find_census_citations
+
+        db_path = str(self.config.rm_database_path)
+        person_ids = [item['person_id'] for item in incomplete_items]
+
+        # Find citations for these specific person IDs
+        # For now, we'll reload by census year - a more robust implementation
+        # would filter by specific person IDs
+        if census_year:
+            result = find_census_citations(
+                db_path, census_year,
+                limit=len(incomplete_items) + 100,  # Get extra to account for completed ones
+            )
+
+            if result['citations']:
+                # Filter to only incomplete items
+                citations_to_process = [
+                    c for c in result['citations']
+                    if c['person_id'] in person_ids
+                ]
+
+                if citations_to_process:
+                    self.controller.create_session(census_year, citations_to_process)
+                    self.selected_citation_ids = set()
+                    self._refresh_all_panels()
+                    self._notify_and_log(
+                        f"Loaded {len(citations_to_process)} citations for resume",
+                        type="positive"
+                    )
+                else:
+                    ui.notify("No matching citations found to resume", type="warning")
+            else:
+                ui.notify("No citations found for the session's census year", type="warning")
+        else:
+            ui.notify("Session has no census year filter - manual resume required", type="warning")
+
+    def _show_reset_state_db_dialog(self) -> None:
+        """Show confirmation dialog to reset the census state database."""
+        with ui.dialog() as dialog, ui.card().classes("w-96"):
+            ui.label("Reset Census State Database").classes("font-bold text-lg text-orange-600 mb-4")
+
+            ui.label(
+                "This will delete ALL census batch state data including:"
+            ).classes("font-medium mb-2")
+
+            with ui.column().classes("ml-4 mb-4 text-sm text-gray-700"):
+                ui.label("• All census batch sessions")
+                ui.label("• All census batch item tracking")
+                ui.label("• All census checkpoints")
+                ui.label("• All census performance metrics")
+
+            ui.label(
+                "Use this after restoring the RootsMagic database from backup "
+                "when the state database is out of sync."
+            ).classes("text-sm text-gray-600 italic mb-4")
+
+            ui.label(
+                "This does NOT affect Find a Grave batch state data."
+            ).classes("text-sm font-medium text-blue-600 mb-4")
+
+            with ui.row().classes("w-full justify-end gap-2"):
+                ui.button("Cancel", on_click=dialog.close).props("flat")
+                ui.button(
+                    "Reset",
+                    icon="delete_sweep",
+                    on_click=lambda: self._reset_state_db(dialog),
+                ).props("color=orange")
+
+        dialog.open()
+
+    def _reset_state_db(self, dialog: ui.dialog) -> None:
+        """Reset the census state database.
+
+        Args:
+            dialog: Dialog to close after reset
+        """
+        dialog.close()
+
+        if not self.state_repository:
+            ui.notify("State repository not available", type="warning")
+            return
+
+        try:
+            count = self.state_repository.clear_all_sessions()
+            self.current_session_id = None
+            self.current_state_item_id = None
+            self.checkpoint_counter = 0
+
+            self._notify_and_log(
+                f"Census state database reset: {count} sessions deleted",
+                type="positive"
+            )
+        except Exception as e:
+            logger.error(f"Failed to reset state database: {e}")
+            self._notify_and_log(f"Error resetting state database: {e}", type="negative")
+
     async def _start_batch_processing(self) -> None:
         """Start automated batch processing of loaded citations.
+
+        Implements six-phase processing with robustness components:
+        - Phase 1: Page health check
+        - Phase 2: Already extracted check
+        - Phase 3: Extraction with retry & adaptive timeout
+        - Phase 4: Image download
+        - Phase 5: Status update & checkpoint
+        - Phase 6: Metrics recording
 
         Behavior:
         - If citations are selected (checked): process only selected citations
@@ -383,30 +686,52 @@ class BatchProcessingTab:
             self._notify_and_log("No citations to process", type="warning")
             return
 
-        # Create progress dialog
+        # Create session in state database for persistence/resume
+        self._create_state_session(citations_to_process)
+
+        # Create progress dialog with detailed status
         with ui.dialog().props('persistent') as progress_dialog, ui.card().classes('w-96'):
-            ui.label('Batch Processing').classes('text-lg font-bold mb-4')
+            ui.label('Census Batch Processing').classes('text-lg font-bold mb-4')
 
             progress_label = ui.label('Starting...').classes('text-sm mb-2')
             progress_bar = ui.linear_progress(value=0).props('instant-feedback')
 
             status_label = ui.label('').classes('text-xs text-gray-600 mt-2')
+            health_label = ui.label('').classes('text-xs text-blue-600 mt-1')
+
+            with ui.row().classes('gap-2 mt-4'):
+                ui.button("Pause", on_click=lambda: self._pause_batch_processing()).props("flat")
 
         progress_dialog.open()
 
+        # Mark session as started
+        if self.state_repository and self.current_session_id:
+            self.state_repository.start_session(self.current_session_id)
+
         processed = 0
         errors = 0
+        skipped = 0
         total = len(citations_to_process)
 
         for i, citation in enumerate(citations_to_process, 1):
             # Update progress
             progress_label.text = f"Processing {i} of {total}: {citation.full_name}"
             progress_bar.value = i / total
-            status_label.text = f"{processed} completed, {errors} errors"
+            status_label.text = f"{processed} completed, {errors} errors, {skipped} skipped"
+
+            start_time = time.time()
 
             try:
-                await self._process_single_citation(citation)
-                processed += 1
+                result = await self._process_single_citation_robust(
+                    citation, health_label, status_label
+                )
+
+                if result == "processed":
+                    processed += 1
+                elif result == "skipped":
+                    skipped += 1
+                elif result == "error":
+                    errors += 1
 
                 # Refresh queue component only (don't destroy/recreate UI)
                 if self.queue_component:
@@ -417,15 +742,43 @@ class BatchProcessingTab:
                 self.controller.mark_citation_error(citation, str(e))
                 errors += 1
 
+                # Record error in state DB
+                if self.state_repository and self.current_state_item_id:
+                    self.state_repository.update_item_status(
+                        self.current_state_item_id, 'error', str(e)
+                    )
+
+            # Record metrics
+            duration_ms = int((time.time() - start_time) * 1000)
+            if self.state_repository and self.current_session_id:
+                self.state_repository.record_metric(
+                    operation='process_citation',
+                    duration_ms=duration_ms,
+                    success=(result == "processed"),
+                    session_id=self.current_session_id,
+                )
+
+            # Update session counts
+            if self.state_repository and self.current_session_id:
+                self.state_repository.update_session_counts(
+                    self.current_session_id,
+                    completed_count=processed,
+                    error_count=errors,
+                )
+
             # Small delay to allow UI update
             await asyncio.sleep(0.1)
 
         # Close progress dialog
         progress_dialog.close()
 
+        # Mark session as completed
+        if self.state_repository and self.current_session_id:
+            self.state_repository.complete_session(self.current_session_id)
+
         # Show completion message
         self._notify_and_log(
-            f"Batch processing complete! {processed} processed, {errors} errors",
+            f"Batch processing complete! {processed} processed, {errors} errors, {skipped} skipped",
             type="positive"
         )
 
@@ -437,32 +790,254 @@ class BatchProcessingTab:
         if self.controller.session and self.controller.session.current_citation:
             self._refresh_form_panel()
 
-    async def _process_single_citation(self, citation: CitationBatchItem) -> None:
-        """Process a single citation (extraction and image download if needed).
+    def _create_state_session(self, citations: list[CitationBatchItem]) -> None:
+        """Create a session in the state database for persistence/resume.
+
+        Args:
+            citations: List of citations to process
+        """
+        if not self.state_repository:
+            logger.warning("State repository not available, skipping state tracking")
+            return
+
+        # Generate session ID
+        self.current_session_id = f"census_batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        # Get census year if filtering by year
+        census_year = self.selected_census_year
+
+        # Create session
+        self.state_repository.create_session(
+            session_id=self.current_session_id,
+            total_items=len(citations),
+            census_year=census_year,
+            config_snapshot={
+                'base_timeout': self.config.census_base_timeout_seconds,
+                'max_retries': self.config.census_max_retries,
+                'adaptive_timeout': self.config.census_enable_adaptive_timeout,
+            },
+        )
+
+        # Create items for each citation
+        for citation in citations:
+            self.state_repository.create_item(
+                session_id=self.current_session_id,
+                person_id=citation.person_id,
+                person_name=citation.full_name,
+                census_year=citation.census_year,
+                state=citation.extracted_data.get('state') if citation.extracted_data else None,
+                county=citation.extracted_data.get('county') if citation.extracted_data else None,
+            )
+
+        logger.info(f"Created census batch session {self.current_session_id} with {len(citations)} items")
+
+    def _pause_batch_processing(self) -> None:
+        """Pause the current batch processing session."""
+        if self.state_repository and self.current_session_id:
+            self.state_repository.pause_session(self.current_session_id)
+            self._notify_and_log("Batch processing paused", type="info")
+
+    async def _process_single_citation_robust(
+        self,
+        citation: CitationBatchItem,
+        health_label: ui.label,
+        status_label: ui.label,
+    ) -> str:
+        """Process a single citation using six-phase robust processing.
 
         Args:
             citation: Citation to process
+            health_label: UI label for health status
+            status_label: UI label for status messages
+
+        Returns:
+            "processed", "skipped", or "error"
         """
+        # Get or create state item ID
+        if self.state_repository and self.current_session_id:
+            items = self.state_repository.get_session_items(self.current_session_id)
+            for item in items:
+                if item['person_id'] == citation.person_id and item['census_year'] == citation.census_year:
+                    self.current_state_item_id = item['id']
+                    break
+
+        # ===== PHASE 1: PAGE HEALTH CHECK =====
+        if self.config.census_enable_crash_recovery:
+            health_label.text = "Checking page health..."
+
+            page = await self.familysearch_automation.get_or_create_page()
+            if page:
+                health = await self.health_monitor.check_page_health(page)
+
+                if not health.is_healthy:
+                    health_label.text = f"Page unhealthy: {health.error}"
+                    logger.warning(f"Page health check failed: {health.error}")
+
+                    # Attempt recovery
+                    recovered_page = await self.recovery_manager.attempt_recovery(
+                        page, self.familysearch_automation
+                    )
+                    if not recovered_page:
+                        self.controller.mark_citation_error(citation, f"Page recovery failed: {health.error}")
+                        if self.state_repository and self.current_state_item_id:
+                            self.state_repository.update_item_status(
+                                self.current_state_item_id, 'error', f"Page crash: {health.error}"
+                            )
+                        return "error"
+                else:
+                    health_label.text = "Page healthy"
+
+        # ===== PHASE 2: ALREADY EXTRACTED CHECK =====
+        status_label.text = "Checking extraction status..."
+
+        if citation.extracted_data and citation.extracted_data.get('extraction_complete'):
+            logger.debug(f"Citation {citation.citation_id} already extracted, skipping extraction")
+            # Skip to image download if needed
+            if not citation.has_existing_media:
+                await self._download_citation_image(citation)
+            return "skipped"
+
+        # Check for missing URL
         if not citation.familysearch_url:
             self.controller.mark_citation_error(citation, "No FamilySearch URL available")
-            return
+            if self.state_repository and self.current_state_item_id:
+                self.state_repository.update_item_status(
+                    self.current_state_item_id, 'error', "No FamilySearch URL"
+                )
+            return "error"
 
-        # Extract data from FamilySearch with year-specific extraction logic
-        extracted_data = await self.familysearch_automation.extract_citation_data(
-            citation.familysearch_url,
-            census_year=citation.census_year
-        )
+        # Update state to extracting
+        if self.state_repository and self.current_state_item_id:
+            self.state_repository.update_item_status(self.current_state_item_id, 'extracting')
+
+        # ===== PHASE 3: EXTRACTION WITH RETRY & ADAPTIVE TIMEOUT =====
+        status_label.text = "Extracting citation data..."
+
+        # Get adaptive timeout
+        timeout = self.timeout_manager.get_current_timeout()
+        logger.debug(f"Using adaptive timeout: {timeout}s")
+
+        retry_count = 0
+        extracted_data = None
+
+        while retry_count <= self.config.census_max_retries:
+            try:
+                start_time = time.time()
+
+                # Time the extraction
+                with TimingContext(self.timeout_manager, "familysearch_extraction"):
+                    extracted_data = await self.familysearch_automation.extract_citation_data(
+                        citation.familysearch_url,
+                        census_year=citation.census_year
+                    )
+
+                if extracted_data:
+                    # Record successful extraction time
+                    duration = time.time() - start_time
+                    self.timeout_manager.record_response_time(duration, success=True)
+
+                    if self.state_repository and self.current_session_id:
+                        self.state_repository.record_metric(
+                            operation='extraction',
+                            duration_ms=int(duration * 1000),
+                            success=True,
+                            session_id=self.current_session_id,
+                        )
+                    break
+
+            except Exception as e:
+                retry_count += 1
+                logger.warning(f"Extraction attempt {retry_count} failed: {e}")
+
+                # Check if should retry
+                if self.retry_strategy.should_retry(e, retry_count - 1):
+                    delay = self.retry_strategy.get_delay(retry_count - 1)
+                    status_label.text = f"Retry {retry_count}/{self.config.census_max_retries} in {delay:.1f}s..."
+                    await asyncio.sleep(delay)
+
+                    # Increment retry count in state DB
+                    if self.state_repository and self.current_state_item_id:
+                        self.state_repository.increment_retry_count(self.current_state_item_id)
+                else:
+                    # Non-retryable error
+                    self.controller.mark_citation_error(citation, f"Extraction failed: {e}")
+                    if self.state_repository and self.current_state_item_id:
+                        self.state_repository.update_item_status(
+                            self.current_state_item_id, 'error', str(e)
+                        )
+                    return "error"
 
         if not extracted_data:
-            self.controller.mark_citation_error(citation, "Failed to extract citation data")
-            return
+            self.controller.mark_citation_error(citation, "Failed to extract citation data after retries")
+            if self.state_repository and self.current_state_item_id:
+                self.state_repository.update_item_status(
+                    self.current_state_item_id, 'error', "Extraction failed after retries"
+                )
+            return "error"
 
         # Update citation with extracted data
         self.controller.update_citation_extracted_data(citation, extracted_data)
 
-        # If citation needs manual review and doesn't have existing media, download the image
-        if citation.needs_manual_entry and not citation.has_existing_media:
+        # Update state with extracted data
+        if self.state_repository and self.current_state_item_id:
+            self.state_repository.update_item_extraction(
+                self.current_state_item_id,
+                extracted_data,
+            )
+
+        # ===== PHASE 4: IMAGE DOWNLOAD =====
+        status_label.text = "Downloading census image..."
+
+        if not citation.has_existing_media:
+            if self.state_repository and self.current_state_item_id:
+                self.state_repository.update_item_status(
+                    self.current_state_item_id, 'downloading_images'
+                )
             await self._download_citation_image(citation)
+
+        # ===== PHASE 5: STATUS UPDATE =====
+        status_label.text = "Updating status..."
+
+        # Mark as extracted (user may need to review/edit before export)
+        citation.status = CitationStatus.EXTRACTED
+
+        # ===== PHASE 6: CHECKPOINT =====
+        self.checkpoint_counter += 1
+        if (
+            self.state_repository
+            and self.current_session_id
+            and self.current_state_item_id
+            and self.checkpoint_counter >= self.config.census_checkpoint_frequency
+        ):
+            self.state_repository.create_checkpoint(
+                self.current_session_id,
+                self.current_state_item_id,
+                citation.person_id,
+            )
+            self.checkpoint_counter = 0
+            logger.debug(f"Created checkpoint at item {self.current_state_item_id}")
+
+        # Mark complete in state DB
+        if self.state_repository and self.current_state_item_id:
+            self.state_repository.update_item_status(self.current_state_item_id, 'extracted')
+
+        # Reset recovery counter on success
+        self.recovery_manager.reset_recovery_counter()
+
+        return "processed"
+
+    async def _process_single_citation(self, citation: CitationBatchItem) -> None:
+        """Process a single citation (legacy method for backwards compatibility).
+
+        This method is kept for backwards compatibility but delegates to the
+        robust processing method.
+
+        Args:
+            citation: Citation to process
+        """
+        # Create a dummy label for the robust method
+        with ui.label('') as health_label, ui.label('') as status_label:
+            await self._process_single_citation_robust(citation, health_label, status_label)
 
     async def _download_citation_image(self, citation: CitationBatchItem) -> None:
         """Download census image for manual entry.
@@ -819,11 +1394,63 @@ class BatchProcessingTab:
             progress_dialog.close()
             self._notify_and_log(f"Export failed: {str(e)}", type="negative")
 
+    def _generate_bracket_content(self, citation) -> str:
+        """Generate bracket content for SourceTable.Name from extracted citation data.
+
+        Format varies by census year:
+        - 1880-1950: [citing enumeration district (ED) XX-XX, sheet XX, line XX]
+        - 1850-1870: [citing p. XX, household ID XX] or [citing sheet XX, family XX]
+        - 1790-1840: [citing p. XX]
+
+        Args:
+            citation: CitationBatchItem with merged_data
+
+        Returns:
+            Formatted bracket content string (including brackets)
+        """
+        data = citation.merged_data
+        year = citation.census_year
+        parts = []
+
+        # For 1880-1950: Include enumeration district
+        ed = data.get('enumeration_district', '')
+        if ed and year >= 1880:
+            parts.append(f"enumeration district (ED) {ed}")
+
+        # Sheet or page
+        sheet = data.get('sheet', '')
+        page = data.get('page', '')
+        if sheet:
+            parts.append(f"sheet {sheet}")
+        elif page and year < 1880:
+            parts.append(f"p. {page}")
+
+        # Line number (1850+)
+        line = data.get('line', '')
+        if line:
+            parts.append(f"line {line}")
+
+        # Family number (1850+)
+        family = data.get('family_number', '')
+        if family:
+            parts.append(f"family {family}")
+
+        # Dwelling number (1850+)
+        dwelling = data.get('dwelling_number', '')
+        if dwelling:
+            parts.append(f"dwelling {dwelling}")
+
+        if parts:
+            return f"[citing {', '.join(parts)}]"
+        return "[]"  # Keep empty brackets if no data available
+
     async def _write_citation_to_database(self, citation) -> None:
-        """Write citation fields to SourceTable.Fields BLOB.
+        """Write citation fields to SourceTable.Fields BLOB and update related records.
 
         For free-form sources (TemplateID=0), writes Footnote, ShortFootnote, Bibliography
-        to SourceTable.Fields as XML.
+        to SourceTable.Fields as XML. Also updates:
+        - SourceTable.Name brackets with citation details
+        - CitationLinkTable.Quality to "PDO" for census citations
         """
         from rmcitecraft.database.image_repository import ImageRepository
 
@@ -831,7 +1458,7 @@ class BatchProcessingTab:
         with self.db.transaction() as conn:
             repo = ImageRepository(conn)
 
-            # Update SourceTable.Fields BLOB with formatted citations
+            # 1. Update SourceTable.Fields BLOB with formatted citations
             repo.update_source_fields(
                 source_id=citation.source_id,
                 footnote=citation.footnote,
@@ -839,7 +1466,49 @@ class BatchProcessingTab:
                 bibliography=citation.bibliography,
             )
 
+            # 2. Update SourceTable.Name brackets with citation details
+            bracket_content = self._generate_bracket_content(citation)
+            if bracket_content and bracket_content != "[]":
+                repo.update_source_name_brackets(
+                    source_id=citation.source_id,
+                    bracket_content=bracket_content,
+                )
+                logger.debug(f"Updated source name brackets for SourceID={citation.source_id}: {bracket_content}")
+
+            # 3. Update CitationLinkTable.Quality to "PDO" for census event citations
+            self._update_citation_quality(conn, citation.citation_id, citation.event_id, "PDO")
+
             logger.info(f"Wrote citation fields to database for SourceID={citation.source_id} (CitationID={citation.citation_id})")
+
+    def _update_citation_quality(self, conn, citation_id: int, event_id: int, quality: str) -> None:
+        """Update the Quality field in CitationLinkTable for a citation linked to an event.
+
+        Args:
+            conn: Database connection
+            citation_id: CitationID from CitationTable
+            event_id: EventID from EventTable
+            quality: Quality code (e.g., "PDO" for Primary/Direct/Original)
+        """
+        cursor = conn.cursor()
+
+        try:
+            # Update Quality for citation linked to event (OwnerType=2)
+            cursor.execute(
+                """
+                UPDATE CitationLinkTable
+                SET Quality = ?
+                WHERE CitationID = ? AND OwnerType = 2 AND OwnerID = ?
+                """,
+                (quality, citation_id, event_id),
+            )
+
+            if cursor.rowcount > 0:
+                logger.debug(f"Updated Quality to '{quality}' for CitationID={citation_id}, EventID={event_id}")
+            else:
+                logger.warning(f"No CitationLink found for CitationID={citation_id}, EventID={event_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to update citation quality: {e}")
 
     def _get_session_status_text(self) -> str:
         """Get session status text.
@@ -1194,3 +1863,46 @@ class BatchProcessingTab:
         }
         log_type = message_type_map.get(type, MessageType.INFO)
         self.message_log.log(message, type=log_type, source=source)
+
+    def _render_census_dashboard(self) -> None:
+        """Render the Census Dashboard tab (placeholder for census-specific visualizations)."""
+        from rmcitecraft.database.census_batch_state_repository import CensusBatchStateRepository
+        
+        with ui.column().classes('w-full p-6 gap-6'):
+            # Header
+            ui.label('Census Dashboard').classes('text-3xl font-bold')
+            ui.label('Monitor Census batch processing with year-based analytics').classes('text-gray-600')
+            
+            ui.separator()
+            
+            # Coming Soon Message
+            with ui.card().classes('w-full p-8 bg-blue-50'):
+                ui.label('Census-Specific Dashboard Coming Soon').classes('text-2xl font-bold mb-4')
+                
+                ui.markdown("""
+                The Census Dashboard will include:
+                
+                **Year Breakdown:**
+                - Distribution of census records by decade (1790-1950)
+                - Year-over-year coverage chart
+                
+                **Geographic Mapping:**
+                - Interactive US state map showing census coverage
+                - County-level drill-down within states
+                - Heat map visualization
+                
+                **Citation Quality:**
+                - Completeness metrics (missing fields)
+                - Photo attachment rates
+                - Source quality distribution
+                
+                **Session Analytics:**
+                - Processing timeline
+                - Error distribution
+                - Performance metrics
+                """).classes('text-sm')
+            
+            # Temporary: Show that repo is ready
+            with ui.card().classes('w-full p-4 bg-green-50'):
+                ui.label('✓ Backend Ready').classes('text-lg font-bold text-green-700')
+                ui.label('CensusBatchStateRepository created with census-specific analytics methods').classes('text-sm text-green-600')

@@ -1,4 +1,4 @@
-"""Unit tests for BatchStateRepository."""
+"""Unit tests for FindAGraveBatchStateRepository."""
 
 import json
 import tempfile
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from rmcitecraft.database.batch_state_repository import BatchStateRepository
+from rmcitecraft.database.batch_state_repository import FindAGraveBatchStateRepository
 
 
 @pytest.fixture
@@ -20,18 +20,18 @@ def temp_db():
 
 @pytest.fixture
 def repository(temp_db):
-    """Create BatchStateRepository instance with temporary database."""
-    return BatchStateRepository(db_path=temp_db)
+    """Create FindAGraveBatchStateRepository instance with temporary database."""
+    return FindAGraveBatchStateRepository(db_path=temp_db)
 
 
-class TestBatchStateRepository:
-    """Test BatchStateRepository CRUD operations."""
+class TestFindAGraveBatchStateRepository:
+    """Test FindAGraveBatchStateRepository CRUD operations."""
 
     def test_initialization_creates_database(self, temp_db):
         """Test repository initialization creates database file."""
         assert not Path(temp_db).exists()
 
-        repository = BatchStateRepository(db_path=temp_db)
+        repository = FindAGraveBatchStateRepository(db_path=temp_db)
 
         assert Path(temp_db).exists()
 

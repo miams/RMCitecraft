@@ -1,10 +1,11 @@
 """
 Pytest fixtures for E2E tests.
 
-These tests require:
-1. Chrome running with remote debugging on port 9222
-2. User manually logged into FamilySearch in Chrome
-3. Real FamilySearch URLs (stored in test_data.py)
+These tests:
+1. Launch Chrome with persistent context (automatic)
+2. Use persistent profile at ~/chrome-debug-profile
+3. First run: Log into FamilySearch manually (one-time setup)
+4. Subsequent runs: Already logged in (persistent session)
 """
 
 import asyncio
@@ -23,12 +24,11 @@ from rmcitecraft.services.familysearch_automation import FamilySearchAutomation
 @pytest.fixture(scope="function")
 async def automation_service():
     """
-    Provide FamilySearch automation service connected to Chrome.
+    Provide FamilySearch automation service with launched Chrome.
 
-    Requires Chrome to be running with remote debugging:
-        /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome \\
-            --remote-debugging-port=9222 \\
-            --user-data-dir="$HOME/Library/Application Support/Google/Chrome-RMCitecraft"
+    Launches Chrome with persistent context automatically.
+    First run: Navigate to FamilySearch and log in manually (one-time setup).
+    Subsequent runs: Already logged in via persistent profile.
     """
     automation = FamilySearchAutomation()
 
@@ -103,15 +103,9 @@ def test_urls():
 
 @pytest.fixture(autouse=True)
 def skip_if_chrome_not_available(request):
-    """Skip tests if Chrome is not available."""
+    """Skip tests if Chrome prerequisites are not met."""
     # Only apply to tests marked with @pytest.mark.e2e
     if "e2e" in request.keywords:
-        from rmcitecraft.utils.chrome_launcher import is_chrome_running_with_debugging
-
-        if not is_chrome_running_with_debugging():
-            pytest.skip(
-                "Chrome not running with remote debugging. "
-                "Run: /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome "
-                "--remote-debugging-port=9222 "
-                '--user-data-dir="$HOME/Library/Application Support/Google/Chrome-RMCitecraft"'
-            )
+        # No longer need to check for running Chrome - we launch it ourselves
+        # with launch_persistent_context()
+        pass
