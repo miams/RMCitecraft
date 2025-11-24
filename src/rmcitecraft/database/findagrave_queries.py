@@ -239,21 +239,28 @@ def _check_existing_citation(cursor: sqlite3.Cursor, person_id: int) -> bool:
     Returns:
         True if formatted citation exists, False otherwise
     """
-    # Find sources linked to this person's events that are Find a Grave sources
+    # Find sources linked to this person (either via events OR directly to person)
+    # that are Find a Grave sources
     cursor.execute("""
         SELECT DISTINCT
             s.SourceID,
             s.TemplateID,
             s.Fields
-        FROM EventTable e
-        JOIN CitationLinkTable cl ON e.EventID = cl.OwnerID AND cl.OwnerType = 2
-        JOIN CitationTable c ON cl.CitationID = c.CitationID
-        JOIN SourceTable s ON c.SourceID = s.SourceID
-        WHERE e.OwnerID = ?
-        AND e.OwnerType = 0
+        FROM SourceTable s
+        JOIN CitationTable c ON s.SourceID = c.SourceID
+        JOIN CitationLinkTable cl ON c.CitationID = cl.CitationID
+        WHERE (
+            -- Citations linked to person's events
+            (cl.OwnerType = 2 AND cl.OwnerID IN (
+                SELECT EventID FROM EventTable WHERE OwnerID = ? AND OwnerType = 0
+            ))
+            OR
+            -- Citations linked directly to person
+            (cl.OwnerType = 0 AND cl.OwnerID = ?)
+        )
         AND s.Name LIKE '%Find a Grave%'
         AND s.TemplateID = 0
-    """, (person_id,))
+    """, (person_id, person_id))
 
     sources = cursor.fetchall()
 
@@ -354,16 +361,23 @@ def check_citation_exists_detailed(
                     f"findagrave.com/memorial/{memorial_id}",
                 ])
 
-            # Query citations by RefNumber
+            # Query citations by RefNumber (check both event links and direct person links)
             for pattern in url_patterns:
                 cursor.execute("""
                     SELECT c.CitationID, c.SourceID, c.RefNumber
                     FROM CitationTable c
                     JOIN CitationLinkTable cl ON c.CitationID = cl.CitationID
-                    JOIN EventTable e ON cl.OwnerID = e.EventID AND cl.OwnerType = 2
-                    WHERE e.OwnerID = ? AND e.OwnerType = 0
+                    WHERE (
+                        -- Citations linked to person's events
+                        (cl.OwnerType = 2 AND cl.OwnerID IN (
+                            SELECT EventID FROM EventTable WHERE OwnerID = ? AND OwnerType = 0
+                        ))
+                        OR
+                        -- Citations linked directly to person
+                        (cl.OwnerType = 0 AND cl.OwnerID = ?)
+                    )
                     AND c.RefNumber LIKE ?
-                """, (person_id, f"%{pattern}%"))
+                """, (person_id, person_id, f"%{pattern}%"))
 
                 row = cursor.fetchone()
                 if row:
@@ -802,6 +816,7 @@ def create_burial_event_and_link_citation(
     cemetery_county: str,
     cemetery_state: str,
     cemetery_country: str,
+    has_grave_photo: bool = False,
 ) -> dict[str, int | None]:
     """
     Create burial event for Find a Grave memorial and link citation to it.
@@ -815,6 +830,7 @@ def create_burial_event_and_link_citation(
         cemetery_county: County name
         cemetery_state: State name
         cemetery_country: Country name
+        has_grave_photo: Whether Grave/Headstone photos exist (affects Quality assessment)
 
     Returns:
         Dictionary with created IDs:
@@ -1055,6 +1071,11 @@ def create_burial_event_and_link_citation(
             logger.info(f"Created burial event ID {burial_event_id} for person {person_id}")
 
         # 7. Link citation to burial event
+        # Quality Assessment:
+        # - SDX (Secondary, Direct, Derivative): Default for Find a Grave
+        # - PDX (Primary, Direct, Derivative): When Grave/Headstone photo present
+        quality = 'PDX' if has_grave_photo else 'SDX'
+
         cursor.execute("""
             INSERT OR IGNORE INTO CitationLinkTable (
                 CitationID, OwnerType, OwnerID, SortOrder, Quality, IsPrivate, Flags, UTCModDate
@@ -1064,7 +1085,7 @@ def create_burial_event_and_link_citation(
             2,  # OwnerType = 2 for EventTable
             burial_event_id,
             0,  # SortOrder
-            '~~~',  # Quality: default rating
+            quality,  # Quality: SDX or PDX based on photo presence
             0,  # IsPrivate
             0,  # Flags
             utc_mod_date,
@@ -1094,6 +1115,7 @@ def link_citation_to_person(
     db_path: str,
     person_id: int,
     citation_id: int,
+    has_grave_photo: bool = False,
 ) -> int:
     """
     Link Find a Grave citation directly to Person record.
@@ -1107,6 +1129,7 @@ def link_citation_to_person(
         db_path: Path to RootsMagic database
         person_id: Person ID
         citation_id: Citation ID to link to person
+        has_grave_photo: Whether Grave/Headstone photos exist (affects Quality assessment)
 
     Returns:
         LinkID of created link
@@ -1130,6 +1153,11 @@ def link_citation_to_person(
             return None
 
         # Create link to person (OwnerType = 0)
+        # Quality Assessment:
+        # - SDX (Secondary, Direct, Derivative): Default for Find a Grave
+        # - PDX (Primary, Direct, Derivative): When Grave/Headstone photo present
+        quality = 'PDX' if has_grave_photo else 'SDX'
+
         cursor.execute("""
             INSERT INTO CitationLinkTable (
                 CitationID, OwnerType, OwnerID, SortOrder, Quality, IsPrivate, Flags, UTCModDate
@@ -1139,7 +1167,7 @@ def link_citation_to_person(
             0,  # OwnerType = 0 for Person
             person_id,
             0,  # SortOrder
-            '~~~',  # Quality: default rating
+            quality,  # Quality: SDX or PDX based on photo presence
             0,  # IsPrivate
             0,  # Flags
             utc_mod_date,
@@ -1308,7 +1336,7 @@ def link_citation_to_families(
                 1,  # OwnerType = 1 for FamilyTable
                 family_id,
                 0,  # SortOrder: 0 for consistency with recent records
-                '~~~',  # Quality: default rating (no specific rating provided)
+                'SDX',  # Quality: SDX for Find a Grave (family links don't upgrade to PDX)
                 0,  # IsPrivate
                 0,  # Flags
                 utc_mod_date,
@@ -1431,7 +1459,7 @@ def link_citation_to_families(
                 1,  # OwnerType = 1 for FamilyTable
                 family_id,
                 0,  # SortOrder
-                '~~~',  # Quality: default rating
+                'SDX',  # Quality: SDX for Find a Grave (family links don't upgrade to PDX)
                 0,  # IsPrivate
                 0,  # Flags
                 utc_mod_date,
@@ -2021,8 +2049,25 @@ def create_findagrave_image_record(
 
         # Link to person if Person or Family type
         if photo_type in ['Person', 'Family']:
-            img_repo.link_media_to_person(media_id, person_id)
-            logger.info(f"Linked image to person ID {person_id}")
+            # Check if person already has a primary photo
+            # Only mark as primary if:
+            # 1. This is a Person photo (not Family)
+            # 2. Person doesn't already have a primary photo
+            is_primary = False
+            if photo_type == 'Person':
+                cursor.execute("""
+                    SELECT COUNT(*)
+                    FROM MediaLinkTable
+                    WHERE OwnerType = 0 AND OwnerID = ? AND IsPrimary = 1
+                """, (person_id,))
+                primary_count = cursor.fetchone()[0]
+
+                if primary_count == 0:
+                    is_primary = True
+                    logger.info(f"Marking first Person photo as primary for person ID {person_id}")
+
+            img_repo.link_media_to_person(media_id, person_id, is_primary=is_primary)
+            logger.info(f"Linked image to person ID {person_id} (IsPrimary={is_primary})")
 
         conn.commit()
         logger.info(f"Created Find a Grave image record: MediaID {media_id} for {media_file}")

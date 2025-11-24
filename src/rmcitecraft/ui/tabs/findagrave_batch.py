@@ -9,7 +9,7 @@ from loguru import logger
 from nicegui import ui
 
 from rmcitecraft.config import get_config
-from rmcitecraft.database.batch_state_repository import BatchStateRepository
+from rmcitecraft.database.batch_state_repository import FindAGraveBatchStateRepository
 from rmcitecraft.database.findagrave_queries import (
     check_citation_exists_detailed,
     create_burial_event_and_link_citation,
@@ -50,7 +50,7 @@ class FindAGraveBatchTab:
         self.automation = get_findagrave_automation()
 
         # Robustness components
-        self.state_repository = BatchStateRepository(
+        self.state_repository = FindAGraveBatchStateRepository(
             db_path=self.config.findagrave_state_db_path
         )
         self.health_monitor = PageHealthMonitor(health_check_timeout_ms=2000)
@@ -83,17 +83,30 @@ class FindAGraveBatchTab:
         self.auto_download_images: bool = True  # Auto-download images during batch processing
 
     def render(self) -> ui.column:
-        """Render the Find a Grave batch processing tab."""
+        """Render the Find a Grave batch processing tab with sub-tabs."""
         # Store UI context for background tasks
         self.ui_context = ui.context.client
 
-        with ui.column().classes("w-full h-full gap-4") as self.container:
-            self._render_header()
+        with ui.column().classes("w-full h-full") as self.container:
+            # Create sub-tabs for Batch Processing and Dashboard
+            with ui.tabs().classes('w-full') as tabs:
+                batch_tab = ui.tab('Batch Processing', icon='playlist_add_check')
+                dashboard_tab = ui.tab('Dashboard', icon='dashboard')
 
-            if not self.controller.session:
-                self._render_empty_state()
-            else:
-                self._render_batch_view()
+            with ui.tab_panels(tabs, value=batch_tab).classes('w-full'):
+                # Tab 1: Batch Processing
+                with ui.tab_panel(batch_tab).classes('w-full h-full'):
+                    with ui.column().classes('w-full h-full gap-4'):
+                        self._render_header()
+
+                        if not self.controller.session:
+                            self._render_empty_state()
+                        else:
+                            self._render_batch_view()
+
+                # Tab 2: Dashboard
+                with ui.tab_panel(dashboard_tab).classes('w-full h-full'):
+                    self._render_dashboard()
 
         return self.container
 
@@ -836,19 +849,26 @@ class FindAGraveBatchTab:
 
             download_dir.mkdir(parents=True, exist_ok=True)
 
-            # Check for existing files and add counter if needed (for Grave photos with multiples)
-            filename = base_filename
-            if photo_type == 'Grave':
-                # Check if file exists, add counter
-                base_name = base_filename.rsplit('.', 1)[0]  # Remove .jpg
-                extension = base_filename.rsplit('.', 1)[1]  # Get extension
-                counter = 1
-                test_path = download_dir / filename
+            # For photos with multiple of same type, number ALL photos starting from _1
+            # Count how many photos of this type exist for this person
+            photos_of_same_type = [p for p in item.photos if p.get('photoType', '').strip() == photo_type]
 
-                while test_path.exists():
+            base_name = base_filename.rsplit('.', 1)[0]  # Remove .jpg
+            extension = base_filename.rsplit('.', 1)[1]  # Get extension
+
+            if len(photos_of_same_type) > 1:
+                # Multiple photos of same type - find next available number
+                # Check existing files to determine next number
+                counter = 1
+                while True:
                     filename = f"{base_name}_{counter}.{extension}"
                     test_path = download_dir / filename
+                    if not test_path.exists():
+                        break
                     counter += 1
+            else:
+                # Single photo of this type - no suffix
+                filename = base_filename
 
             download_path = download_dir / filename
 
@@ -970,18 +990,26 @@ class FindAGraveBatchTab:
 
             download_dir.mkdir(parents=True, exist_ok=True)
 
-            # Check for existing files and add counter if needed (for Grave photos)
-            filename = base_filename
-            if photo_type == 'Grave':
-                base_name = base_filename.rsplit('.', 1)[0]
-                extension = base_filename.rsplit('.', 1)[1]
-                counter = 1
-                test_path = download_dir / filename
+            # For photos with multiple of same type, number ALL photos starting from _1
+            # Count how many photos of this type exist for this person
+            photos_of_same_type = [p for p in item.photos if p.get('photoType', '').strip() == photo_type]
 
-                while test_path.exists():
+            base_name = base_filename.rsplit('.', 1)[0]  # Remove .jpg
+            extension = base_filename.rsplit('.', 1)[1]  # Get extension
+
+            if len(photos_of_same_type) > 1:
+                # Multiple photos of same type - find next available number
+                # Check existing files to determine next number
+                counter = 1
+                while True:
                     filename = f"{base_name}_{counter}.{extension}"
                     test_path = download_dir / filename
+                    if not test_path.exists():
+                        break
                     counter += 1
+            else:
+                # Single photo of this type - no suffix
+                filename = base_filename
 
             download_path = download_dir / filename
 
@@ -1460,20 +1488,20 @@ class FindAGraveBatchTab:
             self.error_log.add_warning(warning_msg, context="Find a Grave Batch")
             return
 
-        # Get items to process (selected or all pending)
-        if self.selected_item_ids:
-            items_to_process = [
-                item for item in self.controller.session.items
-                if item.person_id in self.selected_item_ids
-            ]
-        else:
-            items_to_process = [
-                item for item in self.controller.session.items
-                if item.status == FindAGraveStatus.QUEUED
-            ]
+        # Get items to process (ONLY selected/checked items)
+        if not self.selected_item_ids:
+            warning_msg = "No items selected. Please check the items you want to process."
+            ui.notify(warning_msg, type="warning")
+            self.error_log.add_warning(warning_msg, context="Find a Grave Batch")
+            return
+
+        items_to_process = [
+            item for item in self.controller.session.items
+            if item.person_id in self.selected_item_ids
+        ]
 
         if not items_to_process:
-            warning_msg = "No items to process"
+            warning_msg = "Selected items not found in batch"
             ui.notify(warning_msg, type="warning")
             self.error_log.add_warning(warning_msg, context="Find a Grave Batch")
             return
@@ -1723,6 +1751,15 @@ class FindAGraveBatchTab:
                         'creating_citation'
                     )
 
+                # Check if memorial has Grave/Headstone photos for citation quality assessment
+                has_grave_photo = False
+                photos = memorial_data.get('photos', [])
+                for photo in photos:
+                    photo_type = photo.get('photoType', '').lower()
+                    if photo_type in ['grave', 'headstone']:
+                        has_grave_photo = True
+                        break
+
                 citation_start = time.time()
 
                 try:
@@ -1745,6 +1782,7 @@ class FindAGraveBatchTab:
                             db_path=self.config.rm_database_path,
                             person_id=item.person_id,
                             citation_id=result['citation_id'],
+                            has_grave_photo=has_grave_photo,
                         )
                     except Exception as person_link_error:
                         logger.error(f"Failed to link citation to person: {person_link_error}")
@@ -1796,6 +1834,7 @@ class FindAGraveBatchTab:
                                 cemetery_county=cemetery_county or '',
                                 cemetery_state=cemetery_state or '',
                                 cemetery_country=cemetery_country or '',
+                                has_grave_photo=has_grave_photo,
                             )
 
                             # Successfully created burial event
@@ -2073,3 +2112,11 @@ class FindAGraveBatchTab:
             return "sync"
         else:
             return "schedule"
+
+    def _render_dashboard(self) -> None:
+        """Render the Find a Grave Dashboard tab."""
+        from rmcitecraft.ui.tabs.dashboard import DashboardTab
+        
+        # Create a dashboard instance
+        dashboard = DashboardTab(self.config)
+        dashboard.render()
