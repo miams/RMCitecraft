@@ -574,36 +574,47 @@ class BatchProcessingTab:
         db_path = str(self.config.rm_database_path)
         person_ids = [item['person_id'] for item in incomplete_items]
 
-        # Find citations for these specific person IDs
-        # For now, we'll reload by census year - a more robust implementation
-        # would filter by specific person IDs
-        if census_year:
+        # If no session-level census_year, get unique years from incomplete items
+        if not census_year:
+            census_years = list(set(item['census_year'] for item in incomplete_items if item.get('census_year')))
+            if not census_years:
+                ui.notify("Cannot determine census years from session items", type="warning")
+                return
+            logger.info(f"Session has no census year filter, found years in items: {census_years}")
+        else:
+            census_years = [census_year]
+
+        # Find citations for these specific person IDs across all relevant years
+        all_citations = []
+        for year in census_years:
             result = find_census_citations(
-                db_path, census_year,
+                db_path, year,
                 limit=len(incomplete_items) + 100,  # Get extra to account for completed ones
             )
-
             if result['citations']:
-                # Filter to only incomplete items
-                citations_to_process = [
-                    c for c in result['citations']
-                    if c['person_id'] in person_ids
-                ]
+                all_citations.extend(result['citations'])
 
-                if citations_to_process:
-                    self.controller.create_session(census_year, citations_to_process)
-                    self.selected_citation_ids = set()
-                    self._refresh_all_panels()
-                    self._notify_and_log(
-                        f"Loaded {len(citations_to_process)} citations for resume",
-                        type="positive"
-                    )
-                else:
-                    ui.notify("No matching citations found to resume", type="warning")
+        if all_citations:
+            # Filter to only incomplete items
+            citations_to_process = [
+                c for c in all_citations
+                if c['person_id'] in person_ids
+            ]
+
+            if citations_to_process:
+                # Use first census year for display, or None for mixed years
+                display_year = census_year if census_year else None
+                self.controller.create_session(display_year, citations_to_process)
+                self.selected_citation_ids = set()
+                self._refresh_all_panels()
+                self._notify_and_log(
+                    f"Loaded {len(citations_to_process)} citations for resume",
+                    type="positive"
+                )
             else:
-                ui.notify("No citations found for the session's census year", type="warning")
+                ui.notify("No matching citations found to resume", type="warning")
         else:
-            ui.notify("Session has no census year filter - manual resume required", type="warning")
+            ui.notify("No citations found for the session's census year(s)", type="warning")
 
     def _show_reset_state_db_dialog(self) -> None:
         """Show confirmation dialog to reset the census state database."""
