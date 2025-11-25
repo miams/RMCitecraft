@@ -244,7 +244,7 @@ def find_census_citations(
     cursor = conn.cursor()
 
     # Find ALL census events for specified year (regardless of existing media)
-    cursor.execute("""
+    query = """
         SELECT
             e.EventID, e.OwnerID as PersonID, n.Given, n.Surname,
             c.CitationID, s.SourceID, s.Name as SourceName,
@@ -265,7 +265,7 @@ def find_census_citations(
         GROUP BY e.EventID
         ORDER BY n.Surname COLLATE RMNOCASE, n.Given COLLATE RMNOCASE
         LIMIT ? OFFSET ?
-    """, (f'%{census_year}%', limit * 2, offset))  # Get extra in case some don't have FamilySearch URLs
+    """
 
     results = []
     examined = 0
@@ -281,111 +281,132 @@ def find_census_citations(
         database_path=db_path
     )
 
-    for row in cursor.fetchall():
-        examined += 1
-        event_id, person_id, given, surname, citation_id, source_id, source_name, fields_blob, citation_fields_blob, existing_media_count, existing_files, existing_media_paths = row
+    # Fetch in batches until we have enough unprocessed records
+    # This handles the case where many records at the start are already processed
+    batch_size = max(limit * 5, 100)  # Fetch larger batches to find unprocessed records
+    current_offset = offset
+    max_iterations = 20  # Safety limit to prevent infinite loops
 
-        # Parse SourceTable.Fields BLOB for Footnote with FamilySearch URL
-        familysearch_url = None
+    for iteration in range(max_iterations):
+        cursor.execute(query, (f'%{census_year}%', batch_size, current_offset))
+        rows = cursor.fetchall()
 
-        if fields_blob:
-            try:
-                root = ET.fromstring(fields_blob.decode('utf-8'))
-                footnote_elem = root.find('.//Field[Name="Footnote"]/Value')
-                if footnote_elem is not None and footnote_elem.text:
-                    footnote = footnote_elem.text
-                    if 'familysearch.org' in footnote.lower():
-                        url_match = re.search(r'https?://(?:www\.)?familysearch\.org[^\s)>]+', footnote, re.IGNORECASE)
-                        if url_match:
-                            familysearch_url = url_match.group(0).rstrip('.,;')
-            except Exception:
-                pass
+        if not rows:
+            # No more records in database
+            break
 
-        # Also check CitationTable.Fields for Page field
-        if not familysearch_url and citation_fields_blob:
-            try:
-                root = ET.fromstring(citation_fields_blob.decode('utf-8'))
-                page_elem = root.find('.//Field[Name="Page"]/Value')
-                if page_elem is not None and page_elem.text:
-                    page_text = page_elem.text
-                    if 'familysearch.org' in page_text.lower():
-                        url_match = re.search(r'https?://(?:www\.)?familysearch\.org[^\s)>]+', page_text, re.IGNORECASE)
-                        if url_match:
-                            familysearch_url = url_match.group(0).rstrip('.,;')
-            except Exception:
-                pass
+        for row in rows:
+            examined += 1
+            event_id, person_id, given, surname, citation_id, source_id, source_name, fields_blob, citation_fields_blob, existing_media_count, existing_files, existing_media_paths = row
 
-        if familysearch_url:
-            # Resolve media path to absolute path if existing media
-            existing_image_path = None
-            if existing_media_count > 0 and existing_files and existing_media_paths:
-                # Take first media file and path (if multiple, use first)
-                # Use ||| delimiter since filenames contain commas
-                media_file = existing_files.split('|||')[0] if existing_files else None
-                media_path = existing_media_paths.split('|||')[0] if existing_media_paths else None
-
-                if media_file and media_path:
-                    resolved_path = media_resolver.resolve(media_path, media_file)
-                    if resolved_path:
-                        existing_image_path = str(resolved_path)
-
-            # Read formatted citations from SourceTable.Fields if they exist
-            footnote = None
-            short_footnote = None
-            bibliography = None
+            # Parse SourceTable.Fields BLOB for Footnote with FamilySearch URL
+            familysearch_url = None
 
             if fields_blob:
                 try:
                     root = ET.fromstring(fields_blob.decode('utf-8'))
                     footnote_elem = root.find('.//Field[Name="Footnote"]/Value')
-                    short_elem = root.find('.//Field[Name="ShortFootnote"]/Value')
-                    bib_elem = root.find('.//Field[Name="Bibliography"]/Value')
-
                     if footnote_elem is not None and footnote_elem.text:
                         footnote = footnote_elem.text
-                    if short_elem is not None and short_elem.text:
-                        short_footnote = short_elem.text
-                    if bib_elem is not None and bib_elem.text:
-                        bibliography = bib_elem.text
+                        if 'familysearch.org' in footnote.lower():
+                            url_match = re.search(r'https?://(?:www\.)?familysearch\.org[^\s)>]+', footnote, re.IGNORECASE)
+                            if url_match:
+                                familysearch_url = url_match.group(0).rstrip('.,;')
                 except Exception:
                     pass
 
-            # Apply filtering criteria 5 & 6: exclude already-processed citations
-            if exclude_processed:
-                needs_processing = is_citation_needs_processing(
-                    footnote=footnote,
-                    short_footnote=short_footnote,
-                    bibliography=bibliography,
-                    census_year=census_year
-                )
-                if not needs_processing:
-                    # Citation is already properly processed, skip it
-                    skipped_processed += 1
-                    continue
+            # Also check CitationTable.Fields for Page field
+            if not familysearch_url and citation_fields_blob:
+                try:
+                    root = ET.fromstring(citation_fields_blob.decode('utf-8'))
+                    page_elem = root.find('.//Field[Name="Page"]/Value')
+                    if page_elem is not None and page_elem.text:
+                        page_text = page_elem.text
+                        if 'familysearch.org' in page_text.lower():
+                            url_match = re.search(r'https?://(?:www\.)?familysearch\.org[^\s)>]+', page_text, re.IGNORECASE)
+                            if url_match:
+                                familysearch_url = url_match.group(0).rstrip('.,;')
+                except Exception:
+                    pass
 
-            results.append({
-                'event_id': event_id,
-                'person_id': person_id,
-                'given_name': given or '',
-                'surname': surname or '',
-                'full_name': f"{given or ''} {surname or ''}".strip(),
-                'citation_id': citation_id,
-                'source_id': source_id,
-                'source_name': source_name,
-                'familysearch_url': familysearch_url,
-                'has_existing_media': existing_media_count > 0,
-                'existing_files': existing_files,
-                'existing_image_path': existing_image_path,
-                'footnote': footnote,
-                'short_footnote': short_footnote,
-                'bibliography': bibliography,
-                'census_year': census_year,
-            })
-        else:
-            excluded += 1
+            if familysearch_url:
+                # Resolve media path to absolute path if existing media
+                existing_image_path = None
+                if existing_media_count > 0 and existing_files and existing_media_paths:
+                    # Take first media file and path (if multiple, use first)
+                    # Use ||| delimiter since filenames contain commas
+                    media_file = existing_files.split('|||')[0] if existing_files else None
+                    media_path = existing_media_paths.split('|||')[0] if existing_media_paths else None
 
+                    if media_file and media_path:
+                        resolved_path = media_resolver.resolve(media_path, media_file)
+                        if resolved_path:
+                            existing_image_path = str(resolved_path)
+
+                # Read formatted citations from SourceTable.Fields if they exist
+                footnote = None
+                short_footnote = None
+                bibliography = None
+
+                if fields_blob:
+                    try:
+                        root = ET.fromstring(fields_blob.decode('utf-8'))
+                        footnote_elem = root.find('.//Field[Name="Footnote"]/Value')
+                        short_elem = root.find('.//Field[Name="ShortFootnote"]/Value')
+                        bib_elem = root.find('.//Field[Name="Bibliography"]/Value')
+
+                        if footnote_elem is not None and footnote_elem.text:
+                            footnote = footnote_elem.text
+                        if short_elem is not None and short_elem.text:
+                            short_footnote = short_elem.text
+                        if bib_elem is not None and bib_elem.text:
+                            bibliography = bib_elem.text
+                    except Exception:
+                        pass
+
+                # Apply filtering criteria 5 & 6: exclude already-processed citations
+                if exclude_processed:
+                    needs_processing = is_citation_needs_processing(
+                        footnote=footnote,
+                        short_footnote=short_footnote,
+                        bibliography=bibliography,
+                        census_year=census_year
+                    )
+                    if not needs_processing:
+                        # Citation is already properly processed, skip it
+                        skipped_processed += 1
+                        continue
+
+                results.append({
+                    'event_id': event_id,
+                    'person_id': person_id,
+                    'given_name': given or '',
+                    'surname': surname or '',
+                    'full_name': f"{given or ''} {surname or ''}".strip(),
+                    'citation_id': citation_id,
+                    'source_id': source_id,
+                    'source_name': source_name,
+                    'familysearch_url': familysearch_url,
+                    'has_existing_media': existing_media_count > 0,
+                    'existing_files': existing_files,
+                    'existing_image_path': existing_image_path,
+                    'footnote': footnote,
+                    'short_footnote': short_footnote,
+                    'bibliography': bibliography,
+                    'census_year': census_year,
+                })
+            else:
+                excluded += 1
+
+            if len(results) >= limit:
+                break
+
+        # Check if we have enough results or no more records
         if len(results) >= limit:
             break
+
+        # Move offset for next batch
+        current_offset += batch_size
 
     conn.close()
 
