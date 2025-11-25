@@ -171,11 +171,11 @@ class DataEntryFormComponent:
         # Common fields for all years
         fields = ['enumeration_district', 'sheet', 'line']
 
-        # Add year-specific fields
-        if 1850 <= year <= 1940:
+        # Add year-specific fields (with None check)
+        if year and 1850 <= year <= 1940:
             fields.append('family_number')
 
-        if 1850 <= year <= 1880:
+        if year and 1850 <= year <= 1880:
             fields.append('dwelling_number')
 
         # Township/Ward for location detail

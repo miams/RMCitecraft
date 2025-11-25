@@ -250,6 +250,12 @@ class BatchProcessingController:
             # Determine initial status based on whether Evidence Explained citations exist
             initial_status = CitationStatus.COMPLETE if is_evidence_explained else CitationStatus.QUEUED
 
+            # Use citation's own census_year if available, fallback to session-level
+            item_census_year = data.get('census_year') or census_year
+            if not item_census_year:
+                logger.warning(f"Citation {data.get('citation_id')} has no census year, skipping")
+                continue
+
             citation = CitationBatchItem(
                 event_id=data['event_id'],
                 person_id=data['person_id'],
@@ -258,7 +264,7 @@ class BatchProcessingController:
                 given_name=data.get('given_name', ''),
                 surname=data.get('surname', ''),
                 full_name=data.get('full_name', ''),
-                census_year=census_year,
+                census_year=item_census_year,
                 source_name=data.get('source_name', ''),
                 familysearch_url=data.get('familysearch_url'),
                 has_existing_media=data.get('has_existing_media', False),
