@@ -661,11 +661,14 @@ class BatchProcessingTab:
             self._notify_and_log("No batch session loaded", type="warning")
             return
 
+        # Get citations in queue display order (respects current sort setting)
+        queue_ordered_citations = self._get_queue_ordered_citations()
+
         # Check if user has selected specific citations
         if self.selected_citation_ids:
-            # Process only selected citations
+            # Process only selected citations, maintaining queue order
             citations_to_process = [
-                c for c in self.controller.session.citations
+                c for c in queue_ordered_citations
                 if c.citation_id in self.selected_citation_ids
             ]
             self._notify_and_log(
@@ -673,9 +676,9 @@ class BatchProcessingTab:
                 type="info"
             )
         else:
-            # No selections - process all incomplete citations
+            # No selections - process all incomplete citations in queue order
             citations_to_process = [
-                c for c in self.controller.session.citations
+                c for c in queue_ordered_citations
                 if c.status.value in ["queued", "manual_review"]
             ]
             self._notify_and_log(
@@ -831,6 +834,42 @@ class BatchProcessingTab:
             )
 
         logger.info(f"Created census batch session {self.current_session_id} with {len(citations)} items")
+
+    def _get_queue_ordered_citations(self) -> list[CitationBatchItem]:
+        """Get citations in the same order as displayed in the queue.
+
+        Uses the queue component's sort setting to maintain consistent ordering
+        between queue display and batch processing.
+
+        Returns:
+            List of citations in queue display order
+        """
+        if not self.controller.session:
+            return []
+
+        citations = self.controller.session.citations
+
+        # Get sort setting from queue component (default to "name" if not available)
+        sort_by = "name"
+        if self.queue_component:
+            sort_by = getattr(self.queue_component, 'sort_by', 'name')
+
+        # Apply same sorting as queue component
+        if sort_by == "name":
+            return sorted(citations, key=lambda c: c.full_name)
+        elif sort_by == "status":
+            # Sort by status priority: ERROR, MANUAL_REVIEW, QUEUED, COMPLETE
+            status_priority = {
+                CitationStatus.ERROR: 0,
+                CitationStatus.MANUAL_REVIEW: 1,
+                CitationStatus.QUEUED: 2,
+                CitationStatus.EXTRACTING: 3,
+                CitationStatus.EXTRACTED: 4,
+                CitationStatus.COMPLETE: 5,
+            }
+            return sorted(citations, key=lambda c: status_priority.get(c.status, 99))
+
+        return citations
 
     def _pause_batch_processing(self) -> None:
         """Pause the current batch processing session."""
