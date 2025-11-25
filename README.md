@@ -1,55 +1,74 @@
 # RMCitecraft
 
-**Automated Census Citation Management for RootsMagic**
+**Automated Citation and Image Management for RootsMagic**
 
-RMCitecraft transforms FamilySearch placeholder citations into professional, *Evidence Explained*-compliant citations and manages census image organization in RootsMagic genealogy databases.
+RMCitecraft automates citation formatting and image management for genealogy records in RootsMagic databases. It handles two primary record types: **US Federal Census** (1790-1950) and **Find a Grave** memorials.
 
 ## Value Proposition
 
-Genealogists using RootsMagic spend significant time manually formatting census citations and organizing downloaded images. RMCitecraft automates this workflow:
+Genealogists using RootsMagic spend significant time manually formatting citations and organizing downloaded images. RMCitecraft automates these workflows:
 
-- **Before**: Copy-paste FamilySearch citations, manually reformat to Evidence Explained style, rename and organize downloaded images, update database media links
-- **After**: Batch process citations automatically, fill in only missing data when prompted, images auto-renamed and organized
+| Task | Before | After |
+|------|--------|-------|
+| Citation formatting | Manual reformat to Evidence Explained style | Batch process with auto-formatting |
+| Missing data | Hunt through source pages | Prompted with source page displayed |
+| Image naming | Manual rename each file | Auto-renamed to standard schema |
+| Image organization | Drag files to correct folders | Auto-routed by record type/year |
+| Database linking | Manual media record creation | Auto-linked to citations and events |
 
 ## Key Features
 
-### Census Citation Processing
-- **Batch Processing**: Process multiple census citations in a single session (1790-1950)
-- **Smart Validation**: Automatically identifies citations needing processing vs. already-formatted ones
-- **Evidence Explained Compliance**: Generates proper footnote, short footnote, and bibliography formats
-- **Missing Data Prompts**: When enumeration districts or other data are missing, prompts user with FamilySearch page displayed
+### Census Records (1790-1950)
 
-### Census Image Management
-- **Automatic File Naming**: Renames downloads to standardized format: `YYYY, State, County - Surname, GivenName.ext`
-- **Organized Storage**: Routes images to correct census year folders
-- **Database Integration**: Creates media records and links to citations/events in RootsMagic
+**Citation Processing:**
+- Batch process multiple citations per session
+- Smart validation identifies unprocessed vs. already-formatted citations
+- *Evidence Explained* compliant output (footnote, short footnote, bibliography)
+- Prompts for missing data (e.g., enumeration district) with FamilySearch page displayed
 
-### Find a Grave Integration
-- **Batch Processing**: Process Find a Grave citations with photo downloads
-- **Image Management**: Automatic photo organization and database linking
+**Image Management:**
+- Auto-rename: `YYYY, State, County - Surname, GivenName.ext`
+- Auto-route to year-specific folders (`1900 Federal/`, `1940 Federal/`, etc.)
+- Database integration: creates media records, links to citations and events
 
-### Dashboard Analytics
+### Find a Grave Records
+
+**Citation Processing:**
+- Batch process burial citations from Find a Grave
+- Extract memorial data (cemetery, location, dates)
+- Generate formatted citations with proper attribution
+
+**Image Management:**
+- Download and organize memorial photos and headstone images
+- Auto-rename with cemetery and person identifiers
+- Link images to burial events and citations in RootsMagic
+- Primary photo assignment for person profiles
+
+### Dashboard & Analytics
+
 - **Real-time Progress**: Monitor batch processing status
-- **Session Management**: Resume interrupted sessions
-- **Performance Metrics**: Track processing times and success rates
+- **Session Management**: Pause, resume, and recover interrupted sessions
+- **Error Analysis**: Track failures with categorized error reporting
+- **Performance Metrics**: Processing times, success rates, throughput
 
 ## Use Cases
 
-1. **New Census Records**: Import FamilySearch hints, then batch-format all new census citations
-2. **Legacy Cleanup**: Process existing placeholder citations in bulk
-3. **Image Organization**: Standardize naming and storage of census images across your database
-4. **Quality Assurance**: Validate citations meet Evidence Explained standards
+1. **Census Cleanup**: Batch-format existing FamilySearch placeholder citations
+2. **Find a Grave Integration**: Process burial records with photo downloads
+3. **New Record Import**: Format citations immediately after accepting FamilySearch hints
+4. **Image Standardization**: Organize scattered downloads into consistent folder structure
+5. **Quality Assurance**: Validate citations meet Evidence Explained standards
 
 ## Requirements
 
 ### System
-- **Platform**: macOS (Apple Silicon M3 Pro optimized)
+- **Platform**: macOS (Apple Silicon optimized)
 - **Python**: 3.11+
 - **Database**: RootsMagic 8 or 9 (.rmtree SQLite database)
 
 ### Optional
 - **LLM API Key**: For citation parsing (Anthropic Claude, OpenAI, or local Ollama)
-- **Chrome Browser**: For FamilySearch automation features
+- **Chrome Browser**: For FamilySearch/Find a Grave automation
 
 ## Technology Stack
 
@@ -110,26 +129,6 @@ rmcitecraft help
 - **[AGENTS.md](AGENTS.md)** - Machine-readable instructions for AI agents
 - **[PRD.md](PRD.md)** - Complete product requirements
 - **[docs/reference/schema-reference.md](docs/reference/schema-reference.md)** - RootsMagic database schema
-
-## Citation Format Example
-
-**Input (FamilySearch placeholder):**
-```
-"United States Census, 1900," database with images, FamilySearch
-(https://familysearch.org/ark:/61903/1:1:MM6X-FGZ : accessed 24 July 2015),
-Ella Ijams, Olive Township Caldwell village, Noble, Ohio...
-```
-
-**Output (Evidence Explained format):**
-
-*Footnote:*
-> 1900 U.S. census, Noble County, Ohio, population schedule, Olive Township Caldwell village, enumeration district (ED) 95, sheet 3B, family 57, Ella Ijams; imaged, "1900 United States Federal Census," *FamilySearch* (https://familysearch.org/ark:/61903/1:1:MM6X-FGZ : accessed 24 July 2015).
-
-*Short Footnote:*
-> 1900 U.S. census, Noble Co., Oh., pop. sch., Olive Township, E.D. 95, sheet 3B, Ella Ijams.
-
-*Bibliography:*
-> U.S. Ohio. Noble County. 1900 U.S Census. Population Schedule. Imaged. "1900 United States Federal Census". *FamilySearch* https://www.familysearch.org/ark:/61903/1:1:MM6X-FGZ : 2015.
 
 ## License
 
