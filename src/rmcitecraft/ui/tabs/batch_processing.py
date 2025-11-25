@@ -100,11 +100,12 @@ class BatchProcessingTab:
                 db_path=self.config.census_state_db_path
             )
             logger.info("Census batch state repository initialized")
-        except FileNotFoundError:
-            # State DB doesn't exist yet - will be created by FindAGraveBatchStateRepository
-            # when it runs migrations (both share the same DB file)
+        except (FileNotFoundError, RuntimeError) as e:
+            # State DB doesn't exist yet or census tables not created
+            # Will be created by FindAGraveBatchStateRepository when it runs migrations
+            # (both share the same DB file)
             logger.warning(
-                "Census batch state database not found. "
+                f"Census batch state repository not available: {e}. "
                 "Run Find a Grave batch first to initialize migrations, "
                 "or state tracking will be disabled."
             )

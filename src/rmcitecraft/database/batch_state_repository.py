@@ -48,7 +48,9 @@ class FindAGraveBatchStateRepository:
                 logger.info(f"Initializing batch state database: {self.db_path}")
                 self._run_migrations(conn)
             else:
-                logger.debug(f"Batch state database already initialized: {self.db_path}")
+                # Database exists - check for pending migrations
+                logger.debug(f"Batch state database exists: {self.db_path}")
+                self._run_migrations(conn)  # Will skip already-applied migrations
 
     def _run_migrations(self, conn: sqlite3.Connection) -> None:
         """Run database migrations.
