@@ -39,11 +39,22 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ## Current Project State
 
-This is a **planning/documentation repository**. The actual application has not yet been implemented. The repository contains:
-- Comprehensive Product Requirements Document (PRD.md)
-- Detailed RootsMagic database schema documentation
-- Citation formatting examples
-- Sample RootsMagic database (data/Iiams.rmtree)
+This is an **active, implemented application** with the following capabilities:
+
+### Implemented Features
+- **Census Batch Processing**: Automated extraction and formatting of census citations (1790-1950) with FamilySearch browser automation, 6-phase robust processing (health check → duplicate check → extraction → image download → status update → checkpoint)
+- **Find a Grave Batch Processing**: Automated processing of Find a Grave citations with image downloads and primary photo assignment
+- **Dashboard**: Real-time analytics with session management, status distributions, performance metrics, and error analysis
+- **Citation Validation**: `FormattedCitationValidator` for validating footnote, short footnote, and bibliography against Evidence Explained standards
+- **Browser Automation**: Chrome DevTools Protocol integration for FamilySearch and Find a Grave page interaction
+- **Image Management**: Automatic download, renaming, and database linking of census/grave images
+- **State Persistence**: SQLite-based batch state tracking with crash recovery and session resume
+
+### Repository Contents
+- Complete source code in `src/rmcitecraft/`
+- Comprehensive test suite (unit, integration, e2e) in `tests/`
+- Sample RootsMagic database: `data/Iiams.rmtree`
+- RootsMagic schema documentation in `docs/reference/`
 
 ## Command-Line Interface (CLI)
 
@@ -425,18 +436,28 @@ cursor.execute("SELECT Surname FROM NameTable ORDER BY Surname COLLATE RMNOCASE 
 
 ## Testing Strategy
 
-### Unit Test Coverage Areas
-- Citation parser (all census years, 1790-1950)
-- Citation formatter (each template variant)
-- Filename generator (edge cases: long names, special characters, suffixes)
-- Folder mapper (all census year/schedule combinations)
-- Database operations (read/write with transactions)
+### Test Organization
+```
+tests/
+├── unit/                    # Fast, isolated tests
+│   ├── test_census_batch_state_repository.py  # 43 tests
+│   ├── test_formatted_citation_validator.py   # 27 tests
+│   ├── test_find_census_citations.py          # 18 tests
+│   └── test_database_integrity.py             # Schema validation
+├── integration/             # Component interaction tests
+│   └── test_census_batch_integration.py       # 18 tests
+└── e2e/                     # Browser automation tests
+    ├── test_census_analytics.py               # Dashboard validation
+    └── test_census_batch_with_downloads.py    # Full workflow
+```
 
-### Integration Test Scenarios
-- End-to-end citation workflow
-- End-to-end image download workflow
-- Database operations with real schema
-- File system operations
+### Running Tests
+```bash
+uv run pytest                           # All tests
+uv run pytest tests/unit/ -v            # Unit tests only
+uv run pytest tests/e2e/ -v             # E2E tests (requires Chrome)
+uv run pytest --cov=src --cov-report=html  # With coverage
+```
 
 ### Test Database
 - Sample database: `data/Iiams.rmtree`
@@ -686,41 +707,62 @@ RMCitecraft/
 ├── data/
 │   └── Iiams.rmtree           # Sample RootsMagic database
 ├── docs/
-│   ├── LLM-ARCHITECTURE.md    # LLM implementation details
-│   ├── data-definitions.yaml  # RootsMagic field definitions
-│   └── reference/             # Schema and query documentation
-├── logs/                       # Application logs
-│   └── llm_debug.jsonl        # LLM interaction logs
-├── src/
-│   └── rmcitecraft/           # Main application package
-│       └── __init__.py
+│   ├── architecture/          # Design docs (LLM-ARCHITECTURE.md, etc.)
+│   ├── reference/             # Schema and query documentation
+│   └── implementation/        # Implementation notes
+├── src/rmcitecraft/
+│   ├── config/                # Settings and constants
+│   ├── database/              # Database access layer
+│   │   ├── connection.py      # ICU extension loading, RMNOCASE
+│   │   ├── batch_state_repository.py      # Find a Grave batch state
+│   │   └── census_batch_state_repository.py  # Census batch state
+│   ├── models/                # Pydantic models (citation, image)
+│   ├── services/              # Business logic
+│   │   ├── batch_processing.py           # Batch workflow controller
+│   │   ├── familysearch_automation.py    # FamilySearch browser automation
+│   │   ├── findagrave_automation.py      # Find a Grave automation
+│   │   ├── image_processing.py           # Image download/rename
+│   │   └── citation_formatter.py         # Evidence Explained formatting
+│   ├── ui/
+│   │   ├── tabs/              # Main UI tabs (dashboard, batch_processing)
+│   │   └── components/        # Reusable UI components
+│   │       └── dashboard/     # Dashboard widgets
+│   ├── validation/            # Citation validation
+│   │   └── data_quality.py    # FormattedCitationValidator
+│   ├── cli.py                 # CLI commands
+│   └── main.py                # Application entry point
 ├── sqlite-extension/
-│   ├── icu.dylib              # SQLite ICU extension (macOS)
-│   ├── how-to-use-extension.md
-│   └── python_example.py      # RMNOCASE collation examples
-├── tests/                      # Test suite
-├── .venv/                      # UV virtual environment (not in git)
-├── pyproject.toml              # Project configuration and dependencies
-├── uv.lock                     # Dependency lock file (not in git)
-├── CLAUDE.md                   # This file
-├── PRD.md                      # Product requirements
-└── README.md                   # Project objectives
+│   └── icu.dylib              # SQLite ICU extension (macOS)
+├── tests/
+│   ├── unit/                  # Unit tests
+│   ├── integration/           # Integration tests
+│   └── e2e/                   # End-to-end tests (browser automation)
+├── pyproject.toml             # Project configuration
+└── CLAUDE.md                  # This file
 ```
 
 ## Important Files
 
-- **pyproject.toml** - Project configuration, dependencies, and tool settings
-- **uv.lock** - Locked dependency versions (auto-generated by UV)
-- **PRD.md** - Complete product requirements, architecture, and development phases
-- **README.md** - Project objectives and citation examples
+**Core Configuration:**
+- **pyproject.toml** - Project dependencies and tool settings
+- **config/.env.example** - Configuration template (copy to `.env`)
+
+**Key Source Files:**
+- **src/rmcitecraft/main.py** - Application entry point
+- **src/rmcitecraft/services/batch_processing.py** - Batch workflow controller
+- **src/rmcitecraft/services/familysearch_automation.py** - FamilySearch browser automation
+- **src/rmcitecraft/validation/data_quality.py** - FormattedCitationValidator
+- **src/rmcitecraft/database/connection.py** - Database connection with ICU extension
+
+**Documentation:**
 - **CLAUDE.md** - Development guidance (this file)
-- **AGENTS.md** - Machine-readable instructions for AI coding agents
-- **docs/architecture/LLM-ARCHITECTURE.md** - Complete LLM implementation guide
-- **docs/reference/schema-reference.md** - Comprehensive RootsMagic database schema
-- **docs/data-definitions.yaml** - Detailed field definitions
-- **data/Iiams.rmtree** - Sample RootsMagic database for testing
-- **config/.env.example** - Configuration template (copy to root as `.env`)
-- **sqlite-extension/python_example.py** - Working database connection examples
+- **AGENTS.md** - Machine-readable instructions for AI agents
+- **docs/architecture/LLM-ARCHITECTURE.md** - LLM implementation guide
+- **docs/reference/schema-reference.md** - RootsMagic database schema
+
+**Testing:**
+- **data/Iiams.rmtree** - Sample RootsMagic database
+- **sqlite-extension/python_example.py** - Database connection examples
 
 ## Configuration Management
 

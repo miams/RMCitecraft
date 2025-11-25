@@ -236,16 +236,24 @@ See `CLAUDE.md` "Database Integrity Testing" section for full methodology and ph
 
 ```
 src/rmcitecraft/
-├── models/          # Pydantic models
-├── services/        # Business logic (LLM, parser, formatter)
-├── database/        # Database access layer
-├── ui/              # NiceGUI components
+├── config/          # Settings and constants
+├── database/        # Database access (connection, repositories)
+├── models/          # Pydantic models (citation, image)
+├── services/        # Business logic
+│   ├── batch_processing.py           # Batch workflow controller
+│   ├── familysearch_automation.py    # FamilySearch browser automation
+│   ├── findagrave_automation.py      # Find a Grave automation
+│   └── citation_formatter.py         # Evidence Explained formatting
+├── ui/
+│   ├── tabs/        # Main UI tabs (dashboard, batch_processing)
+│   └── components/  # Reusable UI components
+├── validation/      # Citation validation (FormattedCitationValidator)
 └── utils/           # Shared utilities
 
 tests/
-├── unit/            # Unit tests (fast, no I/O)
-├── integration/     # Integration tests (DB, LLM)
-└── fixtures/        # Test data and fixtures
+├── unit/            # Fast, isolated tests (no I/O)
+├── integration/     # Component interaction tests
+└── e2e/             # Browser automation tests (requires Chrome)
 ```
 
 ### Naming Conventions
@@ -469,44 +477,49 @@ def get_person_census_citations(person_id):
 ### Query Citations from Database
 
 ```python
-from src.rmcitecraft.database.connection import connect_rmtree
+from rmcitecraft.database.connection import DatabaseConnection
 
-# Always load ICU extension first
-conn = connect_rmtree('data/Iiams.rmtree')
-cursor = conn.cursor()
-
-# Use RMNOCASE for text comparisons
-cursor.execute("""
-    SELECT CitationID, SourceID, ActualText
-    FROM CitationTable
-    WHERE CitationName COLLATE RMNOCASE LIKE ?
-""", ('%1900%',))
+# Connection handles ICU extension automatically
+with DatabaseConnection() as conn:
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT CitationID, SourceID, ActualText
+        FROM CitationTable
+        WHERE CitationName COLLATE RMNOCASE LIKE ?
+    """, ('%1900%',))
 ```
 
-### Parse and Format Citation
+### Validate Citation Format
 
 ```python
-from src.rmcitecraft.services.parser import parse_familysearch_citation
-from src.rmcitecraft.services.formatter import format_evidence_explained
-
-# Phase 1: Extract with LLM
-extraction = parse_familysearch_citation(
-    source_name="Fed Census: 1900, Ohio, Noble [citing sheet 3B, family 57] Ijams, Ella",
-    familysearch_entry="...",
+from rmcitecraft.validation.data_quality import (
+    FormattedCitationValidator,
+    is_citation_needs_processing,
 )
 
-# Phase 2: Format with template
-footnote, short_footnote, bibliography = format_evidence_explained(extraction)
+# Check if citation needs processing (criteria 5 & 6)
+needs_work = is_citation_needs_processing(
+    footnote=footnote_text,
+    short_footnote=short_text,
+    bibliography=bib_text,
+    census_year=1940
+)
+
+# Validate individual components
+valid_footnote = FormattedCitationValidator.validate_footnote(footnote_text, 1940)
 ```
 
-### Run UI in Native Mode
+### Run Application
 
-```python
-# Recommended for macOS
-uv run python src/rmcitecraft/main.py --native
+```bash
+# Start in foreground (interactive)
+rmcitecraft start
 
-# Web mode (for testing)
-uv run python src/rmcitecraft/main.py --web
+# Start in background (daemon)
+rmcitecraft start -d
+
+# Check status
+rmcitecraft status
 ```
 
 ---
@@ -551,6 +564,6 @@ uv run python src/rmcitecraft/main.py --web
 
 ---
 
-**Last Updated**: 2025-10-25
+**Last Updated**: 2025-11-25
 **For Human Developers**: See `CLAUDE.md` for comprehensive development guidance
 **For Questions**: Review `claude_code_docs_map.md` for complete documentation index

@@ -1,212 +1,136 @@
 # RMCitecraft
 
-Census Citation Assistant for RootsMagic
+**Automated Census Citation Management for RootsMagic**
 
-## Getting Started
+RMCitecraft transforms FamilySearch placeholder citations into professional, *Evidence Explained*-compliant citations and manages census image organization in RootsMagic genealogy databases.
 
-### Installation
+## Value Proposition
 
-RMCitecraft requires Python 3.11+ and UV package manager.
+Genealogists using RootsMagic spend significant time manually formatting census citations and organizing downloaded images. RMCitecraft automates this workflow:
+
+- **Before**: Copy-paste FamilySearch citations, manually reformat to Evidence Explained style, rename and organize downloaded images, update database media links
+- **After**: Batch process citations automatically, fill in only missing data when prompted, images auto-renamed and organized
+
+## Key Features
+
+### Census Citation Processing
+- **Batch Processing**: Process multiple census citations in a single session (1790-1950)
+- **Smart Validation**: Automatically identifies citations needing processing vs. already-formatted ones
+- **Evidence Explained Compliance**: Generates proper footnote, short footnote, and bibliography formats
+- **Missing Data Prompts**: When enumeration districts or other data are missing, prompts user with FamilySearch page displayed
+
+### Census Image Management
+- **Automatic File Naming**: Renames downloads to standardized format: `YYYY, State, County - Surname, GivenName.ext`
+- **Organized Storage**: Routes images to correct census year folders
+- **Database Integration**: Creates media records and links to citations/events in RootsMagic
+
+### Find a Grave Integration
+- **Batch Processing**: Process Find a Grave citations with photo downloads
+- **Image Management**: Automatic photo organization and database linking
+
+### Dashboard Analytics
+- **Real-time Progress**: Monitor batch processing status
+- **Session Management**: Resume interrupted sessions
+- **Performance Metrics**: Track processing times and success rates
+
+## Use Cases
+
+1. **New Census Records**: Import FamilySearch hints, then batch-format all new census citations
+2. **Legacy Cleanup**: Process existing placeholder citations in bulk
+3. **Image Organization**: Standardize naming and storage of census images across your database
+4. **Quality Assurance**: Validate citations meet Evidence Explained standards
+
+## Requirements
+
+### System
+- **Platform**: macOS (Apple Silicon M3 Pro optimized)
+- **Python**: 3.11+
+- **Database**: RootsMagic 8 or 9 (.rmtree SQLite database)
+
+### Optional
+- **LLM API Key**: For citation parsing (Anthropic Claude, OpenAI, or local Ollama)
+- **Chrome Browser**: For FamilySearch automation features
+
+## Technology Stack
+
+| Component | Technology |
+|-----------|------------|
+| Language | Python 3.11+ |
+| Package Manager | UV |
+| UI Framework | NiceGUI 3.0+ (native mode) |
+| Database | SQLite with ICU extension |
+| Browser Automation | Playwright / Chrome DevTools Protocol |
+| LLM Integration | LangChain (multi-provider) |
+| Testing | pytest |
+| Linting | Ruff, MyPy |
+
+## Installation
 
 ```bash
-# Install UV (if not already installed)
+# Install UV package manager
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install RMCitecraft
+# Clone repository
+git clone https://github.com/yourusername/RMCitecraft.git
+cd RMCitecraft
+
+# Install dependencies
 uv sync
+
+# Copy and configure environment
+cp config/.env.example .env
+# Edit .env with your database path and API keys
 ```
 
-### Running the Application
+## Quick Start
 
 ```bash
-# Show version and last updated timestamp
+# Show version
 rmcitecraft version
 
-# Check if application is running
-rmcitecraft status
-
-# Start in foreground mode (interactive)
+# Start application (interactive mode)
 rmcitecraft start
 
-# Start in background mode (daemon)
+# Start in background
 rmcitecraft start -d
 
-# Stop the application
-rmcitecraft stop
+# Check status
+rmcitecraft status
 
-# Restart (stop + start in background)
-rmcitecraft restart
+# Stop application
+rmcitecraft stop
 
 # Show help
 rmcitecraft help
 ```
 
-### Version Information
+## Documentation
 
-The CLI always displays the current version and last code update timestamp:
+- **[CLAUDE.md](CLAUDE.md)** - Development guidance and architecture details
+- **[AGENTS.md](AGENTS.md)** - Machine-readable instructions for AI agents
+- **[PRD.md](PRD.md)** - Complete product requirements
+- **[docs/reference/schema-reference.md](docs/reference/schema-reference.md)** - RootsMagic database schema
 
+## Citation Format Example
+
+**Input (FamilySearch placeholder):**
 ```
-RMCitecraft v0.1.0
-Last updated: 2025-10-25 16:59:28
+"United States Census, 1900," database with images, FamilySearch
+(https://familysearch.org/ark:/61903/1:1:MM6X-FGZ : accessed 24 July 2015),
+Ella Ijams, Olive Township Caldwell village, Noble, Ohio...
 ```
 
----
+**Output (Evidence Explained format):**
 
-<H1>Objective</H1>
+*Footnote:*
+> 1900 U.S. census, Noble County, Ohio, population schedule, Olive Township Caldwell village, enumeration district (ED) 95, sheet 3B, family 57, Ella Ijams; imaged, "1900 United States Federal Census," *FamilySearch* (https://familysearch.org/ark:/61903/1:1:MM6X-FGZ : accessed 24 July 2015).
 
-The objective is for a desktop application support Rootsmagic with census processing.  Specifically in two areas.
+*Short Footnote:*
+> 1900 U.S. census, Noble Co., Oh., pop. sch., Olive Township, E.D. 95, sheet 3B, Ella Ijams.
 
-- In census records, replace placeholder FamilySearch footnote, short footnote and bibiography entries, with real, <i>Evidence Explained</i> compliant entries.  In some instances, additional data will need to be gathered by the user, for instance when the Enumeration District is not present.  In such situations, the application should provide a UI with a prompt, requesting the missing information, and display the webpage of the associated URL from FamilySearch, assisting the user with gathering and inputing the data.
-- When a census image is not included for a census in RootsMagic, the application should display the webpage of the associated URL from FamilySearch, and monitor a download file folder.  When an image is downloaded to monitored file folder location, the following actions occur:
-    A) The file is renamed using a standard schema.
-    B) The file is moved to Rootsmagic artifact sub-folder approriate for that census record.
-    C) Rootsmagic database is updated
-  - Media Type: Image
-  - Filename: as appropriate
-  - Caption:  as appropriate
-  - Tag: linking to the citation
-  - Tag: linking to the census event
+*Bibliography:*
+> U.S. Ohio. Noble County. 1900 U.S Census. Population Schedule. Imaged. "1900 United States Federal Census". *FamilySearch* https://www.familysearch.org/ark:/61903/1:1:MM6X-FGZ : 2015.
 
-The RootsMagic database use SQLite.  Python is a good option.  This will run a Macbook M3 Pro.  I would like a modern, UI, with a very good UX experience.
+## License
 
-<H1>Data Fields</H1>
-
-- ## Existing RootsMagic Fields.
-
-​	**RM Source Name:**
-​	**RM Family Search Entry:**
-
-- ## **Application Generated Fields**
-
-​	**RM Footnote:**
-​	**RM Short Footnote:**
-​	**RM Bibliography:**
-
-<H1>Citation Examples</H1>
-
-**RM Source Name:**  
-Fed Census: 1900, Ohio, Noble [citing sheet 3B, family 57] Ijams, Ella
-
-**RM Family Search Entry:** 
-"United States Census, 1900," database with images, *FamilySearch* (https://familysearch.org/ark:/61903/1:1:MM6X-FGZ : accessed 24 July 2015), Ella Ijams, Olive Township Caldwell village, Noble, Ohio, United States; citing sheet 3B, family 57, NARA microfilm publication T623 (Washington, D.C.: National Archives and Records Administration, n.d.); FHL microfilm 1,241,311.
-
-**RM Footnote:** 
-1900 U.S. census, Noble County, Ohio, population schedule, Olive Township Caldwell village, enumeration district (ED) 95, sheet 3B, family 57, Ella Ijams; imaged, "1900 United States Federal Census," <i>FamilySearch</i> (https://familysearch.org/ark:/61903/1:1:MM6X-FGZ : accessed 24 July 2015).
-
-**RM Short Footnote:**
-1900 U.S. census, Noble Co., Oh., pop. sch., Olive Township, E.D. 95, sheet 3B, Ella Ijams.
-
-**RM Bibliography:**
-U.S. Ohio. Noble County. 1900 U.S Census. Population Schedule. Imaged. "1900 United States Federal Census". <i>FamilySearch</i> https://www.familysearch.org/ark:/61903/1:1:MM6X-FGZ : 2015.
-
----
-
-**RM Source Name:** 
-Fed Census: 1910, Maryland, Baltimore [citing enumeration district (ED) ED 214, sheet 3B] Ijams, William H.
-
-**RM Family Search Entry:** 
-"United States Census, 1910," database with images, *FamilySearch*(https://familysearch.org/ark:/61903/1:1:M2F4-SVS : accessed 27 November 2015), William H Ijams in household of Margaret E Brannon, Baltimore Ward 13, Baltimore (Independent City), Maryland, United States; citing enumeration district (ED) ED 214, sheet 3B, NARA microfilm publication T624 (Washington, D.C.: National Archives and Records Administration, n.d.); FHL microfilm 1,374,570.
-
-**RM Footnote:** 
-1910 U.S. census, Baltimore City, Maryland, population schedule, Baltimore Ward 13, enumeration district (ED) 214, sheet 3B, family 52, William H. Ijams; imaged, "1910 United States Federal Census," <i>FamilySearch</i> (https://www.familysearch.org/ark:/61903/1:1:M2F4-SV9 : accessed 27 November 2015).
-
-**RM Short Footnote:**
-1910 U.S. census, Baltimore City, Md., pop. sch., Baltimore Ward 13, E.D. 214, sheet 3B, William H. Ijams.
-
-**RM Bibliography:**
-U.S. Maryland. Baltimore City. 1910 U.S Census. Population Schedule. Imaged. "1910 United States Federal Census". <i>FamilySearch</i> https://www.familysearch.org/ark:/61903/1:1:M2F4-SV9 : 2015.
-
----
-
-
-
-
-
-IGNORE EVERYTHING BELOW THIS LINE.  THIS IS WORK IN PROGRESS
-
-**RM Source Name:**
-Fed Census: 1920, California, Los Angeles [citing sheet 11A, family 250] Ijams, William F.
-
-**RM Family Search Entry:**
-"United States Census, 1920," database with images, *FamilySearch* (https://familysearch.org/ark:/61903/1:1:MHQX-8QQ : accessed 28 July 2015), William F Ijams, Los Angeles Assembly District 61, Los Angeles, California, United States; citing sheet 11A, family 250, NARA microfilm publication T625 (Washington D.C.: National Archives and Records Administration, n.d.); FHL microfilm 1,820,105.
-
-**RM Footnote:**
-
-**RM Short Footnote:**
-**RM Bibliography:**
-
-
-
----
-
-**Current Family Search Entry:**
-**RM Source Name:**
-**RM Family Search Entry:**
-**RM Footnote:**
-**RM Short Footnote:**
-**RM Bibliography:**
-
-
-
-
-   "United States, Census, 1930", FamilySearch (https://www.familysearch.org/ark:/61903/1:1:X3MM-CX5 : Fri Mar 08 08:10:13 UTC 2024), Entry for William H Ijams and Dorothy Ijams, 1930.
-
-
-   "United States, Census, 1940", FamilySearch (https://www.familysearch.org/ark:/61903/1:1:VYLP-MHZ : Tue Jan 21 20:16:52 UTC 2025), Entry for William A Ijams and Edwin G Ijams, 1940.
-
-
-   "United States, Census, 1950", FamilySearch (https://www.familysearch.org/ark:/61903/1:1:6XLR-BM85 : Tue Mar 19 07:39:27 UTC 2024), Entry for Edward W Ratekin and Mary L Ratekin, 15 April 1950.
-
-
-
-2)  Processing a downloaded census image.  It is a two step process.  
-    A) rename the downloaded file, to a structured filename:
-
-    census year, State, County - Surname, GivenName.jpg
-
-
-Examples are:
-  1940, Texas, Milam - Iiams, Frank W..jpg
-  1940, Washington, Benton - Fox, Harvey.jpg
-  1940, Washington, Clark - Iams, Elizabeth.jpg
-  1940, Washington, King - Osterholm, Vendla.jpg
-
-  B) Move the renamed image into the correct directory in "/Users/miams/Genealogy/RootsMagic/Files/Records - Census"  Below is the directory structure.
-
-➜  Records - Census tree -d
-.
-├── 1790 Federal
-├── 1800 Federal
-├── 1810 Federal
-├── 1820 Federal
-│   └── metadata
-├── 1830 Federal
-├── 1840 Federal
-├── 1850 Federal
-├── 1850 Federal Slave Schedule
-├── 1855 New York
-├── 1860 Federal
-├── 1860 Federal Slave Schedule
-├── 1865 New York
-├── 1870 Federal
-├── 1875 New York
-├── 1880 Federal
-├── 1885 Colorado
-├── 1885 Iowa
-├── 1885 New Jersey
-├── 1890 Federal
-├── 1890 Federal Veterans and Widows Schedule
-├── 1895 Iowa
-├── 1900 Federal
-├── 1910 Federal
-├── 1920 Federal
-├── 1925 Iowa
-├── 1930 Federal
-├── 1940 Federal
-├── 1945 Florida
-├── 1950 Federal
-└── Federal Mortality Schedule 1850-1885
-    ├── 1850 Mortality
-    ├── 1860 Mortality
-    ├── 1870 Mortality
-    └── 1880 Mortality
+MIT License - See LICENSE file for details.
