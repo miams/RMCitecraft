@@ -781,7 +781,7 @@ class BatchProcessingTab:
             duration_ms = int((time.time() - start_time) * 1000)
             if self.state_repository and self.current_session_id:
                 self.state_repository.record_metric(
-                    operation='process_citation',
+                    operation='citation_creation',
                     duration_ms=duration_ms,
                     success=(result == "processed"),
                     session_id=self.current_session_id,
