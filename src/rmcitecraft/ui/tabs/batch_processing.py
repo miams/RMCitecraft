@@ -1074,8 +1074,9 @@ class BatchProcessingTab:
         # ===== PHASE 5: STATUS UPDATE =====
         status_label.text = "Updating status..."
 
-        # Mark as extracted (user may need to review/edit before export)
-        citation.status = CitationStatus.EXTRACTED
+        # Status already set by controller.update_citation_extracted_data():
+        # - COMPLETE if validation passed
+        # - Keeps current status if validation failed (needs manual review)
 
         # ===== PHASE 6: CHECKPOINT =====
         self.checkpoint_counter += 1
