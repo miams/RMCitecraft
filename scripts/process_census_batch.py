@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from src.rmcitecraft.services.familysearch_automation import FamilySearchAutomation
 from src.rmcitecraft.services.image_processing import ImageProcessingService
 from src.rmcitecraft.models.image import ImageMetadata
-from src.rmcitecraft.validation.data_quality import validate_before_update
+from src.rmcitecraft.validation.data_quality import validate_before_update, is_citation_needs_processing
 from src.rmcitecraft.parsers.source_name_parser import augment_citation_data_from_source
 from src.rmcitecraft.database.connection import connect_rmtree
 
@@ -206,8 +206,25 @@ class MarkdownLogger:
         f.write("---\n\n")
 
 
-def find_census_citations(db_path: str, census_year: int, limit: int = 10, offset: int = 0):
+def find_census_citations(
+    db_path: str,
+    census_year: int,
+    limit: int = 10,
+    offset: int = 0,
+    exclude_processed: bool = True
+):
     """Find census events for specified year by parsing SourceTable.Fields BLOB.
+
+    Args:
+        db_path: Path to RootsMagic database
+        census_year: Census year to search for (e.g., 1940, 1950)
+        limit: Maximum number of citations to return
+        offset: Number of citations to skip (for pagination)
+        exclude_processed: If True, excludes citations that have already been properly
+            processed. A citation is considered processed if:
+            1. Footnote != ShortFootnote (they differ after processing)
+            2. All three citation forms (Footnote, ShortFootnote, Bibliography)
+               pass validation for essential elements
 
     Returns:
         dict with keys:
@@ -215,6 +232,7 @@ def find_census_citations(db_path: str, census_year: int, limit: int = 10, offse
             - 'examined': number of citations examined
             - 'found': number with FamilySearch URLs
             - 'excluded': number without FamilySearch URLs
+            - 'skipped_processed': number skipped because already processed
     """
     # Load ICU extension
     conn = sqlite3.connect(db_path)
@@ -252,6 +270,7 @@ def find_census_citations(db_path: str, census_year: int, limit: int = 10, offse
     results = []
     examined = 0
     excluded = 0
+    skipped_processed = 0
 
     # Initialize media path resolver
     from src.rmcitecraft.utils.media_resolver import MediaPathResolver
@@ -331,6 +350,19 @@ def find_census_citations(db_path: str, census_year: int, limit: int = 10, offse
                 except Exception:
                     pass
 
+            # Apply filtering criteria 5 & 6: exclude already-processed citations
+            if exclude_processed:
+                needs_processing = is_citation_needs_processing(
+                    footnote=footnote,
+                    short_footnote=short_footnote,
+                    bibliography=bibliography,
+                    census_year=census_year
+                )
+                if not needs_processing:
+                    # Citation is already properly processed, skip it
+                    skipped_processed += 1
+                    continue
+
             results.append({
                 'event_id': event_id,
                 'person_id': person_id,
@@ -360,7 +392,8 @@ def find_census_citations(db_path: str, census_year: int, limit: int = 10, offse
         'citations': results,
         'examined': examined,
         'found': len(results),
-        'excluded': excluded
+        'excluded': excluded,
+        'skipped_processed': skipped_processed
     }
 
 
@@ -570,14 +603,20 @@ async def main():
     examined = result['examined']
     found = result['found']
     excluded = result['excluded']
+    skipped_processed = result.get('skipped_processed', 0)
 
     # Count media status
     with_media = sum(1 for c in citations if c['has_existing_media'])
     without_media = len(citations) - with_media
 
-    print(f"✓ Found {found} events with FamilySearch URLs")
-    if excluded > 0:
-        print(f"  (Examined {examined} citations, excluded {excluded} without URLs)")
+    print(f"✓ Found {found} events needing processing")
+    if excluded > 0 or skipped_processed > 0:
+        details = []
+        if excluded > 0:
+            details.append(f"{excluded} without FamilySearch URLs")
+        if skipped_processed > 0:
+            details.append(f"{skipped_processed} already processed")
+        print(f"  (Examined {examined} citations, excluded: {', '.join(details)})")
     print(f"  - {with_media} with existing media (will update citations only)")
     print(f"  - {without_media} without media (will download and attach)")
 

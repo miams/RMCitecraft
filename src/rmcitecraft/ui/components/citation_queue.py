@@ -19,7 +19,6 @@ class CitationQueueComponent:
         citations: list[CitationBatchItem],
         on_citation_click: Callable[[CitationBatchItem], None] | None = None,
         on_selection_change: Callable[[set[int]], None] | None = None,
-        on_process_selected: Callable[[set[int]], None] | None = None,
     ):
         """Initialize citation queue component.
 
@@ -27,12 +26,10 @@ class CitationQueueComponent:
             citations: List of citations to display
             on_citation_click: Callback when citation is clicked
             on_selection_change: Callback when selection changes
-            on_process_selected: Callback when process selected is clicked
         """
         self.citations = citations
         self.on_citation_click = on_citation_click
         self.on_selection_change = on_selection_change
-        self.on_process_selected = on_process_selected
 
         # State
         self.selected_citation: CitationBatchItem | None = None
@@ -149,13 +146,6 @@ class CitationQueueComponent:
                 icon="check_box_outline_blank" if all_incomplete_selected else "check_box",
                 on_click=self._toggle_select_incomplete,
             ).props("dense").classes("text-xs")
-
-            # Batch processing buttons
-            ui.button(
-                f"Process Selected ({selected_count})",
-                icon="play_arrow",
-                on_click=self._process_selected,
-            ).props("dense").classes("text-xs").set_enabled(selected_count > 0)
 
     def _get_status_icon_color(self, status: CitationStatus) -> tuple[str, str]:
         """Get icon and color for citation status.
@@ -309,13 +299,6 @@ class CitationQueueComponent:
         if self.on_selection_change:
             self.on_selection_change(self.selected_ids)
         self.refresh()
-
-    async def _process_selected(self) -> None:
-        """Process selected citations."""
-        if self.on_process_selected:
-            await self.on_process_selected(self.selected_ids)
-        else:
-            ui.notify(f"Processing {len(self.selected_ids)} selected citations...", type="warning")
 
     def refresh(self) -> None:
         """Refresh the component UI."""

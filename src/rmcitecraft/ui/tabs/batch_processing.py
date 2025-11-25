@@ -178,7 +178,6 @@ class BatchProcessingTab:
                 citations=self.controller.session.citations,
                 on_citation_click=self._on_citation_selected,
                 on_selection_change=self._on_selection_changed,
-                on_process_selected=self._on_process_selected,
             )
             with ui.column().classes("w-full h-full") as self.queue_container:
                 self.queue_component.container = self.queue_container
@@ -388,35 +387,59 @@ class BatchProcessingTab:
             examined = result['examined']
             found = result['found']
             excluded = result['excluded']
+            skipped_processed = result.get('skipped_processed', 0)
 
-            if excluded > 0:
+            if excluded > 0 or skipped_processed > 0:
                 # Show which citations were excluded
-                missing_count = excluded
+                exclusion_reasons = []
+                if excluded > 0:
+                    exclusion_reasons.append(f"{excluded} without URLs")
+                if skipped_processed > 0:
+                    exclusion_reasons.append(f"{skipped_processed} already processed")
+                exclusion_msg = ", ".join(exclusion_reasons)
+
                 logger.info(
-                    f"Examined {examined} citations, found {found} with URLs, excluded {excluded} without URLs"
+                    f"Examined {examined} citations, found {found} needing processing, excluded: {exclusion_msg}"
                 )
                 self._notify_and_log(
-                    f"Loaded {found} citations (examined {examined}, excluded {excluded} without URLs)",
+                    f"Loaded {found} citations (examined {examined}, excluded: {exclusion_msg})",
                     type="info",
                 )
                 # Log detailed explanation for message log
-                self.message_log.log_info(
-                    f"To find excluded citations: Go to Citation Manager tab → Select census year filter → "
-                    f"Look for citations with 'No URL' status",
-                    source="Batch Processing - Info"
-                )
+                if excluded > 0:
+                    self.message_log.log_info(
+                        f"To find excluded citations: Go to Citation Manager tab → Select census year filter → "
+                        f"Look for citations with 'No URL' status",
+                        source="Batch Processing - Info"
+                    )
+                if skipped_processed > 0:
+                    self.message_log.log_info(
+                        f"{skipped_processed} citations already have properly formatted Footnote, ShortFootnote, "
+                        f"and Bibliography fields and were skipped.",
+                        source="Batch Processing - Info"
+                    )
                 # Offer to show excluded citations
                 with ui.dialog() as excluded_dialog, ui.card().classes("w-96"):
-                    ui.label(f"{excluded} Citations Excluded").classes("font-bold text-lg mb-2")
-                    ui.label(
-                        f"{excluded} citations were skipped because they don't have FamilySearch URLs. "
-                        "These citations cannot be processed automatically."
-                    ).classes("text-sm mb-4")
+                    total_excluded = excluded + skipped_processed
+                    ui.label(f"{total_excluded} Citations Excluded").classes("font-bold text-lg mb-2")
 
-                    ui.label("To find these citations:").classes("font-semibold text-sm mb-2")
-                    ui.label("1. Go to Citation Manager tab").classes("text-xs ml-4")
-                    ui.label("2. Select census year filter").classes("text-xs ml-4")
-                    ui.label("3. Look for citations with 'No URL' status").classes("text-xs ml-4")
+                    if excluded > 0:
+                        ui.label(
+                            f"{excluded} citations were skipped because they don't have FamilySearch URLs. "
+                            "These citations cannot be processed automatically."
+                        ).classes("text-sm mb-4")
+
+                    if skipped_processed > 0:
+                        ui.label(
+                            f"{skipped_processed} citations were skipped because they are already properly processed "
+                            "(Footnote ≠ ShortFootnote and all citation fields pass validation)."
+                        ).classes("text-sm mb-4")
+
+                    if excluded > 0:
+                        ui.label("To find citations without URLs:").classes("font-semibold text-sm mb-2")
+                        ui.label("1. Go to Citation Manager tab").classes("text-xs ml-4")
+                        ui.label("2. Select census year filter").classes("text-xs ml-4")
+                        ui.label("3. Look for citations with 'No URL' status").classes("text-xs ml-4")
 
                     ui.button("OK", on_click=excluded_dialog.close).props("color=primary").classes("mt-4")
 
@@ -424,7 +447,7 @@ class BatchProcessingTab:
                     icon="info",
                     on_click=excluded_dialog.open,
                 ).props("flat round dense").classes("text-blue-600").tooltip(
-                    f"Why {excluded} excluded?"
+                    f"Why {total_excluded} excluded?"
                 )
             else:
                 self._notify_and_log(
@@ -724,6 +747,7 @@ class BatchProcessingTab:
             status_label.text = f"{processed} completed, {errors} errors, {skipped} skipped"
 
             start_time = time.time()
+            result = "error"  # Default to error, will be updated on success
 
             try:
                 result = await self._process_single_citation_robust(
@@ -744,6 +768,7 @@ class BatchProcessingTab:
             except Exception as e:
                 logger.error(f"Error processing citation {citation.citation_id}: {e}")
                 self.controller.mark_citation_error(citation, str(e))
+                result = "error"  # Ensure result is set for metrics
                 errors += 1
 
                 # Record error in state DB
@@ -1158,80 +1183,6 @@ class BatchProcessingTab:
         """
         self.selected_citation_ids = selected_ids
         logger.debug(f"Selection changed: {len(selected_ids)} citations selected")
-
-    async def _on_process_selected(self, selected_ids: set[int]) -> None:
-        """Handle process selected button click.
-
-        Args:
-            selected_ids: Set of selected citation IDs to process
-        """
-        if not selected_ids:
-            self._notify_and_log("No citations selected", type="warning")
-            return
-
-        self._notify_and_log(f"Processing {len(selected_ids)} selected citations...", type="info")
-
-        # Get citations by ID
-        citations_to_process = [
-            c for c in self.controller.session.citations
-            if c.citation_id in selected_ids
-        ]
-
-        # Create progress dialog
-        with ui.dialog().props('persistent') as progress_dialog, ui.card().classes('w-96'):
-            ui.label('Processing Citations').classes('text-lg font-bold mb-4')
-
-            progress_label = ui.label('Starting...').classes('text-sm mb-2')
-            progress_bar = ui.linear_progress(value=0).props('instant-feedback')
-
-            status_label = ui.label('').classes('text-xs text-gray-600 mt-2')
-
-        progress_dialog.open()
-
-        processed = 0
-        total = len(citations_to_process)
-
-        for i, citation in enumerate(citations_to_process, 1):
-            if citation.status.value in ["queued", "manual_review"]:
-                # Update progress
-                progress_label.text = f"Processing {i} of {total}: {citation.full_name}"
-                progress_bar.value = i / total
-                status_label.text = f"{processed} completed, {i - processed - 1} errors"
-
-                try:
-                    await self._process_single_citation(citation)
-                    processed += 1
-
-                    # Refresh queue component only (don't destroy/recreate UI)
-                    if self.queue_component:
-                        self.queue_component.refresh()
-
-                except Exception as e:
-                    logger.error(f"Error processing citation {citation.citation_id}: {e}")
-                    self.controller.mark_citation_error(citation, str(e))
-
-                # Small delay to allow UI update
-                await asyncio.sleep(0.1)
-
-        # Calculate errors
-        error_count = total - processed
-
-        # Log completion
-        logger.info(f"Batch processing complete: {processed} processed, {error_count} errors")
-
-        # Close progress dialog
-        progress_dialog.close()
-
-        # Refresh queue component (don't destroy/recreate entire UI)
-        if self.queue_component:
-            self.queue_component.refresh()
-
-        # Refresh form if a citation is selected
-        if self.controller.session and self.controller.session.current_citation:
-            self._refresh_form_panel()
-
-        # Note: Cannot use ui.notify or ui.timer here - dialog context is deleted
-        # User will see results in the refreshed queue component
 
     def _on_form_data_changed(self, form_data: dict) -> None:
         """Handle form data change.

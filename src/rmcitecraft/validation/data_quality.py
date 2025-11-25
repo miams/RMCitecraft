@@ -179,3 +179,225 @@ def validate_before_update(
         ...     raise ValueError("Data quality check failed")
     """
     return CensusDataValidator.validate(citation_data, census_year)
+
+
+class FormattedCitationValidator:
+    """
+    Validates formatted citation text (footnote, short_footnote, bibliography)
+    to ensure essential elements are present.
+
+    Used to determine if a citation has been properly processed or still needs
+    processing in batch workflows.
+    """
+
+    @classmethod
+    def validate_footnote(cls, footnote: str | None, census_year: int) -> bool:
+        """
+        Validate that a footnote contains essential elements.
+
+        Args:
+            footnote: The formatted footnote text
+            census_year: The census year (1790-1950)
+
+        Returns:
+            True if footnote contains all essential elements, False otherwise
+        """
+        if not footnote or not footnote.strip():
+            return False
+
+        text = footnote.lower()
+
+        # Must contain census year and "census" reference
+        if str(census_year) not in footnote:
+            return False
+
+        if 'census' not in text:
+            return False
+
+        # Must contain FamilySearch reference (URL or FamilySearch mention)
+        if 'familysearch' not in text:
+            return False
+
+        # Must contain sheet/page reference
+        if 'sheet' not in text and 'page' not in text:
+            return False
+
+        # For 1900-1950 censuses, must contain ED reference
+        if 1900 <= census_year <= 1950:
+            if not cls._has_enumeration_district_reference(text):
+                return False
+
+        return True
+
+    @classmethod
+    def _has_enumeration_district_reference(cls, text: str) -> bool:
+        """
+        Check if text contains a valid enumeration district reference.
+
+        Looks for patterns like:
+        - "enumeration district"
+        - "e.d. 95" or "e.d.95"
+        - "E.D. 95" or "E.D.95"
+        - "(ed) 95"
+        - ", ed 95,"
+        - "district (ed)"
+
+        Args:
+            text: Lowercase text to search
+
+        Returns:
+            True if a valid ED reference is found
+        """
+        import re
+
+        # Check for full phrase
+        if 'enumeration district' in text:
+            return True
+
+        # Check for E.D. abbreviation (with periods)
+        if 'e.d.' in text:
+            return True
+
+        # Check for ED followed by a number (standalone, not part of another word)
+        # Patterns: ", ed 95" or "(ed) 95" or "ed 95," etc.
+        # Must have a word boundary before "ed" to avoid matching "united", "accessed", etc.
+        ed_pattern = r'(?:^|[,\(\s])ed\s*\d'
+        if re.search(ed_pattern, text):
+            return True
+
+        # Check for "district (ed)" pattern
+        if 'district (ed)' in text:
+            return True
+
+        return False
+
+    @classmethod
+    def validate_short_footnote(cls, short_footnote: str | None, census_year: int) -> bool:
+        """
+        Validate that a short footnote contains essential elements.
+
+        Args:
+            short_footnote: The formatted short footnote text
+            census_year: The census year (1790-1950)
+
+        Returns:
+            True if short footnote contains all essential elements, False otherwise
+        """
+        if not short_footnote or not short_footnote.strip():
+            return False
+
+        text = short_footnote.lower()
+
+        # Must contain census year
+        if str(census_year) not in short_footnote:
+            return False
+
+        # Must contain "census" or "pop. sch." abbreviation
+        if 'census' not in text and 'pop. sch.' not in text:
+            return False
+
+        # Must contain sheet reference
+        if 'sheet' not in text:
+            return False
+
+        return True
+
+    @classmethod
+    def validate_bibliography(cls, bibliography: str | None, census_year: int) -> bool:
+        """
+        Validate that a bibliography contains essential elements.
+
+        Args:
+            bibliography: The formatted bibliography text
+            census_year: The census year (1790-1950)
+
+        Returns:
+            True if bibliography contains all essential elements, False otherwise
+        """
+        if not bibliography or not bibliography.strip():
+            return False
+
+        text = bibliography.lower()
+
+        # Must contain census year
+        if str(census_year) not in bibliography:
+            return False
+
+        # Must contain "Census" reference
+        if 'census' not in text:
+            return False
+
+        # Must contain FamilySearch reference
+        if 'familysearch' not in text:
+            return False
+
+        return True
+
+    @classmethod
+    def is_citation_processed(
+        cls,
+        footnote: str | None,
+        short_footnote: str | None,
+        bibliography: str | None,
+        census_year: int
+    ) -> bool:
+        """
+        Determine if a citation has been properly processed.
+
+        A citation is considered processed if:
+        1. Footnote != short_footnote (they're different after processing)
+        2. All three citation forms pass validation
+
+        Args:
+            footnote: The formatted footnote text
+            short_footnote: The formatted short footnote text
+            bibliography: The formatted bibliography text
+            census_year: The census year (1790-1950)
+
+        Returns:
+            True if citation appears to be properly processed, False otherwise
+        """
+        # Criterion 5: If footnote == short_footnote, it hasn't been processed
+        # (RootsMagic defaults both to the same initial value)
+        if footnote and short_footnote:
+            # Normalize for comparison (strip whitespace)
+            fn_normalized = footnote.strip()
+            sf_normalized = short_footnote.strip()
+            if fn_normalized == sf_normalized:
+                return False
+
+        # Criterion 6: All three citations must pass validation
+        footnote_valid = cls.validate_footnote(footnote, census_year)
+        short_valid = cls.validate_short_footnote(short_footnote, census_year)
+        bib_valid = cls.validate_bibliography(bibliography, census_year)
+
+        # All three must be valid for the citation to be considered processed
+        return footnote_valid and short_valid and bib_valid
+
+
+def is_citation_needs_processing(
+    footnote: str | None,
+    short_footnote: str | None,
+    bibliography: str | None,
+    census_year: int
+) -> bool:
+    """
+    Convenience function to check if a citation needs processing.
+
+    Returns True if the citation should be included in the batch queue
+    (i.e., it needs processing). Returns False if it's already properly processed.
+
+    Args:
+        footnote: The formatted footnote text
+        short_footnote: The formatted short footnote text
+        bibliography: The formatted bibliography text
+        census_year: The census year (1790-1950)
+
+    Returns:
+        True if citation needs processing, False if already processed
+    """
+    # If already processed, it doesn't need processing
+    is_processed = FormattedCitationValidator.is_citation_processed(
+        footnote, short_footnote, bibliography, census_year
+    )
+    return not is_processed

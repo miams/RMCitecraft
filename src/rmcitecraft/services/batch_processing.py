@@ -22,6 +22,7 @@ class CitationStatus(Enum):
 
     QUEUED = "queued"  # Waiting to be processed
     EXTRACTING = "extracting"  # Currently extracting from FamilySearch
+    EXTRACTED = "extracted"  # Extraction complete, may need review before export
     MANUAL_REVIEW = "manual_review"  # Needs manual data entry
     VALIDATING = "validating"  # Running validation
     COMPLETE = "complete"  # Successfully processed and validated
