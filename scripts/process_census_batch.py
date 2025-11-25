@@ -379,6 +379,7 @@ def find_census_citations(
                 'footnote': footnote,
                 'short_footnote': short_footnote,
                 'bibliography': bibliography,
+                'census_year': census_year,
             })
         else:
             excluded += 1
