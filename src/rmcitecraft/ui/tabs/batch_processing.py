@@ -1095,7 +1095,7 @@ class BatchProcessingTab:
 
         # Mark complete in state DB
         if self.state_repository and self.current_state_item_id:
-            self.state_repository.update_item_status(self.current_state_item_id, 'extracted')
+            self.state_repository.update_item_status(self.current_state_item_id, 'complete')
 
         # Reset recovery counter on success
         self.recovery_manager.reset_recovery_counter()
