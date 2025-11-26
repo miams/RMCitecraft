@@ -218,8 +218,8 @@ class FormattedCitationValidator:
         if 'familysearch' not in text:
             return False
 
-        # Must contain sheet/page reference
-        if 'sheet' not in text and 'page' not in text:
+        # Must contain sheet/page reference (1950 census uses "stamp" instead)
+        if 'sheet' not in text and 'page' not in text and 'stamp' not in text:
             return False
 
         # For 1900-1950 censuses, must contain ED reference
@@ -296,8 +296,8 @@ class FormattedCitationValidator:
         if 'census' not in text and 'pop. sch.' not in text:
             return False
 
-        # Must contain sheet reference
-        if 'sheet' not in text:
+        # Must contain sheet reference (1950 census uses "stamp" instead)
+        if 'sheet' not in text and 'stamp' not in text:
             return False
 
         return True
