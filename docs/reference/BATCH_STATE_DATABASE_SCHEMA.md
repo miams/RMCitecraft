@@ -378,7 +378,7 @@ GROUP BY operation, batch_type;
 
 ## Related Documentation
 
-- [Census Batch Processing Architecture](./CENSUS_BATCH_PROCESSING_ARCHITECTURE.md)
+- [Census Batch Processing Architecture](./../architecture/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md)
 - [Find a Grave Batch Processing Architecture](../architecture/BATCH_PROCESSING_ARCHITECTURE.md)
 - [RootsMagic Database Schema](./schema-reference.md)
 

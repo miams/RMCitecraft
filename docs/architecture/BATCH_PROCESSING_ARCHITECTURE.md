@@ -11,7 +11,7 @@ The Find a Grave batch processing system is designed to handle network timeouts,
 - **Resume Capability**: Continue interrupted batches from last checkpoint
 - **Performance Metrics**: Tracks timing and success rates
 
-> **Note**: For Census batch processing, see [Census Batch Processing Architecture](../reference/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md).
+> **Note**: For Census batch processing, see [Census Batch Processing Architecture](CENSUS_BATCH_PROCESSING_ARCHITECTURE.md).
 
 ## Architecture Components
 
@@ -600,7 +600,7 @@ Integration tests for end-to-end crash recovery scenarios are planned but not ye
 ### Related Documentation
 
 - [Batch State Database Schema](../reference/BATCH_STATE_DATABASE_SCHEMA.md) - Complete schema reference
-- [Census Batch Processing Architecture](../reference/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md) - Census-specific workflow
+- [Census Batch Processing Architecture](CENSUS_BATCH_PROCESSING_ARCHITECTURE.md) - Census-specific workflow
 - `CLAUDE.md` - Development guidance
 - `AGENTS.md` - Machine-readable instructions
 - `PRD.md` - Product requirements

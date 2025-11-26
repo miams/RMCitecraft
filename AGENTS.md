@@ -467,7 +467,7 @@ def get_person_census_citations(person_id):
 - **`docs/reference/schema-reference.md`**: Complete RootsMagic database schema
 - **`docs/reference/DATABASE_PATTERNS.md`**: SQL patterns and code examples
 - **`docs/reference/DATABASE_TESTING.md`**: Integrity testing methodology
-- **`docs/reference/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md`**: Census workflow details
+- **`docs/architecture/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md`**: Census workflow details
 - **`sqlite-extension/python_example.py`**: Database connection examples
 
 ---
