@@ -1,4 +1,4 @@
-# Robust Batch Processing Architecture
+# Find a Grave Batch Processing Architecture
 
 ## Overview
 
@@ -11,19 +11,26 @@ The Find a Grave batch processing system is designed to handle network timeouts,
 - **Resume Capability**: Continue interrupted batches from last checkpoint
 - **Performance Metrics**: Tracks timing and success rates
 
+> **Note**: For Census batch processing, see [Census Batch Processing Architecture](../reference/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md).
+
 ## Architecture Components
 
 ### 1. State Database (`BatchStateRepository`)
 
 **Purpose**: Persist batch processing state independently from RootsMagic database
 
-**Location**: `~/.rmcitecraft/batch_state.db`
+**Location**: `~/.rmcitecraft/batch_state.db` (shared with Census batch processing)
 
-**Schema**:
+**Tables** (Find a Grave specific):
 - `batch_sessions`: Session metadata (status, progress, config)
 - `batch_items`: Individual memorial processing state
 - `batch_checkpoints`: Resume points for interrupted sessions
-- `performance_metrics`: Operation timing and success rates
+
+**Shared Tables**:
+- `performance_metrics`: Operation timing and success rates (used by both Find a Grave and Census)
+- `schema_version`: Migration tracking
+
+> **See Also**: [Batch State Database Schema](../reference/BATCH_STATE_DATABASE_SCHEMA.md) for complete field-level documentation.
 
 **Key Features**:
 - Completely separate from RootsMagic database (no confusion)
@@ -592,6 +599,8 @@ Integration tests for end-to-end crash recovery scenarios are planned but not ye
 
 ### Related Documentation
 
+- [Batch State Database Schema](../reference/BATCH_STATE_DATABASE_SCHEMA.md) - Complete schema reference
+- [Census Batch Processing Architecture](../reference/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md) - Census-specific workflow
 - `CLAUDE.md` - Development guidance
 - `AGENTS.md` - Machine-readable instructions
 - `PRD.md` - Product requirements
@@ -645,6 +654,6 @@ For issues or questions:
 
 ---
 
-**Last Updated**: 2025-11-19
-**Version**: 1.0.0
+**Last Updated**: 2025-11-26
+**Version**: 1.1.0
 **Status**: Production
