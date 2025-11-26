@@ -18,11 +18,12 @@ RMCitecraft uses a single SQLite database (`~/.rmcitecraft/batch_state.db`) to t
 
 ## Schema Version
 
-Current schema version: **2**
+Current schema version: **3**
 
 Migrations are applied automatically on first use:
 - Migration 001: Find a Grave tables
 - Migration 002: Census tables (adds to existing database)
+- Migration 003: Schema improvements (backfills batch_type, adds indexes, adds export_status and familysearch_ark columns)
 
 ## Tables
 
@@ -130,6 +131,8 @@ Tracks individual census citation processing state.
 | `created_source_id` | INTEGER | | RootsMagic SourceID if updated |
 | `created_event_id` | INTEGER | | RootsMagic EventID for census |
 | `downloaded_image_paths` | TEXT | | JSON array of local image paths |
+| `export_status` | TEXT | DEFAULT 'pending', CHECK | Export state: `pending`, `exported`, `skipped`, `error` (added in v3) |
+| `familysearch_ark` | TEXT | | FamilySearch ARK identifier (e.g., `61903/1:1:6JJZ-JB42`) (added in v3) |
 | `created_at` | TIMESTAMP | NOT NULL | When item was queued |
 | `updated_at` | TIMESTAMP | NOT NULL | Last modification time |
 
@@ -164,7 +167,7 @@ Tracks operation timing for both Find a Grave and Census processing.
 | `duration_ms` | INTEGER | NOT NULL | Operation duration in milliseconds |
 | `success` | BOOLEAN | NOT NULL | Whether operation succeeded |
 | `session_id` | TEXT | FK | Associated session (nullable) |
-| `batch_type` | TEXT | CHECK | `findagrave` or `census` (added in v2) |
+| `batch_type` | TEXT | NOT NULL, CHECK | `findagrave` or `census` (always set, backfilled in v3) |
 
 **Operation Values:** `page_load`, `extraction`, `citation_creation`, `image_download`
 
@@ -260,11 +263,13 @@ Tracks applied migrations.
 | `idx_census_batch_items_year` | census_batch_items | (census_year) | Filter by census year |
 | `idx_census_batch_items_state` | census_batch_items | (state) | Filter by state |
 | `idx_census_batch_items_county` | census_batch_items | (state, county) | Filter by state+county |
+| `idx_census_batch_items_export` | census_batch_items | (session_id, export_status) | Filter for export queries (added in v3) |
 
 ### Shared Indexes
 
 | Index Name | Table | Columns | Purpose |
 |------------|-------|---------|---------|
+| `idx_performance_metrics_batch_type` | performance_metrics | (batch_type, timestamp DESC) | Filter metrics by batch type (added in v3) |
 | `idx_performance_metrics_session` | performance_metrics | (session_id, operation, timestamp) | Session performance analysis |
 | `idx_performance_metrics_recent` | performance_metrics | (timestamp DESC) | Recent metrics lookup |
 

@@ -14,7 +14,7 @@ This file provides explicit guidelines, commands, and standards for AI agents as
 - **Package Manager**: UV (required - replaces pip, poetry, pyenv)
 - **UI Framework**: NiceGUI 3.0+ (native mode)
 - **Database**: SQLite with custom RMNOCASE collation via ICU extension
-- **LLM Integration**: Multi-provider support (Anthropic Claude, OpenAI, Ollama)
+- **Browser Automation**: Chrome DevTools Protocol for FamilySearch/Find a Grave
 - **Target Platform**: macOS (Apple Silicon M3 Pro primary)
 
 ---
@@ -33,8 +33,8 @@ LLM coding agents should:
 - **Always use UV** for Python dependency management (never pip, poetry, or pipenv)
 - **Load ICU extension** before any database operations (see `sqlite-extension/python_example.py`)
 - **Use RMNOCASE collation** for text fields in database queries (Surname, Given, Name, etc.)
-- **Follow Evidence Explained** citation formatting rules strictly (see `docs/architecture/LLM-ARCHITECTURE.md`)
-- **Use structured output** (Pydantic models) for LLM extraction
+- **Follow Evidence Explained** citation formatting rules strictly
+- **Use Pydantic models** for data validation and structured data
 - **Write comprehensive unit tests** for all citation parsing and formatting logic
 - **Use Ruff** for linting and formatting (configured in `pyproject.toml`)
 - **Use MyPy** for static type checking with strict mode
@@ -432,27 +432,27 @@ def get_person_census_citations(person_id):
 - **Document large dependencies** (> 10MB) and their necessity
 - **Keep UV updated**: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
-### LLM Provider Configuration
+### Browser Automation
 
-- **Multi-provider support**: Allow user choice (cost/quality trade-offs)
-- **API key validation** on startup
-- **Rate limiting** awareness (respect provider limits)
-- **Prompt caching** for cost optimization
-- **Local fallback** (Ollama) for offline/high-volume use
-- **No hard-coded models** (configurable via `.env`)
+- **Chrome DevTools Protocol**: Used for FamilySearch and Find a Grave automation
+- **Page health monitoring**: Detect and recover from browser crashes
+- **Adaptive timeouts**: Self-tune based on network performance
+- **Checkpoint system**: Save progress for crash recovery
 
 ---
 
 ## Project-Specific Context
 
-### Citation Parsing Complexity
+### Citation Formatting Complexity
 
-**Challenge**: FamilySearch citation formats vary significantly across:
-- Census years (1790-1950, every 10 years)
-- Format changes (ED introduced 1880, population schedules 1850+)
-- Special schedules (Slave 1850/1860, Mortality 1850-1885, Veterans 1890)
+**Challenge**: Census citation formats vary by year:
+- 1790-1840: No ED, no population schedule terminology
+- 1850-1870: Population schedule, page/sheet, dwelling/family
+- 1880: ED introduced (required for citations)
+- 1900-1940: Population schedule with ED, sheet, family number
+- 1950: Uses "stamp" instead of "sheet"
 
-**Solution**: LLM-based extraction (handles variations) + template formatting (ensures consistency)
+**Solution**: Browser automation extracts FamilySearch data + `citation_formatter.py` applies Evidence Explained templates
 
 ### Database Schema Constraints
 
@@ -463,12 +463,12 @@ def get_person_census_citations(person_id):
 
 ### Key Files for Reference
 
-- **`CLAUDE.md`**: Comprehensive development guidance (read first)
-- **`docs/architecture/LLM-ARCHITECTURE.md`**: LLM implementation details
+- **`CLAUDE.md`**: Development guidance and quick reference
 - **`docs/reference/schema-reference.md`**: Complete RootsMagic database schema
-- **`docs/database/how-to-use-extension.md`**: ICU extension usage patterns
-- **`sqlite-extension/python_example.py`**: Working database connection examples
-- **`PRD.md`**: Complete product requirements and architecture
+- **`docs/reference/DATABASE_PATTERNS.md`**: SQL patterns and code examples
+- **`docs/reference/DATABASE_TESTING.md`**: Integrity testing methodology
+- **`docs/reference/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md`**: Census workflow details
+- **`sqlite-extension/python_example.py`**: Database connection examples
 
 ---
 
@@ -541,15 +541,15 @@ rmcitecraft status
 - **Cause**: ICU extension path incorrect or missing
 - **Fix**: Verify `SQLITE_ICU_EXTENSION` in `.env` points to `./sqlite-extension/icu.dylib`
 
-**"LLM parsing returns incomplete data"**
-- **Cause**: Citation format variation not in training examples
-- **Fix**: Check `missing_fields` array in extraction result
-- **Solution**: Prompt user to fill gaps or add example to training set
+**"Browser automation times out"**
+- **Cause**: FamilySearch page slow to load or network issues
+- **Fix**: Increase `CENSUS_BASE_TIMEOUT_SECONDS` in settings
+- **Check**: Page health monitoring logs for crash recovery attempts
 
-**"Citation formatting incorrect"**
-- **Cause**: Using wrong template for census year
-- **Fix**: Verify year detection and template selection logic
-- **Reference**: `docs/architecture/LLM-ARCHITECTURE.md` for templates
+**"Citation validation fails"**
+- **Cause**: Missing required fields (ED for 1900+, sheet/stamp)
+- **Fix**: Check `FormattedCitationValidator` in `validation/data_quality.py`
+- **Note**: 1950 census uses "stamp" instead of "sheet"
 
 ---
 
@@ -564,6 +564,6 @@ rmcitecraft status
 
 ---
 
-**Last Updated**: 2025-11-25
-**For Human Developers**: See `CLAUDE.md` for comprehensive development guidance
-**For Questions**: Review `claude_code_docs_map.md` for complete documentation index
+**Last Updated**: 2025-11-26
+**For Human Developers**: See `CLAUDE.md` for development guidance
+**Documentation Index**: See `CLAUDE.md` for complete documentation reference

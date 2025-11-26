@@ -78,6 +78,7 @@ class FindAGraveBatchStateRepository:
         migrations = [
             "001_create_batch_state_tables.sql",
             "002_create_census_batch_tables.sql",
+            "003_schema_improvements.sql",
         ]
 
         for migration_file_name in migrations:
@@ -621,8 +622,8 @@ class FindAGraveBatchStateRepository:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO performance_metrics (
-                    timestamp, operation, duration_ms, success, session_id
-                ) VALUES (?, ?, ?, ?, ?)
+                    timestamp, operation, duration_ms, success, session_id, batch_type
+                ) VALUES (?, ?, ?, ?, ?, 'findagrave')
             """, (self._now_iso(), operation, duration_ms, success, session_id))
             conn.commit()
 
@@ -632,7 +633,7 @@ class FindAGraveBatchStateRepository:
         limit: int = 10,
         success_only: bool = True,
     ) -> list[int]:
-        """Get recent performance metrics for operation.
+        """Get recent performance metrics for Find a Grave operations.
 
         Args:
             operation: Operation type
@@ -648,14 +649,14 @@ class FindAGraveBatchStateRepository:
             if success_only:
                 cursor.execute("""
                     SELECT duration_ms FROM performance_metrics
-                    WHERE operation = ? AND success = 1
+                    WHERE operation = ? AND success = 1 AND batch_type = 'findagrave'
                     ORDER BY timestamp DESC
                     LIMIT ?
                 """, (operation, limit))
             else:
                 cursor.execute("""
                     SELECT duration_ms FROM performance_metrics
-                    WHERE operation = ?
+                    WHERE operation = ? AND batch_type = 'findagrave'
                     ORDER BY timestamp DESC
                     LIMIT ?
                 """, (operation, limit))
