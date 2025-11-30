@@ -136,54 +136,117 @@ class LLMDatasette(LLMProvider):
         model: Optional[str] = None,
         **kwargs
     ) -> CompletionResponse:
-        """Generate completion with image input."""
-        # Check if model supports vision
-        model_name = model or self.default_model
+        """Generate completion with image input.
 
-        # LLM doesn't have native vision support in most plugins
-        # But some models like gpt-4-vision-preview might work through the API
-        if 'vision' not in model_name.lower() and 'gpt-4' not in model_name.lower():
-            raise NotImplementedError(
-                f"Model {model_name} doesn't support vision. "
-                "Try gpt-4-vision-preview or use OpenRouter provider."
-            )
+        Uses llm library's attachment API for vision-capable models like Gemini.
+
+        Args:
+            prompt: Text prompt to send with the image
+            image_path: Path to the image file
+            model: Model name (default: gemini-3-pro-preview for vision tasks)
+            **kwargs: Additional options passed to the model
+
+        Returns:
+            CompletionResponse with the model's analysis
+        """
+        import time
+        from .llm_logger import log_llm_request, log_llm_response
+
+        # Default to Gemini for vision tasks (best vision support in llm ecosystem)
+        model_name = model or "gemini-3-pro-preview"
+
+        # Build options, filtering out None values
+        options = {k: v for k, v in kwargs.items() if v is not None}
+
+        # Log the request
+        request_id = log_llm_request(
+            provider="llm",
+            model=model_name,
+            prompt=prompt,
+            image_path=image_path,
+            options=options,
+            context=kwargs.get("context"),
+        )
+
+        logger.info(f"complete_with_image called: model={model_name}, image={image_path}")
+        logger.info(f"Prompt length: {len(prompt)} chars")
+
+        start_time = time.time()
 
         try:
-            # Attempt to use vision through LLM
-            # This may require specific plugins or model support
+            logger.info(f"Getting LLM model: {model_name}")
             llm_model = self._llm.get_model(model_name)
+            logger.info(f"Model obtained: {llm_model}")
 
-            # Some LLM plugins may support attachments
-            if hasattr(llm_model, 'prompt_with_attachments'):
-                response = llm_model.prompt_with_attachments(
-                    prompt,
-                    attachments=[{'path': image_path, 'type': 'image'}],
-                    **kwargs
-                )
-            else:
-                # Fallback: Try to encode image in prompt (may not work)
-                import base64
-                with open(image_path, 'rb') as f:
-                    image_data = base64.b64encode(f.read()).decode()
+            # Use llm library's Attachment API for image input
+            logger.info(f"Creating attachment for: {image_path}")
+            attachment = self._llm.Attachment(path=image_path)
 
-                vision_prompt = f"{prompt}\n\n[Image data: {image_path}]"
-                response = llm_model.prompt(vision_prompt, **kwargs)
+            logger.info(f"Options: {options}")
 
+            # Execute prompt with image attachment
+            logger.info("Calling llm_model.prompt()...")
+            response = llm_model.prompt(
+                prompt,
+                attachments=[attachment],
+                **options
+            )
+
+            logger.info("Getting response text...")
             text = response.text()
+            duration = time.time() - start_time
+            logger.info(f"Response received, length={len(text)} chars, duration={duration:.2f}s")
+
+            # Try to get token count if available
+            tokens = None
+            if hasattr(response, 'input_tokens') and hasattr(response, 'output_tokens'):
+                tokens = (response.input_tokens or 0) + (response.output_tokens or 0)
+                logger.info(f"Tokens used: {tokens}")
+
+            # Log the response
+            log_llm_response(
+                request_id=request_id,
+                response_text=text,
+                tokens_used=tokens,
+                duration_seconds=duration,
+                metadata={
+                    'input_tokens': getattr(response, 'input_tokens', None),
+                    'output_tokens': getattr(response, 'output_tokens', None),
+                },
+            )
 
             return CompletionResponse(
                 text=text,
                 model=model_name,
                 provider="llm",
-                metadata={'image_path': image_path}
+                tokens_used=tokens,
+                metadata={
+                    'image_path': image_path,
+                    'input_tokens': getattr(response, 'input_tokens', None),
+                    'output_tokens': getattr(response, 'output_tokens', None),
+                    'request_id': request_id,
+                    'duration_seconds': duration,
+                }
             )
 
+        except self._llm.UnknownModelError as e:
+            logger.error(f"Unknown model error: {model_name}")
+            log_llm_response(request_id=request_id, response_text="", error=str(e))
+            raise ModelNotFoundError(
+                f"Model not found: {model_name}. "
+                f"For vision tasks, install llm-gemini: llm install llm-gemini"
+            ) from e
         except Exception as e:
+            duration = time.time() - start_time
+            log_llm_response(request_id=request_id, response_text="", error=str(e), duration_seconds=duration)
+            # Check for rate limit errors
+            if 'rate' in str(e).lower() or '429' in str(e):
+                logger.error(f"Rate limit error: {e}")
+                raise RateLimitError(f"Rate limit exceeded: {e}") from e
             logger.error(f"Vision completion failed: {e}")
-            raise NotImplementedError(
-                f"Vision not properly supported in LLM for model {model_name}. "
-                "Consider using OpenRouter provider for vision tasks."
-            )
+            import traceback
+            logger.error(traceback.format_exc())
+            raise LLMError(f"Vision completion failed: {e}") from e
 
     def list_models(self) -> list[str]:
         """List available models in LLM."""
@@ -194,17 +257,22 @@ class LLMDatasette(LLMProvider):
             # Try to get models from the LLM registry
             if hasattr(self._llm, 'get_models'):
                 for model in self._llm.get_models():
-                    models.append(model.name)
-            else:
+                    # Newer llm versions use model_id, older use name
+                    if hasattr(model, 'model_id'):
+                        models.append(model.model_id)
+                    elif hasattr(model, 'name'):
+                        models.append(model.name)
+
+            if not models:
                 # Fallback: Try common model names
                 common_models = [
                     'gpt-4',
-                    'gpt-4-32k',
+                    'gpt-4o',
                     'gpt-3.5-turbo',
-                    'gpt-3.5-turbo-16k',
+                    'gemini-3-pro-preview',
+                    'gemini-2.5-pro',
                     'claude-3-opus',
                     'claude-3-sonnet',
-                    'claude-3-haiku',
                 ]
 
                 for model_name in common_models:
@@ -232,9 +300,11 @@ class LLMDatasette(LLMProvider):
         # Check for specific model capabilities
         if model:
             model_lower = model.lower()
-            if 'vision' in model_lower or 'gpt-4' in model_lower:
+            # Vision-capable models
+            if any(v in model_lower for v in ['vision', 'gpt-4', 'gemini']):
                 capabilities.add(ModelCapability.VISION)
-            if 'gpt' in model_lower or 'claude' in model_lower:
+            # Function calling and JSON mode capable models
+            if any(v in model_lower for v in ['gpt', 'claude', 'gemini']):
                 capabilities.add(ModelCapability.FUNCTION_CALLING)
                 capabilities.add(ModelCapability.JSON_MODE)
 

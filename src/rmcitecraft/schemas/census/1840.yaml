@@ -1,0 +1,224 @@
+# 1840 US Federal Census Schema
+# Era 1: Household only - Last census before individual enumeration
+
+year: 1840
+era: "household_only"
+nara_publication: "M704"
+
+form_structure:
+  lines_per_side: 20
+  sides: null
+  supplemental_lines: null
+  uses_page: true
+  uses_sheet: false
+  uses_stamp: false
+
+columns:
+  - name: page_number
+    data_type: integer
+    description: "Page number"
+    required: true
+
+  - name: head_of_household
+    data_type: string
+    description: "Name of head of family (ONLY name recorded)"
+    required: true
+
+  # Statistical tallies - not individual names
+  - name: free_white_males_under_5
+    data_type: integer
+    description: "Free white males under 5"
+    required: false
+
+  - name: free_white_males_5_10
+    data_type: integer
+    description: "Free white males 5-10"
+    required: false
+
+  - name: free_white_males_10_15
+    data_type: integer
+    description: "Free white males 10-15"
+    required: false
+
+  - name: free_white_males_15_20
+    data_type: integer
+    description: "Free white males 15-20"
+    required: false
+
+  - name: free_white_males_20_30
+    data_type: integer
+    description: "Free white males 20-30"
+    required: false
+
+  - name: free_white_males_30_40
+    data_type: integer
+    description: "Free white males 30-40"
+    required: false
+
+  - name: free_white_males_40_50
+    data_type: integer
+    description: "Free white males 40-50"
+    required: false
+
+  - name: free_white_males_50_60
+    data_type: integer
+    description: "Free white males 50-60"
+    required: false
+
+  - name: free_white_males_60_70
+    data_type: integer
+    description: "Free white males 60-70"
+    required: false
+
+  - name: free_white_males_70_80
+    data_type: integer
+    description: "Free white males 70-80"
+    required: false
+
+  - name: free_white_males_80_90
+    data_type: integer
+    description: "Free white males 80-90"
+    required: false
+
+  - name: free_white_males_90_100
+    data_type: integer
+    description: "Free white males 90-100"
+    required: false
+
+  - name: free_white_males_100_plus
+    data_type: integer
+    description: "Free white males 100+"
+    required: false
+
+  # Similar columns exist for females, free colored, and slaves
+  - name: free_white_females_under_5
+    data_type: integer
+    description: "Free white females under 5"
+    required: false
+
+  # ... (additional age categories)
+
+  - name: free_colored_males
+    data_type: integer
+    description: "Total free colored males"
+    required: false
+
+  - name: free_colored_females
+    data_type: integer
+    description: "Total free colored females"
+    required: false
+
+  - name: slaves_male
+    data_type: integer
+    description: "Total male slaves in household"
+    required: false
+
+  - name: slaves_female
+    data_type: integer
+    description: "Total female slaves in household"
+    required: false
+
+  # Special categories in 1840
+  - name: pensioners_revolutionary_military
+    data_type: string
+    description: "Names of pensioners for Revolutionary or military services"
+    required: false
+
+  - name: persons_employed_mining
+    data_type: integer
+    description: "Number employed in mining"
+    required: false
+
+  - name: persons_employed_agriculture
+    data_type: integer
+    description: "Number employed in agriculture"
+    required: false
+
+  - name: persons_employed_commerce
+    data_type: integer
+    description: "Number employed in commerce"
+    required: false
+
+  - name: persons_employed_manufactures
+    data_type: integer
+    description: "Number employed in manufactures and trades"
+    required: false
+
+  - name: persons_employed_navigation
+    data_type: integer
+    description: "Number employed in navigation of ocean"
+    required: false
+
+  - name: persons_employed_learned_professions
+    data_type: integer
+    description: "Number employed in learned professions"
+    required: false
+
+  - name: persons_at_school
+    data_type: integer
+    description: "Number of persons in family attending school"
+    required: false
+
+  - name: persons_cannot_read_write
+    data_type: integer
+    description: "Number of white persons over 20 who cannot read and write"
+    required: false
+
+  - name: insane_idiotic_at_public_charge
+    data_type: integer
+    description: "Insane and idiotic at public charge"
+    required: false
+
+  - name: insane_idiotic_at_private_charge
+    data_type: integer
+    description: "Insane and idiotic at private charge"
+    required: false
+
+  - name: deaf_dumb
+    data_type: integer
+    description: "Deaf and dumb"
+    required: false
+
+  - name: blind
+    data_type: integer
+    description: "Blind"
+    required: false
+
+abbreviations: {}
+
+valid_values: {}
+
+instructions: |
+  1840 CENSUS FORM STRUCTURE:
+
+  ⚠️ IMPORTANT: Only HEAD OF HOUSEHOLD is named.
+  All other household members are statistical tallies by age/sex category.
+
+  This is the LAST census before the 1850 reform that named everyone.
+
+  SPECIAL FEATURES:
+  - Revolutionary War pensioner names recorded (valuable!)
+  - Employment categories by industry
+  - School attendance counted
+  - Literacy counted
+
+  DATA AVAILABLE:
+  - Head of household name
+  - Counts of persons by age brackets and sex
+  - Counts of free colored and slaves
+  - Employment statistics
+  - Pensioner names
+
+  DATA NOT AVAILABLE:
+  - Individual names of family members
+  - Ages of specific individuals
+  - Birthplaces
+  - Relationships
+
+  CITATION FORMAT:
+  "[Head of Household], 1840 U.S. census, [County], [State], p. [page]; NARA M704."
+
+  READING TIPS:
+  - Revolutionary War pensioner column is genealogically valuable
+  - Age brackets help estimate individual ages
+  - Slave counts on same schedule as free household

@@ -1,0 +1,259 @@
+# 1900 US Federal Census Schema
+
+year: 1900
+era: "individual_with_ed_sheet"
+nara_publication: "T623"
+
+form_structure:
+  lines_per_side: 50
+  sides: ["A", "B"]
+  supplemental_lines: null
+  uses_page: false
+  uses_sheet: true
+  uses_stamp: false
+
+columns:
+  # Header/Location fields (validated at metadata level, not per-person)
+  - name: sheet
+    data_type: string
+    description: "Sheet number with side (e.g., 3A, 3B)"
+    required: false  # Validated at metadata level
+    is_metadata: true
+
+  - name: enumeration_district
+    data_type: string
+    description: "Enumeration district number"
+    required: false  # Validated at metadata level
+    is_metadata: true
+
+  - name: line_number
+    data_type: integer
+    description: "Line number (1-50 on each sheet side)"
+    required: false
+    is_metadata: true
+
+  - name: street_name
+    column_number: 1
+    data_type: string
+    description: "Street, avenue, or road"
+    required: false
+
+  - name: house_number
+    column_number: 2
+    data_type: string
+    description: "House number"
+    required: false
+
+  - name: dwelling_number
+    column_number: 3
+    data_type: integer
+    description: "Number of dwelling in order of visitation"
+    required: false
+
+  - name: family_number
+    column_number: 4
+    data_type: integer
+    description: "Number of family in order of visitation"
+    required: false
+
+  - name: name
+    column_number: 5
+    data_type: string
+    description: "Name of each person"
+    required: true
+
+  - name: relationship
+    column_number: 6
+    data_type: string
+    description: "Relationship to head of household"
+    required: true
+
+  - name: sex
+    column_number: 7
+    data_type: string
+    description: "M=Male, F=Female"
+    valid_values: ["M", "F"]
+    required: true
+
+  - name: race
+    column_number: 8
+    data_type: string
+    description: "W=White, B=Black, Ch=Chinese, Jp=Japanese, In=Indian"
+    valid_values: ["W", "B", "Ch", "Jp", "In"]
+    required: true
+
+  - name: birth_month
+    column_number: 9
+    data_type: string
+    description: "Month of birth"
+    required: false
+
+  - name: birth_year
+    column_number: 10
+    data_type: integer
+    description: "Year of birth"
+    required: false
+
+  - name: age
+    column_number: 11
+    data_type: integer
+    description: "Age at last birthday"
+    required: true
+
+  - name: marital_status
+    column_number: 12
+    data_type: string
+    description: "S=Single, M=Married, Wd=Widowed, D=Divorced"
+    valid_values: ["S", "M", "Wd", "D"]
+    required: true
+
+  - name: years_married
+    column_number: 13
+    data_type: integer
+    description: "Number of years married"
+    required: false
+
+  - name: children_born
+    column_number: 14
+    data_type: integer
+    description: "Mother of how many children"
+    required: false
+
+  - name: children_living
+    column_number: 15
+    data_type: integer
+    description: "Number of these children living"
+    required: false
+
+  - name: birthplace
+    column_number: 16
+    data_type: string
+    description: "Place of birth (state or country)"
+    required: true
+
+  - name: father_birthplace
+    column_number: 17
+    data_type: string
+    description: "Birthplace of father"
+    required: false
+
+  - name: mother_birthplace
+    column_number: 18
+    data_type: string
+    description: "Birthplace of mother"
+    required: false
+
+  - name: year_immigration
+    column_number: 19
+    data_type: integer
+    description: "Year of immigration to US"
+    required: false
+
+  - name: years_in_us
+    column_number: 20
+    data_type: integer
+    description: "Number of years in US"
+    required: false
+
+  - name: naturalization
+    column_number: 21
+    data_type: string
+    description: "Na=Naturalized, Pa=First papers, Al=Alien"
+    valid_values: ["Na", "Pa", "Al"]
+    required: false
+
+  - name: occupation
+    column_number: 22
+    data_type: string
+    description: "Occupation, trade, or profession"
+    required: false
+
+  - name: months_not_employed
+    column_number: 23
+    data_type: integer
+    description: "Months not employed"
+    required: false
+
+  - name: attended_school
+    column_number: 24
+    data_type: integer
+    description: "Months attended school"
+    required: false
+
+  - name: can_read
+    column_number: 25
+    data_type: string
+    description: "Yes/No can read"
+    valid_values: ["Yes", "No"]
+    required: false
+
+  - name: can_write
+    column_number: 26
+    data_type: string
+    description: "Yes/No can write"
+    valid_values: ["Yes", "No"]
+    required: false
+
+  - name: can_speak_english
+    column_number: 27
+    data_type: string
+    description: "Yes/No can speak English"
+    valid_values: ["Yes", "No"]
+    required: false
+
+  - name: home_owned_rented
+    column_number: 28
+    data_type: string
+    description: "O=Owned, R=Rented"
+    valid_values: ["O", "R"]
+    required: false
+
+  - name: owned_free_mortgaged
+    column_number: 29
+    data_type: string
+    description: "F=Owned free, M=Mortgaged"
+    valid_values: ["F", "M"]
+    required: false
+
+  - name: farm_or_house
+    column_number: 30
+    data_type: string
+    description: "Fa=Farm, H=House"
+    valid_values: ["Fa", "H"]
+    required: false
+
+abbreviations:
+  "do": "same as above"
+  '"': "ditto - same as above"
+
+valid_values:
+  sex: ["M", "F"]
+  marital_status: ["S", "M", "Wd", "D"]
+  race: ["W", "B", "Ch", "Jp", "In"]
+
+instructions: |
+  1900 CENSUS FORM STRUCTURE:
+
+  The 1900 census has 50 lines per sheet side (A/B).
+
+  KEY FEATURES:
+  - Only census to record birth month AND year (very valuable!)
+  - "Mulatto" dropped as race category
+  - Number of years in US asked
+  - Children born/living for women
+
+  COLUMN LAYOUT:
+  - Col 1-4: Location
+  - Col 5-6: Name, relationship
+  - Col 7-12: Sex, race, birth month/year, age, marital status
+  - Col 13-15: Years married, children born/living
+  - Col 16-18: Birthplace, parents' birthplaces
+  - Col 19-21: Immigration, years in US, naturalization
+  - Col 22-23: Occupation, months unemployed
+  - Col 24-27: Education and English
+  - Col 28-30: Home ownership
+
+  READING TIPS:
+  - Birth month/year is GOLD for genealogy - only census to have this
+  - Years married helps estimate marriage date
+  - "Children born" vs "children living" indicates child mortality

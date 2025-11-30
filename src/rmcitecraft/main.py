@@ -15,6 +15,7 @@ from rmcitecraft.ui.components.error_panel import create_error_panel
 from rmcitecraft.ui.tabs.citation_manager import CitationManagerTab
 from rmcitecraft.ui.tabs.batch_processing import BatchProcessingTab
 from rmcitecraft.ui.tabs.findagrave_batch import FindAGraveBatchTab
+from rmcitecraft.ui.tabs.census_transcription import CensusTranscriptionTab
 
 
 def _cleanup_services(file_watcher: FileWatcher | None) -> None:
@@ -133,6 +134,12 @@ def setup_app() -> None:
                     "Citation Manager",
                     icon="format_quote",
                     on_click=lambda: show_citation_manager()
+                ).props("flat").classes("text-white")
+
+                ui.button(
+                    "Census Transcription",
+                    icon="auto_awesome",
+                    on_click=lambda: show_census_transcription()
                 ).props("flat").classes("text-white")
 
             with ui.row().classes("items-center gap-4"):
@@ -301,6 +308,13 @@ def setup_app() -> None:
             with view_container:
                 citation_manager = CitationManagerTab()
                 citation_manager.render()
+
+        def show_census_transcription() -> None:
+            """Show census transcription view."""
+            view_container.clear()
+            with view_container:
+                census_transcription = CensusTranscriptionTab()
+                census_transcription.render()
 
         # Show home by default
         show_home()

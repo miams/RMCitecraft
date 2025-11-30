@@ -98,6 +98,18 @@ OPENROUTER_MODELS = {
         "context": 32760,
         "vision": True,
     },
+    "google/gemini-pro-1.5": {
+        "capabilities": {ModelCapability.TEXT_COMPLETION, ModelCapability.CHAT,
+                        ModelCapability.VISION, ModelCapability.STREAMING},
+        "context": 1000000,  # 1M context window
+        "vision": True,
+    },
+    "google/gemini-flash-1.5": {
+        "capabilities": {ModelCapability.TEXT_COMPLETION, ModelCapability.CHAT,
+                        ModelCapability.VISION, ModelCapability.STREAMING},
+        "context": 1000000,  # 1M context window
+        "vision": True,
+    },
 
     # Meta models
     "meta-llama/llama-3-70b-instruct": {

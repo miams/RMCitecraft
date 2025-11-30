@@ -1,0 +1,114 @@
+# 1800 US Federal Census Schema
+# Era 1: Household only
+
+year: 1800
+era: "household_only"
+nara_publication: "M32"
+
+form_structure:
+  lines_per_side: 20
+  sides: null
+  supplemental_lines: null
+  uses_page: true
+  uses_sheet: false
+  uses_stamp: false
+
+columns:
+  - name: page_number
+    data_type: integer
+    description: "Page number"
+    required: true
+
+  - name: head_of_household
+    data_type: string
+    description: "Name of head of family (ONLY name recorded)"
+    required: true
+
+  - name: free_white_males_under_10
+    data_type: integer
+    description: "Free white males under 10"
+    required: false
+
+  - name: free_white_males_10_16
+    data_type: integer
+    description: "Free white males 10-16"
+    required: false
+
+  - name: free_white_males_16_26
+    data_type: integer
+    description: "Free white males 16-26"
+    required: false
+
+  - name: free_white_males_26_45
+    data_type: integer
+    description: "Free white males 26-45"
+    required: false
+
+  - name: free_white_males_45_plus
+    data_type: integer
+    description: "Free white males 45+"
+    required: false
+
+  - name: free_white_females_under_10
+    data_type: integer
+    description: "Free white females under 10"
+    required: false
+
+  - name: free_white_females_10_16
+    data_type: integer
+    description: "Free white females 10-16"
+    required: false
+
+  - name: free_white_females_16_26
+    data_type: integer
+    description: "Free white females 16-26"
+    required: false
+
+  - name: free_white_females_26_45
+    data_type: integer
+    description: "Free white females 26-45"
+    required: false
+
+  - name: free_white_females_45_plus
+    data_type: integer
+    description: "Free white females 45+"
+    required: false
+
+  - name: other_free_persons
+    data_type: integer
+    description: "All other free persons except Indians not taxed"
+    required: false
+
+  - name: slaves
+    data_type: integer
+    description: "Number of slaves"
+    required: false
+
+abbreviations: {}
+
+valid_values: {}
+
+instructions: |
+  1800 CENSUS FORM STRUCTURE:
+
+  ⚠️ IMPORTANT: Only HEAD OF HOUSEHOLD is named.
+
+  HISTORICAL NOTE:
+  - Same format as 1790 but with finer age brackets
+  - Many 1800 records have been lost over time
+  - Some states have incomplete records
+
+  DATA AVAILABLE:
+  - Head of household name
+  - Counts by age brackets and sex
+  - Total slaves
+  - Other free persons
+
+  DATA NOT AVAILABLE:
+  - Individual names
+  - Specific ages
+  - Birthplaces
+  - Relationships
+
+  CITATION FORMAT:
+  "[Head of Household], 1800 U.S. census, [County], [State], p. [page]; NARA M32."

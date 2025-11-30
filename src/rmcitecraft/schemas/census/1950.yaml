@@ -1,0 +1,309 @@
+# 1950 US Federal Census Schema
+# The 1950 census returns to page numbers (not sheets) and uses "stamp" in citations
+
+year: 1950
+era: "individual_with_ed_page"
+nara_publication: null  # Digital-only release in 2022
+
+form_structure:
+  lines_per_side: 30
+  sides: null  # No A/B sides - just page numbers
+  supplemental_lines: [6, 11, 16, 21, 26]  # Sample lines (every 5th person)
+  uses_page: true
+  uses_sheet: false
+  uses_stamp: true  # Citations use "stamp" instead of "sheet"
+
+columns:
+  # Header/Location fields (validated at metadata level, not per-person)
+  - name: page_number
+    data_type: integer
+    description: "Page number (called 'stamp' in citations)"
+    required: false  # Validated at metadata level
+    is_metadata: true
+
+  - name: enumeration_district
+    data_type: string
+    description: "Enumeration district number (e.g., 22-27)"
+    required: false  # Validated at metadata level
+    is_metadata: true
+
+  - name: line_number
+    data_type: integer
+    description: "Line number (1-30 on each page)"
+    required: false  # Helpful but not strictly required per-person
+    is_metadata: true
+
+  # Columns 1-7: Household location
+  - name: street_address
+    column_number: 1
+    data_type: string
+    description: "Street name and house number"
+    required: false
+
+  - name: household_number
+    column_number: 2
+    data_type: integer
+    description: "Serial number of household"
+    required: false
+
+  - name: is_dwelling_on_farm
+    column_number: 3
+    data_type: string
+    description: "Y/yes=Yes lives on farm, blank/no=No"
+    valid_values: ["Y", "yes", "no", ""]
+    required: false
+
+  - name: status_of_dwelling
+    column_number: 4
+    data_type: string
+    description: "O=Owned, R=Rented, N=No cash rent"
+    valid_values: ["O", "R", "N", "no", ""]
+    required: false
+
+  - name: value_or_rent
+    column_number: 5
+    data_type: string
+    description: "Value if owned, monthly rent if rented"
+    required: false
+
+  # Columns 6-15: Personal information
+  - name: name
+    column_number: 6
+    data_type: string
+    description: "Full name as written (last name first for head)"
+    required: true
+
+  - name: relationship
+    column_number: 7
+    data_type: string
+    description: "Relationship to head of household"
+    required: true
+    abbreviations:
+      "H": "Head"
+      "W": "Wife"
+      "S": "Son"
+      "D": "Daughter"
+
+  - name: race
+    column_number: 8
+    data_type: string
+    description: "W=White, Neg=Negro, Ind=Indian, Jp=Japanese, Ch=Chinese, Fil=Filipino"
+    valid_values: ["W", "Neg", "Ind", "Jp", "Ch", "Fil"]
+    required: true
+
+  - name: sex
+    column_number: 9
+    data_type: string
+    description: "M=Male, F=Female"
+    valid_values: ["M", "F"]
+    required: true
+
+  - name: age
+    column_number: 10
+    data_type: integer
+    description: "Age at last birthday"
+    required: true
+
+  - name: marital_status
+    column_number: 11
+    data_type: string
+    description: "M/Mar=Married, Wd=Widowed, D=Divorced, Sep=Separated, S/Nev=Single (never married)"
+    valid_values: ["M", "Mar", "Married", "Wd", "Widowed", "D", "Div", "Divorced", "Sep", "Separated", "S", "Nev", "Single", "Never"]
+    required: true
+
+  # Columns 12-14: Birthplace and citizenship
+  - name: birthplace
+    column_number: 12
+    data_type: string
+    description: "State if US-born, or country if foreign-born"
+    required: true
+
+  - name: citizenship
+    column_number: 13
+    data_type: string
+    description: "If foreign-born: Na=Naturalized, Am=American citizen born abroad, Pa=Has first papers, Al=Alien, NR=Not reported"
+    valid_values: ["Na", "Am", "Pa", "Al", "NR"]
+    required: false
+
+  # Columns 14-17: Residence on April 1, 1949
+  - name: residence_1949_same_house
+    column_number: 14
+    data_type: string
+    description: "Y/yes=Same house as April 1, 1949"
+    valid_values: ["Y", "yes", "no", ""]
+    required: false
+
+  - name: residence_1949_county_same_state
+    column_number: 15
+    data_type: string
+    description: "Y/yes=Same county in same state"
+    valid_values: ["Y", "yes", "no", ""]
+    required: false
+
+  - name: residence_1949_different_state_or_abroad
+    column_number: 16
+    data_type: string
+    description: "Name of state or foreign country if different"
+    required: false
+
+  - name: residence_1949_on_farm
+    column_number: 17
+    data_type: string
+    description: "Y/yes=Lived on farm April 1, 1949"
+    valid_values: ["Y", "yes", "no", ""]
+    required: false
+
+  # Columns 18-26: Employment
+  - name: worked_last_week
+    column_number: 18
+    data_type: string
+    description: "Y/yes=Worked for pay, H=Housework, ot=Other unpaid"
+    valid_values: ["Y", "yes", "no", "H", "ot", "U", ""]
+    required: false
+
+  - name: hours_worked
+    column_number: 19
+    data_type: integer
+    description: "Hours worked last week"
+    required: false
+
+  - name: looking_for_work
+    column_number: 20
+    data_type: string
+    description: "Y/yes=Looking for work"
+    valid_values: ["Y", "yes", "no", ""]
+    required: false
+
+  - name: has_job_not_at_work
+    column_number: 21
+    data_type: string
+    description: "Y/yes=Has job but not at work"
+    valid_values: ["Y", "yes", "no", ""]
+    required: false
+
+  - name: occupation
+    column_number: 22
+    data_type: string
+    description: "Specific occupation"
+    required: false
+
+  - name: industry
+    column_number: 23
+    data_type: string
+    description: "Type of business/industry"
+    required: false
+
+  - name: class_of_worker
+    column_number: 24
+    data_type: string
+    description: "P=Private wage/salary, G=Government, O=Own business, U=Unpaid family worker"
+    valid_values: ["P", "G", "O", "U"]
+    required: false
+
+  # Income
+  - name: income_1949
+    column_number: 25
+    data_type: integer
+    description: "Total income from wages/salary in 1949"
+    required: false
+
+  - name: weeks_worked_1949
+    column_number: 26
+    data_type: integer
+    description: "Weeks worked in 1949"
+    required: false
+
+  # Sample questions (every 5th person: lines 6, 11, 16, 21, 26)
+  - name: is_sample_person
+    data_type: boolean
+    description: "True if this is a sample person with additional questions"
+    required: false
+
+  - name: father_birthplace
+    data_type: string
+    description: "Father's birthplace (sample only)"
+    required: false
+
+  - name: mother_birthplace
+    data_type: string
+    description: "Mother's birthplace (sample only)"
+    required: false
+
+  - name: highest_grade
+    data_type: string
+    description: "Highest grade of school completed (sample only)"
+    required: false
+
+  - name: veteran_status
+    data_type: string
+    description: "Veteran status and war (sample only)"
+    required: false
+
+abbreviations:
+  "do": "same as above"
+  '"': "ditto - same as above"
+  "—": "same as above"
+  "ditto": "same as above"
+  "Wm": "William"
+  "Jno": "John"
+  "Jas": "James"
+  "Chas": "Charles"
+  "Eliz": "Elizabeth"
+  "Robt": "Robert"
+  "Thos": "Thomas"
+  "Geo": "George"
+  "Jr": "Junior"
+  "Sr": "Senior"
+
+valid_values:
+  sex: ["M", "F"]
+  marital_status: ["M", "Mar", "Married", "Wd", "Widowed", "D", "Div", "Divorced", "Sep", "Separated", "S", "Nev", "Single", "Never"]
+  race: ["W", "Neg", "Negro", "Ind", "Indian", "Jp", "Japanese", "Ch", "Chinese", "Fil", "Filipino"]
+  status_of_dwelling: ["O", "R", "N", "no", ""]
+  class_of_worker: ["P", "G", "O", "U"]
+  # Note: Many yes/no fields accept "yes", "no", "Y", or blank for flexibility with LLM outputs
+
+instructions: |
+  1950 CENSUS FORM STRUCTURE:
+
+  The 1950 census form has 30 lines per page. Unlike 1940, it uses page numbers (not sheets A/B).
+  In citations, the page number is referred to as "stamp" (e.g., "stamp 71").
+
+  COLUMN LAYOUT (left to right):
+  - Col 1: Street address (street name and house number combined)
+  - Col 2: Serial number of dwelling unit
+  - Col 3: Dwelling on farm? (Y or blank)
+  - Col 4: Status (O=Owned, R=Rented, N=No cash rent)
+  - Col 5: Value (if owned) or monthly rent
+  - Col 6: NAME - Last name first for head, given names follow
+  - Col 7: Relationship to head (Head, Wife, Son, Daughter, Lodger, etc.)
+  - Col 8: Race (W=White, Neg=Negro, Ind=Indian, etc.)
+  - Col 9: Sex (M/F)
+  - Col 10: Age at last birthday
+  - Col 11: Marital status (M=Married, Wd=Widowed, D=Divorced, Sep=Separated, S=Single)
+  - Col 12: Birthplace (state if US, country if foreign)
+  - Col 13: Citizenship (if foreign-born)
+  - Col 14-17: Residence April 1, 1949
+  - Col 18-21: Employment status
+  - Col 22-24: Occupation, Industry, Class of worker
+  - Col 25-26: Income 1949, Weeks worked 1949
+
+  SAMPLE QUESTIONS:
+  Every 5th person (lines 6, 11, 16, 21, 26) has additional questions on the right side:
+  - Mother's birthplace, Father's birthplace
+  - Highest grade of school completed
+  - Mother tongue (language spoken in home in earliest childhood)
+  - Veteran status (which war)
+  - Duration of marriage (women only)
+  - Children ever born (women only)
+
+  CITATION FORMAT:
+  The 1950 census uses "stamp" instead of "sheet" in citations:
+  "1950 U.S. census, [County], [State], [Township], E.D. [ED], stamp [page], line [line]"
+
+  IMPORTANT READING TIPS:
+  - First census released digitally (2022), image quality varies
+  - Names use ditto marks for same surname as previous line
+  - Rural areas may have descriptive addresses instead of street numbers
+  - Watch for Sample lines (6, 11, 16, 21, 26) which have extra data on right side
+  - Common abbreviations: Wm=William, Jno=John, Jas=James, Jr=Junior, Sr=Senior

@@ -5,6 +5,7 @@ components from FamilySearch citation text, handling format variations across
 census years.
 """
 
+import os
 from typing import Any
 
 from langchain_anthropic import ChatAnthropic
@@ -97,7 +98,7 @@ def create_llm_client(provider: str, model: str, api_key: str | None = None) -> 
     """Create LLM client based on provider.
 
     Args:
-        provider: "anthropic" or "openai"
+        provider: "anthropic", "openai", or "openrouter"
         model: Model name (e.g., "claude-3-5-sonnet-20250110")
         api_key: API key (optional if set in environment)
 
@@ -120,6 +121,23 @@ def create_llm_client(provider: str, model: str, api_key: str | None = None) -> 
             openai_api_key=api_key,
             temperature=0.2,
             max_tokens=1024,
+        )
+    elif provider == "openrouter":
+        # OpenRouter uses OpenAI-compatible API
+        api_key = api_key or os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            raise ValueError("OPENROUTER_API_KEY not found in environment")
+            
+        return ChatOpenAI(
+            model=model,
+            openai_api_key=api_key,
+            openai_api_base="https://openrouter.ai/api/v1",
+            temperature=0.2,
+            max_tokens=1024,
+            default_headers={
+                "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "https://github.com/mikeiacovacci/RMCitecraft"),
+                "X-Title": os.getenv("OPENROUTER_APP_NAME", "RMCitecraft"),
+            }
         )
     else:
         raise ValueError(f"Unsupported LLM provider: {provider}")

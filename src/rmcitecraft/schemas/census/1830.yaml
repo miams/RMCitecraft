@@ -1,0 +1,163 @@
+# 1830 US Federal Census Schema
+# Era 1: Household only
+
+year: 1830
+era: "household_only"
+nara_publication: "M19"
+
+form_structure:
+  lines_per_side: 20
+  sides: null
+  supplemental_lines: null
+  uses_page: true
+  uses_sheet: false
+  uses_stamp: false
+
+columns:
+  - name: page_number
+    data_type: integer
+    description: "Page number"
+    required: true
+
+  - name: head_of_household
+    data_type: string
+    description: "Name of head of family (ONLY name recorded)"
+    required: true
+
+  # Age brackets expanded to 5-year increments
+  - name: free_white_males_under_5
+    data_type: integer
+    description: "Free white males under 5"
+    required: false
+
+  - name: free_white_males_5_10
+    data_type: integer
+    description: "Free white males 5-10"
+    required: false
+
+  - name: free_white_males_10_15
+    data_type: integer
+    description: "Free white males 10-15"
+    required: false
+
+  - name: free_white_males_15_20
+    data_type: integer
+    description: "Free white males 15-20"
+    required: false
+
+  - name: free_white_males_20_30
+    data_type: integer
+    description: "Free white males 20-30"
+    required: false
+
+  - name: free_white_males_30_40
+    data_type: integer
+    description: "Free white males 30-40"
+    required: false
+
+  - name: free_white_males_40_50
+    data_type: integer
+    description: "Free white males 40-50"
+    required: false
+
+  - name: free_white_males_50_60
+    data_type: integer
+    description: "Free white males 50-60"
+    required: false
+
+  - name: free_white_males_60_70
+    data_type: integer
+    description: "Free white males 60-70"
+    required: false
+
+  - name: free_white_males_70_80
+    data_type: integer
+    description: "Free white males 70-80"
+    required: false
+
+  - name: free_white_males_80_90
+    data_type: integer
+    description: "Free white males 80-90"
+    required: false
+
+  - name: free_white_males_90_100
+    data_type: integer
+    description: "Free white males 90-100"
+    required: false
+
+  - name: free_white_males_100_plus
+    data_type: integer
+    description: "Free white males 100+"
+    required: false
+
+  # Similar for females
+  - name: free_white_females_under_5
+    data_type: integer
+    description: "Free white females under 5"
+    required: false
+
+  # Free colored and slaves
+  - name: free_colored_males
+    data_type: integer
+    description: "Free colored males"
+    required: false
+
+  - name: free_colored_females
+    data_type: integer
+    description: "Free colored females"
+    required: false
+
+  - name: slaves_male
+    data_type: integer
+    description: "Male slaves"
+    required: false
+
+  - name: slaves_female
+    data_type: integer
+    description: "Female slaves"
+    required: false
+
+  - name: deaf_dumb
+    data_type: integer
+    description: "Deaf and dumb"
+    required: false
+
+  - name: blind
+    data_type: integer
+    description: "Blind"
+    required: false
+
+  - name: foreigners_not_naturalized
+    data_type: integer
+    description: "Foreigners not naturalized"
+    required: false
+
+abbreviations: {}
+
+valid_values: {}
+
+instructions: |
+  1830 CENSUS FORM STRUCTURE:
+
+  ⚠️ IMPORTANT: Only HEAD OF HOUSEHOLD is named.
+
+  IMPROVEMENTS OVER 1820:
+  - Age brackets expanded to 5-year increments (better age estimates)
+  - Goes up to 100+ years old
+  - Foreigners not naturalized counted
+
+  DATA AVAILABLE:
+  - Head of household name
+  - Counts by age brackets and sex
+  - Free colored and slave counts
+  - Deaf, dumb, blind counts
+  - Unnaturalized foreigners
+
+  DATA NOT AVAILABLE:
+  - Individual names
+  - Specific ages
+  - Birthplaces
+  - Relationships
+
+  CITATION FORMAT:
+  "[Head of Household], 1830 U.S. census, [County], [State], p. [page]; NARA M19."

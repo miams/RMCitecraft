@@ -711,12 +711,22 @@ class BatchProcessingTab:
             )
         else:
             # No selections - process all incomplete citations in queue order
+            # Exclude complete and error items (they don't need processing)
+            excluded_statuses = ["complete", "error"]
             citations_to_process = [
                 c for c in queue_ordered_citations
-                if c.status.value in ["queued", "manual_review"]
+                if c.status.value not in excluded_statuses
             ]
+
+            # Log what we're skipping for transparency
+            complete_count = sum(1 for c in queue_ordered_citations if c.status.value == "complete")
+            error_count = sum(1 for c in queue_ordered_citations if c.status.value == "error")
+            if complete_count > 0 or error_count > 0:
+                logger.info(f"Skipping {complete_count} complete and {error_count} error citations")
+
             self._notify_and_log(
-                f"Processing all {len(citations_to_process)} incomplete citations...",
+                f"Processing {len(citations_to_process)} incomplete citations "
+                f"(skipping {complete_count} complete, {error_count} errors)...",
                 type="info"
             )
 
@@ -936,6 +946,11 @@ class BatchProcessingTab:
                 if item['person_id'] == citation.person_id and item['census_year'] == citation.census_year:
                     self.current_state_item_id = item['id']
                     break
+
+        # Safety check: skip citations that are already complete
+        if citation.status.value == "complete":
+            logger.debug(f"Citation {citation.citation_id} already complete, skipping")
+            return "skipped"
 
         # ===== PHASE 1: PAGE HEALTH CHECK =====
         if self.config.census_enable_crash_recovery:
@@ -1299,8 +1314,8 @@ class BatchProcessingTab:
                     await self._write_citation_to_database(citation)
                     citations_written += 1
 
-                    # 2. Process image if downloaded
-                    if citation.local_image_path and Path(citation.local_image_path).exists():
+                    # 2. Process image if downloaded (skip if already has media in RootsMagic)
+                    if citation.local_image_path and Path(citation.local_image_path).exists() and not citation.has_existing_media:
                         # Create ImageMetadata from citation data
                         # Generate access date in Evidence Explained format: "D Month YYYY"
                         access_date = citation.merged_data.get('access_date')
@@ -1309,12 +1324,40 @@ class BatchProcessingTab:
                             today = datetime.now()
                             access_date = today.strftime("%-d %B %Y")  # e.g., "7 November 2024"
 
+                        # Get state/county from merged_data, with fallback to source_name parsing
+                        state = citation.merged_data.get('state', '')
+                        county = citation.merged_data.get('county', '')
+
+                        # If state/county are missing, try to parse from source_name
+                        if (not state or not county) and citation.source_name:
+                            from rmcitecraft.parsers.source_name_parser import SourceNameParser
+                            try:
+                                parsed = SourceNameParser.parse(citation.source_name)
+                                if parsed:
+                                    if not state and parsed.get('state'):
+                                        state = parsed['state']
+                                        logger.debug(f"Got state '{state}' from source_name for {citation.full_name}")
+                                    if not county and parsed.get('county'):
+                                        county = parsed['county']
+                                        logger.debug(f"Got county '{county}' from source_name for {citation.full_name}")
+                            except Exception as e:
+                                logger.warning(f"Could not parse source_name for {citation.full_name}: {e}")
+
+                        # Validate state/county before image processing
+                        if not state or not county:
+                            logger.error(
+                                f"Cannot process image for {citation.full_name}: "
+                                f"missing state='{state}' or county='{county}'"
+                            )
+                            errors.append(f"{citation.full_name}: Missing state/county for image filename")
+                            continue  # Skip image processing for this citation
+
                         metadata = ImageMetadata(
                             image_id=f"batch_{citation.citation_id}",
                             citation_id=str(citation.citation_id),  # Convert to string
                             year=citation.census_year,
-                            state=citation.merged_data.get('state', ''),
-                            county=citation.merged_data.get('county', ''),
+                            state=state,
+                            county=county,
                             surname=citation.surname,
                             given_name=citation.given_name,
                             familysearch_url=citation.familysearch_url or '',

@@ -1,0 +1,101 @@
+# 1790 US Federal Census Schema
+# Era 1: Household only - The FIRST US Census
+
+year: 1790
+era: "household_only"
+nara_publication: "M637"
+
+form_structure:
+  lines_per_side: 20
+  sides: null
+  supplemental_lines: null
+  uses_page: true
+  uses_sheet: false
+  uses_stamp: false
+
+columns:
+  - name: page_number
+    data_type: integer
+    description: "Page number"
+    required: true
+
+  - name: head_of_household
+    data_type: string
+    description: "Name of head of family (ONLY name recorded)"
+    required: true
+
+  - name: free_white_males_16_plus
+    data_type: integer
+    description: "Free white males 16 years and upward including heads of families"
+    required: false
+
+  - name: free_white_males_under_16
+    data_type: integer
+    description: "Free white males under 16 years"
+    required: false
+
+  - name: free_white_females
+    data_type: integer
+    description: "Free white females including heads of families"
+    required: false
+
+  - name: other_free_persons
+    data_type: integer
+    description: "All other free persons"
+    required: false
+
+  - name: slaves
+    data_type: integer
+    description: "Number of slaves"
+    required: false
+
+abbreviations: {}
+
+valid_values: {}
+
+instructions: |
+  1790 CENSUS FORM STRUCTURE:
+
+  *** THE FIRST UNITED STATES CENSUS ***
+
+  ⚠️ IMPORTANT: Only HEAD OF HOUSEHOLD is named.
+
+  HISTORICAL CONTEXT:
+  - Mandated by Article 1, Section 2 of the Constitution
+  - Conducted August 2, 1790 - March 1, 1791
+  - 17 US Marshals supervised the count
+  - Population: 3,929,214
+
+  STATES INCLUDED:
+  Connecticut, Delaware, Georgia, Kentucky, Maine (part of MA),
+  Maryland, Massachusetts, New Hampshire, New Jersey, New York,
+  North Carolina, Pennsylvania, Rhode Island, South Carolina,
+  Tennessee (Southwest Territory), Vermont, Virginia
+
+  LOST RECORDS:
+  - Delaware, Georgia, Kentucky, New Jersey, Tennessee, Virginia
+  - These were destroyed when British burned Washington DC in 1814
+
+  ONLY 6 COLUMNS:
+  1. Name of head of family
+  2. Free white males 16+ (including head of families)
+  3. Free white males under 16
+  4. Free white females (including heads of families)
+  5. All other free persons
+  6. Slaves
+
+  DATA NOT AVAILABLE:
+  - Individual names (only head of household)
+  - Specific ages (only broad categories)
+  - Birthplaces
+  - Relationships
+  - Occupations
+
+  CITATION FORMAT:
+  "[Head of Household], 1790 U.S. census, [County], [State], p. [page]; NARA M637."
+
+  READING TIPS:
+  - Names often spelled phonetically
+  - Handwriting styles vary by marshal/assistant
+  - "Head of family" could be male or female
+  - "Other free persons" includes free African Americans

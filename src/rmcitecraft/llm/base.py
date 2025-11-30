@@ -303,6 +303,17 @@ Respond with valid JSON matching the schema. Include a "confidence" field (0.0-1
         """
         Transcribe and extract data from census image.
 
+        .. deprecated::
+            Use CensusTranscriber or CensusTranscriptionService instead.
+            These provide year-specific schemas loaded from YAML files with
+            much better accuracy and maintainability.
+
+            Example:
+                from rmcitecraft.services.census_transcriber import CensusTranscriber
+
+                transcriber = CensusTranscriber(provider=self)
+                result = transcriber.transcribe_census(image_path, census_year)
+
         Args:
             image_path: Path to census image
             census_year: Year of census (affects expected fields)
@@ -316,12 +327,48 @@ Respond with valid JSON matching the schema. Include a "confidence" field (0.0-1
             NotImplementedError: If not supported
             LLMError: For other errors
         """
-        if not self.supports(ModelCapability.VISION, model):
-            raise NotImplementedError(f"Census transcription requires vision support")
+        import warnings
+        warnings.warn(
+            "transcribe_census_image is deprecated. Use CensusTranscriber or "
+            "CensusTranscriptionService for better accuracy with year-specific schemas.",
+            DeprecationWarning,
+            stacklevel=2
+        )
 
-        # Define schema based on census year
+        if not self.supports(ModelCapability.VISION, model):
+            raise NotImplementedError("Census transcription requires vision support")
+
+        # Use the new service internally for better results
+        try:
+            from rmcitecraft.services.census.prompt_builder import CensusPromptBuilder
+            from rmcitecraft.services.census.response_parser import CensusResponseParser
+            from rmcitecraft.services.census.schema_registry import CensusSchemaRegistry
+
+            schema = CensusSchemaRegistry.get_schema(census_year)
+            builder = CensusPromptBuilder()
+            parser = CensusResponseParser()
+
+            prompt = builder.build_transcription_prompt(schema)
+            response = self.complete_with_image(prompt, image_path, model, **kwargs)
+
+            data = parser.parse_response(response.text)
+            persons = parser.extract_persons(data)
+            metadata = parser.extract_metadata(data)
+            confidence = data.pop("confidence", 0.7) if isinstance(data, dict) else 0.7
+
+            return ExtractionResponse(
+                data={"page_info": metadata, "records": persons},
+                confidence=confidence,
+                metadata={"census_year": census_year, "raw_response": response.text},
+            )
+        except (ImportError, FileNotFoundError):
+            # Fallback to legacy behavior if new service not available
+            pass
+
+        # Legacy implementation (kept for backward compatibility)
+        import json
         if census_year >= 1850 and census_year <= 1880:
-            schema = {
+            schema_dict = {
                 "dwelling_number": "string",
                 "family_number": "string",
                 "name": "string",
@@ -333,7 +380,7 @@ Respond with valid JSON matching the schema. Include a "confidence" field (0.0-1
                 "page": "string",
             }
         elif census_year >= 1900:
-            schema = {
+            schema_dict = {
                 "sheet": "string",
                 "enumeration_district": "string",
                 "family_number": "string",
@@ -346,7 +393,7 @@ Respond with valid JSON matching the schema. Include a "confidence" field (0.0-1
                 "birthplace": "string",
             }
         else:
-            schema = {
+            schema_dict = {
                 "head_of_household": "string",
                 "free_white_males": "object",
                 "free_white_females": "object",
@@ -355,11 +402,10 @@ Respond with valid JSON matching the schema. Include a "confidence" field (0.0-1
                 "page": "string",
             }
 
-        import json
         prompt = f"""Transcribe this {census_year} US Federal Census image.
 
 Extract the following information:
-{json.dumps(schema, indent=2)}
+{json.dumps(schema_dict, indent=2)}
 
 Provide the data in JSON format with a confidence score (0.0-1.0).
 Focus on accurately transcribing names, ages, and locations."""
@@ -367,8 +413,33 @@ Focus on accurately transcribing names, ages, and locations."""
         response = self.complete_with_image(prompt, image_path, model, **kwargs)
 
         try:
-            data = json.loads(response.text)
-            confidence = data.pop('confidence', 0.7)
+            import re
+            text = response.text.strip()
+
+            json_match = re.search(r'```(?:json)?\s*\n?([\s\S]*?)\n?```', text)
+            if json_match:
+                text = json_match.group(1).strip()
+            else:
+                obj_start = text.find('{')
+                arr_start = text.find('[')
+
+                if obj_start != -1 and (arr_start == -1 or obj_start < arr_start):
+                    text = text[obj_start:]
+                elif arr_start != -1:
+                    text = text[arr_start:]
+
+            data = json.loads(text)
+
+            if isinstance(data, list):
+                confidence = 0.7
+                for record in data:
+                    if isinstance(record, dict) and 'confidence' in record:
+                        confidence = record.pop('confidence')
+                        break
+                data = {'records': data}
+            else:
+                confidence = data.pop('confidence', 0.7)
+
             return ExtractionResponse(
                 data=data,
                 confidence=confidence,

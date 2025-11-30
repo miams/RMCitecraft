@@ -64,7 +64,7 @@ Genealogists using RootsMagic spend significant time manually formatting citatio
 ### System
 - **Platform**: macOS (Apple Silicon optimized)
 - **Python**: 3.11+
-- **Database**: RootsMagic 8 or 9 (.rmtree SQLite database)
+- **Database**: RootsMagic 11 (tested), should work well for versions 9, 10, 11.
 
 ### Optional
 - **LLM API Key**: For citation parsing (Anthropic Claude, OpenAI, or local Ollama)
@@ -129,6 +129,13 @@ rmcitecraft help
 - **[AGENTS.md](AGENTS.md)** - Machine-readable instructions for AI agents
 - **[PRD.md](PRD.md)** - Complete product requirements
 - **[docs/reference/schema-reference.md](docs/reference/schema-reference.md)** - RootsMagic database schema
+
+## Caveats and Known Issues
+1. The 1950 Census tested the household-based form in a few jurisdictions in Ohio and Michigan, instead of the traditional multi-family form. The household form is not as well-parsed by FamilySearch, so RMCiteCraft asks for some fields.  The ED can be identified using the Information button when displaying the image. These forms do not have sheet/page numbers, nor line numbers.  Instead, I substitute a sequential stamped number and the image number, and I note the family form.  For example:
+
+
+   1950 U.S. census, Genesee County, Michigan, Burton Township, enumeration district (ED) 25-11, stamp 366, image 372 of 441, Brady G Ijames and Charlotte Ijames; imaged, "United States Census, 1950, household form," *FamilySearch*, (https://www.familysearch.org/ark:/61903/1:1:6JJZ-JB42  : accessed 25 November 2025).
+
 
 ## License
 

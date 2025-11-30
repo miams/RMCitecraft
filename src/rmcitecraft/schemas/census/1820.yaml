@@ -1,0 +1,150 @@
+# 1820 US Federal Census Schema
+# Era 1: Household only
+
+year: 1820
+era: "household_only"
+nara_publication: "M33"
+
+form_structure:
+  lines_per_side: 20
+  sides: null
+  supplemental_lines: null
+  uses_page: true
+  uses_sheet: false
+  uses_stamp: false
+
+columns:
+  - name: page_number
+    data_type: integer
+    description: "Page number"
+    required: true
+
+  - name: head_of_household
+    data_type: string
+    description: "Name of head of family (ONLY name recorded)"
+    required: true
+
+  - name: free_white_males_under_10
+    data_type: integer
+    description: "Free white males under 10"
+    required: false
+
+  - name: free_white_males_10_16
+    data_type: integer
+    description: "Free white males 10-16"
+    required: false
+
+  - name: free_white_males_16_18
+    data_type: integer
+    description: "Free white males 16-18 (military age)"
+    required: false
+
+  - name: free_white_males_16_26
+    data_type: integer
+    description: "Free white males 16-26"
+    required: false
+
+  - name: free_white_males_26_45
+    data_type: integer
+    description: "Free white males 26-45"
+    required: false
+
+  - name: free_white_males_45_plus
+    data_type: integer
+    description: "Free white males 45+"
+    required: false
+
+  - name: free_white_females_under_10
+    data_type: integer
+    description: "Free white females under 10"
+    required: false
+
+  - name: free_white_females_10_16
+    data_type: integer
+    description: "Free white females 10-16"
+    required: false
+
+  - name: free_white_females_16_26
+    data_type: integer
+    description: "Free white females 16-26"
+    required: false
+
+  - name: free_white_females_26_45
+    data_type: integer
+    description: "Free white females 26-45"
+    required: false
+
+  - name: free_white_females_45_plus
+    data_type: integer
+    description: "Free white females 45+"
+    required: false
+
+  - name: foreigners_not_naturalized
+    data_type: integer
+    description: "Foreigners not naturalized"
+    required: false
+
+  - name: engaged_agriculture
+    data_type: integer
+    description: "Number engaged in agriculture"
+    required: false
+
+  - name: engaged_commerce
+    data_type: integer
+    description: "Number engaged in commerce"
+    required: false
+
+  - name: engaged_manufactures
+    data_type: integer
+    description: "Number engaged in manufactures"
+    required: false
+
+  - name: free_colored_males
+    data_type: integer
+    description: "Free colored males"
+    required: false
+
+  - name: free_colored_females
+    data_type: integer
+    description: "Free colored females"
+    required: false
+
+  - name: slaves_male
+    data_type: integer
+    description: "Male slaves"
+    required: false
+
+  - name: slaves_female
+    data_type: integer
+    description: "Female slaves"
+    required: false
+
+abbreviations: {}
+
+valid_values: {}
+
+instructions: |
+  1820 CENSUS FORM STRUCTURE:
+
+  ⚠️ IMPORTANT: Only HEAD OF HOUSEHOLD is named.
+
+  SPECIAL FEATURES:
+  - First census with occupational categories
+  - Military age males (16-18) counted separately
+  - Foreigners not naturalized counted
+
+  DATA AVAILABLE:
+  - Head of household name
+  - Counts by age brackets and sex
+  - Occupational categories
+  - Immigration status (unnaturalized foreigners)
+  - Free colored and slave counts
+
+  DATA NOT AVAILABLE:
+  - Individual names
+  - Specific ages
+  - Birthplaces
+  - Relationships
+
+  CITATION FORMAT:
+  "[Head of Household], 1820 U.S. census, [County], [State], p. [page]; NARA M33."

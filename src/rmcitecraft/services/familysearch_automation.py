@@ -420,7 +420,7 @@ class FamilySearchAutomation:
             logger.info(f"Extracted citation data: {citation_data['personName']}")
 
             # Transform to expected format (snake_case keys, parsed location)
-            return self._transform_citation_data(citation_data)
+            return self._transform_citation_data(citation_data, census_year)
 
 
         except Exception as e:
@@ -481,6 +481,9 @@ class FamilySearchAutomation:
             extract_page = True
             extract_line = True
 
+        # 1940 census: Use only "Event Place" (not "Event Place (Original)")
+        is_1940 = census_year == 1940
+
         # Build JavaScript extraction code
         return f"""
             () => {{
@@ -510,9 +513,10 @@ class FamilySearchAutomation:
                                 result.foundLabels.push(label);
                             }}
 
-                            // Event place (always extract)
-                            // Prioritize "Event Place (Original)" for 1920 census (contains ED)
-                            if (label === 'event place (original)') {{
+                            // Event place extraction
+                            // 1940 census: Use ONLY "Event Place" (not "Event Place (Original)")
+                            // Other years: Prioritize "Event Place (Original)" for 1920 census (contains ED)
+                            if ({str(not is_1940).lower()} && label === 'event place (original)') {{
                                 result.eventPlace = value;
                                 result.eventPlaceOriginal = value;  // Store original separately
                             }}
@@ -554,7 +558,7 @@ class FamilySearchAutomation:
             }}
         """
 
-    def _transform_citation_data(self, raw_data: dict) -> dict:
+    def _transform_citation_data(self, raw_data: dict, census_year: int | None = None) -> dict:
         """
         Transform FamilySearch extraction format to expected citation format.
 
@@ -565,6 +569,7 @@ class FamilySearchAutomation:
 
         Args:
             raw_data: Raw extraction from FamilySearch page
+            census_year: Census year for year-specific parsing (e.g., 1940)
 
         Returns:
             Transformed dict with keys: person_name, state, county,
@@ -595,7 +600,21 @@ class FamilySearchAutomation:
 
         # Use table-extracted census details first (more reliable)
         # For 1920 census, ED is often embedded in eventPlace instead of separate table row
-        transformed['enumeration_district'] = raw_data.get('enumerationDistrict', '')
+        raw_ed = raw_data.get('enumerationDistrict', '')
+
+        # 1940 Census: Extract only the hyphenated number from "Enumeration District Number"
+        # Format: "94-123" or similar hyphenated pattern
+        if census_year == 1940 and raw_ed:
+            ed_match = re.search(r'(\d+-\d+)', raw_ed)
+            if ed_match:
+                transformed['enumeration_district'] = ed_match.group(1)
+                logger.debug(f"1940 census: Extracted hyphenated ED '{ed_match.group(1)}' from '{raw_ed}'")
+            else:
+                # No hyphenated pattern found, use raw value
+                transformed['enumeration_district'] = raw_ed
+                logger.debug(f"1940 census: No hyphenated ED pattern found in '{raw_ed}', using raw value")
+        else:
+            transformed['enumeration_district'] = raw_ed
 
         # Extract locality/township from Event Place
         # Format: "Locality, County, State, Country" or "Township, ED XX, County, State, Country" (1920)
