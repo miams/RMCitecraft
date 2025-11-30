@@ -195,6 +195,7 @@ LOG_LEVEL=INFO
 | [docs/reference/DATABASE_PATTERNS.md](docs/reference/DATABASE_PATTERNS.md) | SQL patterns and examples |
 | [docs/reference/DATABASE_TESTING.md](docs/reference/DATABASE_TESTING.md) | Integrity testing methodology |
 | [docs/reference/BATCH_STATE_DATABASE_SCHEMA.md](docs/reference/BATCH_STATE_DATABASE_SCHEMA.md) | Batch state database schema |
+| [docs/reference/CENSUS_EXTRACTION_DATABASE_SCHEMA.md](docs/reference/CENSUS_EXTRACTION_DATABASE_SCHEMA.md) | Census extraction database (census.db) |
 | [docs/architecture/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md](docs/architecture/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md) | Census processing workflow |
 | [docs/architecture/BATCH_PROCESSING_ARCHITECTURE.md](docs/architecture/BATCH_PROCESSING_ARCHITECTURE.md) | Find a Grave processing |
 

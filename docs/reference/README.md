@@ -35,6 +35,12 @@ This directory contains detailed documentation for understanding and working wit
 - **[event-table-details.md](event-table-details.md)** - Event/Fact handling details
 - **[name-display-logic.md](name-display-logic.md)** - Name formatting and display rules
 
+### 🗄️ RMCitecraft State Databases
+- **[BATCH_STATE_DATABASE_SCHEMA.md](BATCH_STATE_DATABASE_SCHEMA.md)** - Batch processing state (`~/.rmcitecraft/batch_state.db`)
+- **[CENSUS_EXTRACTION_DATABASE_SCHEMA.md](CENSUS_EXTRACTION_DATABASE_SCHEMA.md)** - **NEW** Census extraction storage (`~/.rmcitecraft/census.db`)
+- **[DATABASE_PATTERNS.md](DATABASE_PATTERNS.md)** - SQL patterns and database connection examples
+- **[DATABASE_TESTING.md](DATABASE_TESTING.md)** - Comparison-based testing methodology
+
 ---
 
 ## Documentation Purpose
