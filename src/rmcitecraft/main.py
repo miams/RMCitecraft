@@ -16,6 +16,7 @@ from rmcitecraft.ui.tabs.citation_manager import CitationManagerTab
 from rmcitecraft.ui.tabs.batch_processing import BatchProcessingTab
 from rmcitecraft.ui.tabs.findagrave_batch import FindAGraveBatchTab
 from rmcitecraft.ui.tabs.census_transcription import CensusTranscriptionTab
+from rmcitecraft.ui.tabs.census_extraction_viewer import CensusExtractionViewerTab
 
 
 def _cleanup_services(file_watcher: FileWatcher | None) -> None:
@@ -140,6 +141,12 @@ def setup_app() -> None:
                     "Census Transcription",
                     icon="auto_awesome",
                     on_click=lambda: show_census_transcription()
+                ).props("flat").classes("text-white")
+
+                ui.button(
+                    "Census Extractions",
+                    icon="folder_open",
+                    on_click=lambda: show_census_extraction_viewer()
                 ).props("flat").classes("text-white")
 
             with ui.row().classes("items-center gap-4"):
@@ -315,6 +322,13 @@ def setup_app() -> None:
             with view_container:
                 census_transcription = CensusTranscriptionTab()
                 census_transcription.render()
+
+        def show_census_extraction_viewer() -> None:
+            """Show census extraction viewer."""
+            view_container.clear()
+            with view_container:
+                census_viewer = CensusExtractionViewerTab()
+                census_viewer.render()
 
         # Show home by default
         show_home()

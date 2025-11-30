@@ -544,6 +544,18 @@ class CensusTranscriptionTab:
                 for name in img.person_names[:8]:
                     ui.label(f"• {name}").classes("text-xs")
 
+            # Extract FamilySearch ARK URL from footnote if present
+            ark_url = self._extract_ark_url(img.footnote) if img.footnote else None
+            if ark_url:
+                ui.label("FamilySearch Link:").classes("text-xs font-bold mt-2 text-green-600")
+                with ui.row().classes("items-center gap-1"):
+                    ui.icon("link", size="xs").classes("text-green-500")
+                    ui.link(
+                        "View on FamilySearch",
+                        ark_url,
+                        new_tab=True
+                    ).classes("text-xs text-green-600")
+
             # Preview or error
             if exists:
                 ui.image(img.media_path).classes("w-full max-h-48 object-contain mt-2")
@@ -559,6 +571,14 @@ class CensusTranscriptionTab:
                         icon="fullscreen",
                         on_click=self._open_image_in_browser
                     ).props("color=blue outline")
+
+                # Add FamilySearch import button if ARK URL found
+                if ark_url:
+                    ui.button(
+                        "Import from FamilySearch",
+                        icon="cloud_download",
+                        on_click=lambda url=ark_url: self._import_from_familysearch(url)
+                    ).props("color=green size=sm").classes("w-full mt-1")
             else:
                 ui.label("File not found").classes("text-red-500 mt-2")
                 ui.label(img.media_path).classes("text-xs text-gray-400 break-all")
@@ -1025,3 +1045,110 @@ class CensusTranscriptionTab:
                 ui.table(columns=columns, rows=rows, row_key='id').classes("w-full").props("dense flat")
 
         ui.notify(f"Extracted {len(records)} records", type="positive")
+
+    def _extract_ark_url(self, text: str) -> str | None:
+        """Extract FamilySearch ARK URL from text (e.g., footnote).
+
+        Args:
+            text: Text that may contain a FamilySearch URL
+
+        Returns:
+            ARK URL if found, None otherwise
+        """
+        if not text:
+            return None
+
+        # Pattern for FamilySearch ARK URLs
+        # Examples:
+        #   https://www.familysearch.org/ark:/61903/1:1:6XKG-DP65
+        #   https://familysearch.org/ark:/61903/1:1:M61S-SL1
+        ark_pattern = r'https?://(?:www\.)?familysearch\.org/ark:/\d+/[\d:A-Z-]+'
+        match = re.search(ark_pattern, text, re.IGNORECASE)
+        if match:
+            return match.group(0)
+
+        return None
+
+    def _import_from_familysearch(self, ark_url: str) -> None:
+        """Import census data from FamilySearch ARK URL.
+
+        Opens a dialog to confirm and perform the import.
+        """
+        if not self.selected_image:
+            ui.notify("No image selected", type="warning")
+            return
+
+        img = self.selected_image
+
+        # Store import context for async handler
+        self._import_ark_url = ark_url
+        self._import_census_year = img.census_year or 1950
+
+        with ui.dialog() as self._import_dialog, ui.card().classes("w-[500px]"):
+            ui.label("Import from FamilySearch").classes("text-lg font-bold mb-2")
+
+            ui.label(f"Import transcription data for:").classes("text-sm")
+            ui.label(img.media_file).classes("text-sm font-mono text-gray-600")
+
+            ui.separator().classes("my-2")
+
+            ui.label("FamilySearch URL:").classes("text-xs font-bold")
+            ui.label(ark_url).classes("text-xs text-blue-600 break-all")
+
+            ui.label(f"Census Year: {self._import_census_year}").classes("text-sm mt-2")
+
+            if img.person_names:
+                ui.label(f"Target persons: {', '.join(img.person_names[:3])}").classes(
+                    "text-xs text-gray-500"
+                )
+
+            self._import_status_label = ui.label("").classes("text-sm text-gray-500 mt-2")
+
+            with ui.row().classes("w-full justify-end gap-2 mt-4"):
+                ui.button("Cancel", on_click=self._import_dialog.close).props("flat")
+                # NiceGUI handles async functions directly - don't use asyncio.ensure_future
+                self._import_btn = ui.button(
+                    "Import",
+                    icon="cloud_download",
+                    on_click=self._do_familysearch_import,
+                ).props("color=green")
+
+        self._import_dialog.open()
+
+    async def _do_familysearch_import(self) -> None:
+        """Perform the FamilySearch import using stored context."""
+        from rmcitecraft.services.familysearch_census_extractor import (
+            extract_census_from_citation,
+        )
+
+        ark_url = self._import_ark_url
+        census_year = self._import_census_year
+
+        try:
+            self._import_btn.disable()
+            self._import_status_label.set_text("Connecting to Chrome...")
+
+            # NiceGUI handles async functions properly - just await directly
+            result = await extract_census_from_citation(ark_url, census_year)
+
+            if result.success:
+                name = result.extracted_data.get("primary_name", "Unknown")
+                ui.notify(
+                    f"Successfully imported: {name}",
+                    type="positive",
+                )
+                self._import_status_label.set_text(f"Imported: {name}")
+
+                # Show success message
+                ui.notify("Data saved to census.db - view in Census Extractions tab", type="info")
+
+            else:
+                self._import_status_label.set_text(f"Error: {result.error_message}")
+                ui.notify(f"Import failed: {result.error_message}", type="negative")
+
+        except Exception as e:
+            logger.error(f"FamilySearch import failed: {e}")
+            self._import_status_label.set_text(f"Error: {e}")
+            ui.notify(f"Import failed: {e}", type="negative")
+        finally:
+            self._import_btn.enable()
