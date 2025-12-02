@@ -134,6 +134,9 @@ class CensusExtractionViewerTab:
         # Edit mode inputs
         self.edit_inputs: dict[str, ui.input] = {}
 
+        # Field history cache
+        self.field_history: dict[str, list] = {}  # field_name -> list of history entries
+
     def render(self) -> None:
         """Render the census extraction viewer tab."""
         with ui.column().classes("w-full p-4 gap-4"):
@@ -371,6 +374,14 @@ class CensusExtractionViewerTab:
         qualities = self.repository.get_field_quality(person.person_id)
         self.quality_data = {q.field_name: q for q in qualities}
 
+        # Load field history
+        history_list = self.repository.get_field_history(person.person_id)
+        self.field_history = {}
+        for h in history_list:
+            if h.field_name not in self.field_history:
+                self.field_history[h.field_name] = []
+            self.field_history[h.field_name].append(h)
+
         # Load page info
         if person.page_id:
             with self.repository._connect() as conn:
@@ -605,12 +616,21 @@ class CensusExtractionViewerTab:
         """Render a single field row (view or edit mode)."""
         # Quality indicator
         has_quality = field_name in self.quality_data
+        has_history = field_name in self.field_history and len(self.field_history[field_name]) > 0
         quality_color = ""
         if has_quality:
             q = self.quality_data[field_name]
             quality_color = self._get_confidence_color(q.confidence_score)
 
-        ui.label(f"{label}:").classes(f"text-gray-600 text-sm {quality_color}")
+        # Label with optional history indicator
+        with ui.row().classes("items-center gap-1"):
+            ui.label(f"{label}:").classes(f"text-gray-600 text-sm {quality_color}")
+            if has_history:
+                ui.icon("history", size="xs").classes(
+                    "text-blue-500 cursor-pointer hover:text-blue-700"
+                ).tooltip("View edit history").on(
+                    "click", lambda fn=field_name: self._show_field_history_dialog(fn)
+                )
 
         if self.is_editing:
             inp = ui.input(value=value).classes("text-sm").props("dense")
@@ -768,7 +788,12 @@ class CensusExtractionViewerTab:
     def _save_person(self) -> None:
         """Save edited person data with version control."""
         if not self.selected_person:
+            logger.warning("Save called but no person selected")
             return
+
+        person_id = self.selected_person.person_id
+        logger.info(f"Saving changes for person {person_id} ({self.selected_person.full_name})")
+        logger.debug(f"Edit inputs: {list(self.edit_inputs.keys())}")
 
         try:
             updates = {}
@@ -776,41 +801,49 @@ class CensusExtractionViewerTab:
             extended_inserts = {}
 
             for field_name, inp in self.edit_inputs.items():
-                new_value = inp.value
+                new_value = inp.value if inp.value else ""
 
                 if hasattr(self.selected_person, field_name):
-                    old_value = getattr(self.selected_person, field_name) or ""
-                    if str(new_value) != str(old_value):
-                        updates[field_name] = (str(old_value), new_value)
+                    old_value = getattr(self.selected_person, field_name)
+                    old_value = str(old_value) if old_value is not None else ""
+                    if new_value != old_value:
+                        logger.debug(f"Core field change: {field_name}: '{old_value}' -> '{new_value}'")
+                        updates[field_name] = (old_value, new_value)
                 elif field_name in self.extended_fields:
                     # Update existing extended field
-                    old_value = str(self.extended_fields.get(field_name, ""))
-                    if str(new_value) != old_value:
+                    old_value = str(self.extended_fields.get(field_name, "") or "")
+                    if new_value != old_value:
+                        logger.debug(f"Extended field update: {field_name}: '{old_value}' -> '{new_value}'")
                         extended_updates[field_name] = (old_value, new_value)
                 else:
                     # New extended field (wasn't in database before)
                     if new_value:  # Only insert if there's a value
+                        logger.debug(f"New extended field: {field_name} = '{new_value}'")
                         extended_inserts[field_name] = new_value
 
-            person_id = self.selected_person.person_id
-
+            # Apply core field updates
             if updates:
+                logger.info(f"Updating {len(updates)} core fields: {list(updates.keys())}")
                 with self.repository._connect() as conn:
                     for field_name, (old_value, new_value) in updates.items():
                         conn.execute(
                             f"UPDATE census_person SET {field_name} = ? WHERE person_id = ?",
                             (new_value, person_id),
                         )
-                        # Record change in version history
-                        self.repository.record_field_change(
-                            person_id=person_id,
-                            field_name=field_name,
-                            old_value=old_value,
-                            new_value=new_value,
-                            source="manual_edit",
-                        )
+                    conn.commit()  # Explicit commit
+                # Record history separately
+                for field_name, (old_value, new_value) in updates.items():
+                    self.repository.record_field_change(
+                        person_id=person_id,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        source="manual_edit",
+                    )
 
+            # Apply extended field updates
             if extended_updates:
+                logger.info(f"Updating {len(extended_updates)} extended fields: {list(extended_updates.keys())}")
                 with self.repository._connect() as conn:
                     for field_name, (old_value, new_value) in extended_updates.items():
                         conn.execute(
@@ -818,16 +851,20 @@ class CensusExtractionViewerTab:
                                WHERE person_id = ? AND field_name = ?""",
                             (new_value, person_id, field_name),
                         )
-                        # Record change in version history
-                        self.repository.record_field_change(
-                            person_id=person_id,
-                            field_name=field_name,
-                            old_value=old_value,
-                            new_value=new_value,
-                            source="manual_edit",
-                        )
+                    conn.commit()  # Explicit commit
+                # Record history separately
+                for field_name, (old_value, new_value) in extended_updates.items():
+                    self.repository.record_field_change(
+                        person_id=person_id,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        source="manual_edit",
+                    )
 
+            # Insert new extended fields
             if extended_inserts:
+                logger.info(f"Inserting {len(extended_inserts)} new extended fields: {list(extended_inserts.keys())}")
                 with self.repository._connect() as conn:
                     for field_name, value in extended_inserts.items():
                         conn.execute(
@@ -835,31 +872,88 @@ class CensusExtractionViewerTab:
                                VALUES (?, ?, ?)""",
                             (person_id, field_name, value),
                         )
-                        # Record as new field in history (no original)
-                        self.repository.insert_field_history(
-                            person_id=person_id,
-                            field_name=field_name,
-                            field_value=value,
-                            field_source="manual_edit",
-                            is_original=False,
-                        )
+                    conn.commit()  # Explicit commit
+                # Record history separately
+                for field_name, value in extended_inserts.items():
+                    self.repository.insert_field_history(
+                        person_id=person_id,
+                        field_name=field_name,
+                        field_value=value,
+                        field_source="manual_edit",
+                        is_original=False,
+                    )
 
             changes_count = len(updates) + len(extended_updates) + len(extended_inserts)
             if changes_count > 0:
-                logger.info(f"Saved {changes_count} field changes for person {person_id}")
-            ui.notify("Changes saved", type="positive")
-
-            # Reload
-            person = self.repository.get_person_by_ark(self.selected_person.familysearch_ark)
-            if person:
-                self._select_person(person)
+                logger.info(f"Successfully saved {changes_count} field changes for person {person_id}")
+                ui.notify(f"Saved {changes_count} changes", type="positive")
             else:
-                self.is_editing = False
-                self._refresh_detail_view()
+                logger.info("No changes detected")
+                ui.notify("No changes to save", type="info")
+
+            # Reload person data and refresh view
+            self.is_editing = False
+            ark = self.selected_person.familysearch_ark
+            if ark:
+                person = self.repository.get_person_by_ark(ark)
+                if person:
+                    self._select_person(person)
+                    return
+            # Fallback: just refresh the view
+            self._refresh_detail_view()
 
         except Exception as e:
-            logger.error(f"Failed to save: {e}")
+            logger.error(f"Failed to save: {e}", exc_info=True)
             ui.notify(f"Save failed: {e}", type="negative")
+
+    # =========================================================================
+    # Field History Dialog
+    # =========================================================================
+
+    def _show_field_history_dialog(self, field_name: str) -> None:
+        """Show dialog with field edit history."""
+        history = self.field_history.get(field_name, [])
+        if not history:
+            ui.notify("No history available", type="info")
+            return
+
+        with ui.dialog() as dialog, ui.card().classes("w-[500px]"):
+            ui.label(f"Edit History: {field_name.replace('_', ' ').title()}").classes(
+                "text-lg font-bold mb-2"
+            )
+
+            with ui.column().classes("w-full gap-2"):
+                for entry in history:
+                    # Format timestamp
+                    timestamp = entry.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                    source_label = {
+                        "familysearch": "FamilySearch Import",
+                        "manual_edit": "Manual Edit",
+                        "ai_transcription": "AI Transcription",
+                    }.get(entry.field_source, entry.field_source)
+
+                    with ui.card().classes(
+                        f"w-full p-2 {'bg-green-50 border-green-200' if entry.is_original else 'bg-gray-50'}"
+                    ):
+                        with ui.row().classes("w-full items-center gap-2"):
+                            if entry.is_original:
+                                ui.badge("Original", color="green").classes("text-xs")
+                            ui.label(source_label).classes("text-xs text-gray-500")
+                            ui.label(timestamp).classes("text-xs text-gray-400 ml-auto")
+
+                        ui.label(entry.field_value or "(empty)").classes(
+                            "text-sm font-medium mt-1"
+                        )
+
+                        if entry.created_by:
+                            ui.label(f"By: {entry.created_by}").classes(
+                                "text-xs text-gray-400"
+                            )
+
+            with ui.row().classes("w-full justify-end mt-4"):
+                ui.button("Close", on_click=dialog.close).props("flat")
+
+        dialog.open()
 
     # =========================================================================
     # Quality Dialog
