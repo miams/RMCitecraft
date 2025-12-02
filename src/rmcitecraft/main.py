@@ -106,193 +106,392 @@ def setup_app() -> None:
 
         ui.page_title("RMCitecraft - Census Citation Assistant")
 
+        # Track current view for context-sensitive utilities
+        current_view = {"name": "Home", "key": "home"}
+
         # Container for current view
         view_container = ui.column().classes("w-full h-full")
 
-        # Header with integrated navigation
-        with ui.header().classes("items-center justify-between bg-primary text-white"):
-            with ui.row().classes("items-center gap-6"):
-                # RMCitecraft as home link (using button styled as text)
-                ui.button(
-                    "RMCitecraft",
-                    on_click=lambda: show_home()
-                ).props("flat").classes("text-2xl font-bold text-white hover:bg-blue-700")
+        # UI references for dynamic updates
+        current_view_label = None
+        utility_menu = None
 
-                # Navigation buttons integrated into header
-                ui.button(
-                    "Census Batch",
-                    icon="playlist_add_check",
-                    on_click=lambda: show_batch_processing()
-                ).props("flat").classes("text-white")
+        # Header - minimal, efficient design
+        with ui.header().classes("items-center justify-between bg-primary text-white py-1 px-4"):
+            # Left side: Hamburger menu + Title + Current view
+            with ui.row().classes("items-center gap-3"):
+                # Hamburger menu
+                with ui.button(icon="menu").props("flat round dense").classes("text-white"):
+                    with ui.menu().classes("bg-white text-gray-800"):
+                        ui.menu_item(
+                            "Home",
+                            on_click=lambda: (show_home(), update_view("Home", "home")),
+                        ).classes("hover:bg-blue-50")
+                        ui.separator()
+                        ui.menu_item(
+                            "Census Batch Processing",
+                            on_click=lambda: (show_batch_processing(), update_view("Census Batch", "census_batch")),
+                        ).props("icon=playlist_add_check")
+                        ui.menu_item(
+                            "Find a Grave",
+                            on_click=lambda: (show_findagrave_batch(), update_view("Find a Grave", "findagrave")),
+                        ).props("icon=account_box")
+                        ui.menu_item(
+                            "Citation Manager",
+                            on_click=lambda: (show_citation_manager(), update_view("Citation Manager", "citation_manager")),
+                        ).props("icon=format_quote")
+                        ui.menu_item(
+                            "Census Transcription",
+                            on_click=lambda: (show_census_transcription(), update_view("Census Transcription", "census_transcription")),
+                        ).props("icon=auto_awesome")
+                        ui.menu_item(
+                            "Census Extractions",
+                            on_click=lambda: (show_census_extraction_viewer(), update_view("Census Extractions", "census_extractions")),
+                        ).props("icon=folder_open")
 
+                # App title (clickable to go home)
                 ui.button(
-                    "Find a Grave",
-                    icon="account_box",
-                    on_click=lambda: show_findagrave_batch()
-                ).props("flat").classes("text-white")
+                    "RMCiteCraft",
+                    on_click=lambda: (show_home(), update_view("Home", "home"))
+                ).props("flat dense").classes("text-xl font-bold text-white hover:bg-blue-700 px-2")
 
-                ui.button(
-                    "Citation Manager",
-                    icon="format_quote",
-                    on_click=lambda: show_citation_manager()
-                ).props("flat").classes("text-white")
+                # Separator
+                ui.label("|").classes("text-blue-300 mx-1")
 
-                ui.button(
-                    "Census Transcription",
-                    icon="auto_awesome",
-                    on_click=lambda: show_census_transcription()
-                ).props("flat").classes("text-white")
+                # Current view indicator
+                current_view_label = ui.label("Home").classes("text-sm text-blue-100")
 
-                ui.button(
-                    "Census Extractions",
-                    icon="folder_open",
-                    on_click=lambda: show_census_extraction_viewer()
-                ).props("flat").classes("text-white")
+            # Center: Tagline
+            ui.label("Citation Assistant for RootsMagic").classes("text-xs text-blue-200 hidden md:block")
 
-            with ui.row().classes("items-center gap-4"):
-                ui.label("Citation Assistant for RootsMagic").classes("text-sm")
+            # Right side: Context-sensitive utility menu + Settings
+            with ui.row().classes("items-center gap-1"):
+                # Utility button with context menu
+                with ui.button(icon="build").props("flat round dense").classes("text-white") as utility_btn:
+                    utility_menu = ui.menu().classes("bg-white text-gray-800")
+                    with utility_menu:
+                        # Default utilities (shown on Home)
+                        ui.label("Utilities").classes("px-4 py-1 text-xs text-gray-500 font-bold")
+                        ui.menu_item(
+                            "Log Settings",
+                            on_click=lambda: show_log_settings_dialog(),
+                        ).props("icon=bug_report")
+                        ui.menu_item(
+                            "View Log File",
+                            on_click=lambda: show_log_viewer(),
+                        ).props("icon=description")
+                        ui.separator()
+                        ui.menu_item(
+                            "Database Info",
+                            on_click=lambda: show_database_info(),
+                        ).props("icon=storage")
+
+                # Settings button
                 ui.button(icon="settings", on_click=lambda: settings_dialog()).props(
                     "flat round dense"
-                )
+                ).classes("text-white")
+
+        def update_view(name: str, key: str) -> None:
+            """Update the current view indicator and utility menu."""
+            nonlocal current_view
+            current_view["name"] = name
+            current_view["key"] = key
+            if current_view_label:
+                current_view_label.set_text(name)
+            # Update utility menu based on context
+            update_utility_menu(key)
+
+        def update_utility_menu(view_key: str) -> None:
+            """Update utility menu items based on current view."""
+            if not utility_menu:
+                return
+            utility_menu.clear()
+            with utility_menu:
+                ui.label("Utilities").classes("px-4 py-1 text-xs text-gray-500 font-bold")
+
+                if view_key == "census_extractions":
+                    ui.menu_item(
+                        "Clear Census DB",
+                        on_click=lambda: trigger_clear_census_db(),
+                    ).props("icon=delete_forever").classes("text-red-600")
+                    ui.menu_item(
+                        "Export Data",
+                        on_click=lambda: ui.notify("Export not implemented", type="info"),
+                    ).props("icon=file_download")
+                    ui.separator()
+
+                elif view_key == "findagrave":
+                    ui.menu_item(
+                        "Reset Failed Items",
+                        on_click=lambda: ui.notify("Reset not implemented", type="info"),
+                    ).props("icon=refresh")
+                    ui.menu_item(
+                        "Export Report",
+                        on_click=lambda: ui.notify("Export not implemented", type="info"),
+                    ).props("icon=assessment")
+                    ui.separator()
+
+                elif view_key == "census_batch":
+                    ui.menu_item(
+                        "Clear Batch State",
+                        on_click=lambda: ui.notify("Clear state not implemented", type="info"),
+                    ).props("icon=clear_all")
+                    ui.separator()
+
+                # Common utilities always available
+                ui.menu_item(
+                    "Log Settings",
+                    on_click=lambda: show_log_settings_dialog(),
+                ).props("icon=bug_report")
+                ui.menu_item(
+                    "View Log File",
+                    on_click=lambda: show_log_viewer(),
+                ).props("icon=description")
+                ui.separator()
+                ui.menu_item(
+                    "Database Info",
+                    on_click=lambda: show_database_info(),
+                ).props("icon=storage")
+
+        def trigger_clear_census_db() -> None:
+            """Trigger census DB clear from the census extraction viewer."""
+            # Find and call the clear method on the census viewer
+            from rmcitecraft.database.census_extraction_db import get_census_repository
+            repo = get_census_repository()
+
+            with ui.dialog() as dialog, ui.card().classes("w-96"):
+                ui.label("Clear Census Database").classes("text-lg font-bold text-red-600")
+                ui.label("This will permanently delete ALL extracted data.").classes("text-sm text-gray-600 my-2")
+                stats = repo.get_extraction_stats()
+                ui.label(f"Data: {stats.get('total_persons', 0)} persons, {stats.get('total_pages', 0)} pages").classes("text-sm font-medium")
+
+                with ui.row().classes("w-full justify-end gap-2 mt-4"):
+                    ui.button("Cancel", on_click=dialog.close).props("flat")
+
+                    def do_clear():
+                        with repo._connect() as conn:
+                            conn.execute("DELETE FROM rmtree_link")
+                            conn.execute("DELETE FROM census_relationship")
+                            conn.execute("DELETE FROM field_quality")
+                            conn.execute("DELETE FROM census_person_field")
+                            conn.execute("DELETE FROM census_person")
+                            conn.execute("DELETE FROM census_page")
+                            conn.execute("DELETE FROM extraction_batch")
+                        ui.notify("Census database cleared", type="positive")
+                        dialog.close()
+                        # Refresh the view
+                        show_census_extraction_viewer()
+                        update_view("Census Extractions", "census_extractions")
+
+                    ui.button("Delete All", icon="delete_forever", on_click=do_clear).props("color=red")
+            dialog.open()
+
+        def show_log_settings_dialog() -> None:
+            """Show log settings dialog."""
+            with ui.dialog() as dialog, ui.card().classes("w-96"):
+                ui.label("Log Settings").classes("text-lg font-bold mb-2")
+                ui.label(f"Current Level: {config.log_level}").classes("text-sm mb-2")
+
+                level_select = ui.select(
+                    options=["DEBUG", "INFO", "WARNING", "ERROR"],
+                    value=config.log_level,
+                    label="Log Level",
+                ).classes("w-full")
+
+                ui.label("Note: Changes take effect on app restart").classes("text-xs text-gray-500 mt-2")
+
+                with ui.row().classes("w-full justify-end gap-2 mt-4"):
+                    ui.button("Close", on_click=dialog.close).props("flat")
+            dialog.open()
+
+        def show_log_viewer() -> None:
+            """Show log file viewer."""
+            log_path = Path(config.log_file)
+            content = ""
+            if log_path.exists():
+                try:
+                    content = log_path.read_text()[-10000:]  # Last 10KB
+                except Exception as e:
+                    content = f"Error reading log: {e}"
+
+            with ui.dialog() as dialog, ui.card().classes("w-[80vw] h-[70vh]"):
+                with ui.row().classes("w-full items-center justify-between mb-2"):
+                    ui.label("Application Log").classes("text-lg font-bold")
+                    ui.button(icon="close", on_click=dialog.close).props("flat round dense")
+                ui.label(f"File: {log_path}").classes("text-xs text-gray-500 mb-2")
+                with ui.scroll_area().classes("w-full flex-1 bg-gray-900 rounded"):
+                    ui.html(f"<pre class='text-xs text-green-400 p-2 whitespace-pre-wrap'>{content}</pre>", sanitize=False)
+            dialog.open()
+
+        def show_database_info() -> None:
+            """Show database information dialog."""
+            with ui.dialog() as dialog, ui.card().classes("w-96"):
+                ui.label("Database Information").classes("text-lg font-bold mb-2")
+                ui.separator()
+                ui.label("RootsMagic Database").classes("font-bold text-sm mt-2")
+                ui.label(f"Path: {config.rm_database_path}").classes("text-xs font-mono")
+                db_path = Path(config.rm_database_path)
+                if db_path.exists():
+                    size_mb = db_path.stat().st_size / (1024 * 1024)
+                    ui.label(f"Size: {size_mb:.1f} MB").classes("text-xs")
+                    ui.label("Status: Connected").classes("text-xs text-green-600")
+                else:
+                    ui.label("Status: Not Found").classes("text-xs text-red-600")
+
+                ui.separator()
+                ui.label("Census Extraction DB").classes("font-bold text-sm mt-2")
+                from rmcitecraft.database.census_extraction_db import get_census_repository
+                repo = get_census_repository()
+                stats = repo.get_extraction_stats()
+                ui.label(f"Persons: {stats.get('total_persons', 0)}").classes("text-xs")
+                ui.label(f"Pages: {stats.get('total_pages', 0)}").classes("text-xs")
+
+                with ui.row().classes("w-full justify-end mt-4"):
+                    ui.button("Close", on_click=dialog.close).props("flat")
+            dialog.open()
 
         def show_home() -> None:
             """Show home view."""
             view_container.clear()
-            with view_container, ui.column().classes("w-full items-center p-8 gap-6"):
-                # Hero Section
-                with ui.card().classes("w-full max-w-5xl p-8 bg-gradient-to-r from-blue-50 to-indigo-50"):
-                    ui.label("RMCitecraft").classes("text-4xl font-bold text-blue-900 mb-2")
-                    ui.label("Professional Citation Management for RootsMagic").classes("text-xl text-gray-700 mb-4")
-                    ui.markdown("""
-                        Automate the transformation of genealogy citations into **Evidence Explained** compliant format.
-                        Process census records and Find a Grave memorials with AI-powered extraction, intelligent batch processing,
-                        and seamless RootsMagic database integration.
-                    """).classes("text-gray-600")
-
-                # Quick Action Buttons
-                with ui.row().classes("w-full max-w-5xl gap-4 justify-center"):
-                    ui.button("Census Batch", icon="playlist_add_check", on_click=lambda: show_batch_processing()).props("size=lg").classes("bg-blue-600 text-white")
-                    ui.button("Find a Grave", icon="account_box", on_click=lambda: show_findagrave_batch()).props("size=lg").classes("bg-green-600 text-white")
-                    ui.button("Citation Manager", icon="format_quote", on_click=lambda: show_citation_manager()).props("size=lg").classes("bg-purple-600 text-white")
-
-                # Core Features
-                with ui.card().classes("w-full max-w-5xl p-6"):
-                    ui.label("Core Features").classes("text-2xl font-bold mb-4")
-
-                    with ui.row().classes("w-full gap-6"):
-                        # Column 1: Census Processing
-                        with ui.column().classes("flex-1 gap-2"):
-                            ui.label("Census Citation Processing").classes("font-bold text-lg text-blue-700 mb-2")
-                            ui.markdown("""
-                                - **1790-1950 Coverage**: All decennial census years
-                                - **AI Extraction**: Multi-provider LLM (Claude, GPT, Ollama)
-                                - **Evidence Explained Format**: Footnote, short footnote, bibliography
-                                - **Browser Integration**: Side-by-side FamilySearch viewing for missing data
-                                - **Image Automation**: Download, rename, organize, and link census images
-                            """).classes("text-sm")
-
-                        # Column 2: Find a Grave
-                        with ui.column().classes("flex-1 gap-2"):
-                            ui.label("Find a Grave Integration").classes("font-bold text-lg text-green-700 mb-2")
-                            ui.markdown("""
-                                - **5,376+ Memorials**: Batch process Find a Grave URLs from RootsMagic
-                                - **Browser Automation**: Playwright extraction with maiden name detection
-                                - **Photo Downloads**: Person, grave, and family photos with categorization
-                                - **Burial Events**: Auto-create events with cemetery locations and details
-                                - **Dashboard Analytics**: Monitor processing status, success rates, and errors across batches
-                                - **State Persistence**: Resume interrupted sessions with checkpoint recovery
-                            """).classes("text-sm")
-
-                # Technical Capabilities (Consolidated)
-                with ui.card().classes("w-full max-w-5xl p-6"):
-                    ui.label("Technical Capabilities").classes("text-2xl font-bold mb-4")
-
-                    with ui.row().classes("w-full gap-6"):
-                        # Left column
+            with view_container, ui.column().classes("w-full items-center p-6 gap-4"):
+                # Hero Section - Compact
+                with ui.card().classes("w-full max-w-6xl p-6 bg-gradient-to-r from-blue-50 to-indigo-50"):
+                    with ui.row().classes("items-center gap-4"):
+                        ui.icon("auto_stories", size="3rem").classes("text-blue-700")
                         with ui.column().classes("flex-1"):
-                            ui.label("Database & Integration").classes("font-bold text-lg mb-2")
-                            ui.markdown("""
-                                - RMNOCASE collation support (SQLite ICU)
-                                - BLOB field parsing for free-form sources
-                                - Transaction safety with atomic writes
-                                - File watcher for automatic downloads
-                            """).classes("text-sm")
+                            ui.label("RMCiteCraft").classes("text-3xl font-bold text-blue-900")
+                            ui.label("Citation Assistant for RootsMagic").classes("text-lg text-gray-600")
+                    ui.label(
+                        "Transform genealogy citations into Evidence Explained format with AI-powered extraction and automation."
+                    ).classes("text-sm text-gray-500 mt-2")
 
-                        # Right column
+                # 5 Function Cards - Main Grid
+                ui.label("Functions").classes("text-xl font-bold text-gray-700 self-start max-w-6xl w-full")
+
+                with ui.row().classes("w-full max-w-6xl gap-3"):
+                    # Card 1: Census Batch Processing
+                    with ui.card().classes(
+                        "flex-1 p-4 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-blue-500"
+                    ).on("click", lambda: (show_batch_processing(), update_view("Census Batch", "census_batch"))):
+                        with ui.row().classes("items-center gap-2 mb-2"):
+                            ui.icon("playlist_add_check", size="md").classes("text-blue-600")
+                            ui.label("Census Batch").classes("font-bold text-blue-800")
+                        ui.label("Batch process FamilySearch census records with AI extraction").classes("text-xs text-gray-600")
+                        with ui.row().classes("mt-2 gap-1 flex-wrap"):
+                            ui.badge("1790-1950", color="blue").props("outline").classes("text-xs")
+                            ui.badge("AI", color="blue").props("outline").classes("text-xs")
+                            ui.badge("Images", color="blue").props("outline").classes("text-xs")
+
+                    # Card 2: Find a Grave
+                    with ui.card().classes(
+                        "flex-1 p-4 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-green-500"
+                    ).on("click", lambda: (show_findagrave_batch(), update_view("Find a Grave", "findagrave"))):
+                        with ui.row().classes("items-center gap-2 mb-2"):
+                            ui.icon("account_box", size="md").classes("text-green-600")
+                            ui.label("Find a Grave").classes("font-bold text-green-800")
+                        ui.label("Extract memorial data, photos, and create burial events").classes("text-xs text-gray-600")
+                        with ui.row().classes("mt-2 gap-1 flex-wrap"):
+                            ui.badge("Automation", color="green").props("outline").classes("text-xs")
+                            ui.badge("Photos", color="green").props("outline").classes("text-xs")
+                            ui.badge("Events", color="green").props("outline").classes("text-xs")
+
+                    # Card 3: Citation Manager
+                    with ui.card().classes(
+                        "flex-1 p-4 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-purple-500"
+                    ).on("click", lambda: (show_citation_manager(), update_view("Citation Manager", "citation_manager"))):
+                        with ui.row().classes("items-center gap-2 mb-2"):
+                            ui.icon("format_quote", size="md").classes("text-purple-600")
+                            ui.label("Citation Manager").classes("font-bold text-purple-800")
+                        ui.label("View and manage Evidence Explained citations in RootsMagic").classes("text-xs text-gray-600")
+                        with ui.row().classes("mt-2 gap-1 flex-wrap"):
+                            ui.badge("Browse", color="purple").props("outline").classes("text-xs")
+                            ui.badge("Edit", color="purple").props("outline").classes("text-xs")
+                            ui.badge("Validate", color="purple").props("outline").classes("text-xs")
+
+                with ui.row().classes("w-full max-w-6xl gap-3"):
+                    # Card 4: Census Transcription
+                    with ui.card().classes(
+                        "flex-1 p-4 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-amber-500"
+                    ).on("click", lambda: (show_census_transcription(), update_view("Census Transcription", "census_transcription"))):
+                        with ui.row().classes("items-center gap-2 mb-2"):
+                            ui.icon("auto_awesome", size="md").classes("text-amber-600")
+                            ui.label("Census Transcription").classes("font-bold text-amber-800")
+                        ui.label("AI-assisted transcription from census images with schema validation").classes("text-xs text-gray-600")
+                        with ui.row().classes("mt-2 gap-1 flex-wrap"):
+                            ui.badge("AI OCR", color="amber").props("outline").classes("text-xs")
+                            ui.badge("Schema", color="amber").props("outline").classes("text-xs")
+                            ui.badge("1950", color="amber").props("outline").classes("text-xs")
+
+                    # Card 5: Census Extractions
+                    with ui.card().classes(
+                        "flex-1 p-4 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-teal-500"
+                    ).on("click", lambda: (show_census_extraction_viewer(), update_view("Census Extractions", "census_extractions"))):
+                        with ui.row().classes("items-center gap-2 mb-2"):
+                            ui.icon("folder_open", size="md").classes("text-teal-600")
+                            ui.label("Census Extractions").classes("font-bold text-teal-800")
+                        ui.label("View, verify, and edit extracted FamilySearch census data").classes("text-xs text-gray-600")
+                        with ui.row().classes("mt-2 gap-1 flex-wrap"):
+                            ui.badge("Verify", color="teal").props("outline").classes("text-xs")
+                            ui.badge("Edit", color="teal").props("outline").classes("text-xs")
+                            ui.badge("Quality", color="teal").props("outline").classes("text-xs")
+
+                    # Spacer to balance the row
+                    ui.element("div").classes("flex-1")
+
+                # Quick Stats Row
+                with ui.card().classes("w-full max-w-6xl p-3 bg-gray-50"):
+                    with ui.row().classes("w-full justify-around items-center"):
+                        # Census DB stats
+                        from rmcitecraft.database.census_extraction_db import get_census_repository
+                        repo = get_census_repository()
+                        stats = repo.get_extraction_stats()
+
+                        with ui.column().classes("items-center"):
+                            ui.label(f"{stats.get('total_persons', 0)}").classes("text-2xl font-bold text-blue-600")
+                            ui.label("Census Persons").classes("text-xs text-gray-500")
+
+                        ui.separator().props("vertical").classes("h-8")
+
+                        with ui.column().classes("items-center"):
+                            ui.label(f"{stats.get('total_pages', 0)}").classes("text-2xl font-bold text-green-600")
+                            ui.label("Census Pages").classes("text-xs text-gray-500")
+
+                        ui.separator().props("vertical").classes("h-8")
+
+                        with ui.column().classes("items-center"):
+                            ui.label(f"{stats.get('rmtree_links', 0)}").classes("text-2xl font-bold text-purple-600")
+                            ui.label("RootsMagic Links").classes("text-xs text-gray-500")
+
+                        ui.separator().props("vertical").classes("h-8")
+
+                        db_path = Path(config.rm_database_path)
+                        db_status = "Connected" if db_path.exists() else "Not Found"
+                        db_color = "text-green-600" if db_path.exists() else "text-red-600"
+                        with ui.column().classes("items-center"):
+                            ui.icon("storage", size="md").classes(db_color)
+                            ui.label(db_status).classes(f"text-xs {db_color}")
+
+                # Collapsible sections
+                with ui.expansion("System Configuration", icon="settings").classes("w-full max-w-6xl"):
+                    with ui.row().classes("w-full gap-6 p-2"):
                         with ui.column().classes("flex-1"):
-                            ui.label("AI & Automation").classes("font-bold text-lg mb-2")
-                            ui.markdown("""
-                                - Multi-provider LLM with prompt caching (90% token reduction)
-                                - Page health monitoring and adaptive timeouts
-                                - Retry strategies with configurable recovery
-                                - Census transcriber for AI-assisted data entry
-                            """).classes("text-sm")
+                            ui.label("Database").classes("font-bold text-sm")
+                            ui.label(f"{config.rm_database_path}").classes("text-xs font-mono text-gray-600")
+                        with ui.column().classes("flex-1"):
+                            ui.label("LLM Provider").classes("font-bold text-sm")
+                            ui.label(f"{config.default_llm_provider}").classes("text-xs text-gray-600")
+                        with ui.column().classes("flex-1"):
+                            ui.label("Log Level").classes("font-bold text-sm")
+                            ui.label(f"{config.log_level}").classes("text-xs text-gray-600")
 
-                # Workflow Overview (Simplified)
-                with ui.card().classes("w-full max-w-5xl p-6"):
-                    ui.label("How It Works").classes("text-2xl font-bold mb-4")
-
-                    with ui.expansion("Census Workflow", icon="filter_1").classes("w-full"):
-                        ui.markdown("""
-                            Load census year → AI extracts data → Review/correct missing fields →
-                            Generate Evidence Explained citations → Auto-download/organize images →
-                            Save to database with quality control logging
-                        """).classes("text-sm")
-
-                    with ui.expansion("Find a Grave Workflow", icon="filter_2").classes("w-full"):
-                        ui.markdown("""
-                            Load memorial batch → Browser automation extracts data & photos →
-                            Detect maiden names → Create burial events with cemetery locations →
-                            Generate Evidence Explained citations → Save to database →
-                            Dashboard monitors progress with error tracking
-                        """).classes("text-sm")
-
-                # System Status
-                with ui.expansion("System Status & Configuration", icon="settings").classes("w-full max-w-5xl"):
-                    with ui.column().classes("gap-2 p-2"):
-                        ui.label("Database Configuration").classes("font-bold")
-                        ui.label(f"Database: {config.rm_database_path}").classes("text-sm font-mono")
-                        ui.label(f"Working Copy: {Path(config.rm_database_path).name}").classes("text-sm text-gray-600")
-
-                        ui.separator()
-
-                        ui.label("LLM Configuration").classes("font-bold")
-                        ui.label(f"Provider: {config.default_llm_provider}").classes("text-sm")
-                        ui.label(f"Model: {getattr(config, f'{config.default_llm_provider}_model', 'N/A')}").classes("text-sm")
-
-                        ui.separator()
-
-                        ui.label("Application Settings").classes("font-bold")
-                        ui.label(f"Log Level: {config.log_level}").classes("text-sm")
-                        ui.label(f"Log File: {config.log_file}").classes("text-sm font-mono")
-
-                # Documentation Links
-                with ui.card().classes("w-full max-w-5xl p-6 bg-gray-50"):
-                    ui.label("Documentation & Resources").classes("text-xl font-bold mb-3")
-                    with ui.row().classes("gap-4 w-full"):
-                        # Implementation Guides
-                        with ui.column().classes("flex-1 gap-2"):
-                            ui.label("Implementation Guides").classes("font-bold text-sm mb-1")
-                            ui.link("LLM Architecture", "docs/architecture/LLM-ARCHITECTURE.md", new_tab=True).classes("text-sm text-blue-600 hover:underline")
-                            ui.link("Database Schema", "docs/reference/schema-reference.md", new_tab=True).classes("text-sm text-blue-600 hover:underline")
-                            ui.link("Image Management", "docs/architecture/IMAGE-MANAGEMENT-ARCHITECTURE.md", new_tab=True).classes("text-sm text-blue-600 hover:underline")
-                            ui.link("Batch Processing Architecture", "docs/architecture/BATCH_PROCESSING_ARCHITECTURE.md", new_tab=True).classes("text-sm text-blue-600 hover:underline")
-
-                        # User Guides
-                        with ui.column().classes("flex-1 gap-2"):
-                            ui.label("User Guides").classes("font-bold text-sm mb-1")
-                            ui.link("Image Workflow", "docs/user-guides/IMAGE-WORKFLOW.md", new_tab=True).classes("text-sm text-blue-600 hover:underline")
-                            ui.link("Batch Processing", "docs/BATCH_PROCESSING_PHASE1_IMPLEMENTATION.md", new_tab=True).classes("text-sm text-blue-600 hover:underline")
-                            ui.link("Find a Grave", "docs/FINDAGRAVE-IMPLEMENTATION.md", new_tab=True).classes("text-sm text-blue-600 hover:underline")
-                            ui.link("Dashboard Design", "docs/DASHBOARD_DESIGN.md", new_tab=True).classes("text-sm text-blue-600 hover:underline")
-
-                        # Developer Docs
-                        with ui.column().classes("flex-1 gap-2"):
-                            ui.label("Developer Docs").classes("font-bold text-sm mb-1")
-                            ui.link("CLAUDE.md", "CLAUDE.md", new_tab=True).classes("text-sm text-blue-600 hover:underline").tooltip("AI assistant guide")
-                            ui.link("AGENTS.md", "AGENTS.md", new_tab=True).classes("text-sm text-blue-600 hover:underline").tooltip("Machine-readable instructions")
-                            ui.link("PRD.md", "PRD.md", new_tab=True).classes("text-sm text-blue-600 hover:underline").tooltip("Product requirements")
-                            ui.link("README.md", "README.md", new_tab=True).classes("text-sm text-blue-600 hover:underline").tooltip("Project overview")
+                with ui.expansion("Documentation", icon="menu_book").classes("w-full max-w-6xl"):
+                    with ui.row().classes("gap-6 p-2 flex-wrap"):
+                        ui.link("Database Schema", "docs/reference/schema-reference.md", new_tab=True).classes("text-sm text-blue-600")
+                        ui.link("LLM Architecture", "docs/architecture/LLM-ARCHITECTURE.md", new_tab=True).classes("text-sm text-blue-600")
+                        ui.link("Batch Processing", "docs/architecture/BATCH_PROCESSING_ARCHITECTURE.md", new_tab=True).classes("text-sm text-blue-600")
+                        ui.link("Census DB Schema", "docs/reference/CENSUS_EXTRACTION_DATABASE_SCHEMA.md", new_tab=True).classes("text-sm text-blue-600")
+                        ui.link("CLAUDE.md", "CLAUDE.md", new_tab=True).classes("text-sm text-blue-600")
+                        ui.link("README", "README.md", new_tab=True).classes("text-sm text-blue-600")
 
         def show_batch_processing() -> None:
             """Show census batch processing view."""

@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1950 U.S. Census - Population Schedule</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 9px;
+            background: #f5f5dc;
+            padding: 10px;
+        }
+
+        .census-form {
+            background: #fffef0;
+            border: 2px solid #2d5016;
+            max-width: 1200px;
+            margin: 0 auto 20px auto;
+            padding: 8px;
+        }
+
+        .form-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            color: #2d5016;
+            border-bottom: 2px solid #2d5016;
+            padding-bottom: 5px;
+            margin-bottom: 8px;
+        }
+
+        .form-subtitle {
+            text-align: center;
+            font-size: 10px;
+            color: #2d5016;
+            margin-bottom: 10px;
+        }
+
+        /* Header Section */
+        .header-section {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 5px;
+            margin-bottom: 10px;
+            padding: 5px;
+            border: 1px solid #2d5016;
+            background: #f8f8e8;
+        }
+
+        .header-item {
+            border: 1px solid #2d5016;
+            padding: 3px;
+            font-size: 8px;
+        }
+
+        .header-item label {
+            display: block;
+            font-weight: bold;
+            color: #2d5016;
+            font-size: 7px;
+            text-transform: uppercase;
+        }
+
+        .header-item .value {
+            font-size: 10px;
+            color: #000;
+            min-height: 14px;
+        }
+
+        /* Column Headers */
+        .column-headers {
+            display: grid;
+            grid-template-columns:
+                25px    /* Line */
+                65px    /* 1: Street */
+                32px    /* 2: House # */
+                30px    /* 3: Dwelling # */
+                25px    /* 4: Farm */
+                25px    /* 5: 3+ acres */
+                125px   /* 7: Name */
+                50px    /* 8: Relation */
+                25px    /* 9: Race */
+                22px    /* 10: Sex */
+                25px    /* 11: Age */
+                25px    /* 12: Marital */
+                55px    /* 13: Birthplace */
+                22px    /* 15: Status */
+                22px    /* 16: Work */
+                22px    /* 17: Looking */
+                28px    /* 19: Hours */
+                105px   /* 20a: Occupation */
+                90px    /* 20b: Industry */
+                22px;   /* 20c: Class */
+            background: #2d5016;
+            color: white;
+            font-size: 7px;
+            font-weight: bold;
+        }
+
+        .col-header {
+            border: 1px solid #1a3009;
+            padding: 2px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+
+        .col-header .col-num {
+            font-size: 8px;
+            border-bottom: 1px solid #4a7025;
+            margin-bottom: 2px;
+        }
+
+        .col-header .col-title {
+            font-size: 6px;
+            line-height: 1.1;
+        }
+
+        /* Data Rows */
+        .data-rows {
+            border: 1px solid #2d5016;
+        }
+
+        .data-row {
+            display: grid;
+            grid-template-columns:
+                25px    /* Line */
+                65px    /* 1: Street */
+                32px    /* 2: House # */
+                30px    /* 3: Dwelling # */
+                25px    /* 4: Farm */
+                25px    /* 5: 3+ acres */
+                125px   /* 7: Name */
+                50px    /* 8: Relation */
+                25px    /* 9: Race */
+                22px    /* 10: Sex */
+                25px    /* 11: Age */
+                25px    /* 12: Marital */
+                55px    /* 13: Birthplace */
+                22px    /* 15: Status */
+                22px    /* 16: Work */
+                22px    /* 17: Looking */
+                28px    /* 19: Hours */
+                105px   /* 20a: Occupation */
+                90px    /* 20b: Industry */
+                22px;   /* 20c: Class */
+            border-bottom: 1px solid #aaa;
+            font-size: 8px;
+        }
+
+        .data-row:nth-child(even) {
+            background: #f8f8f0;
+        }
+
+        .data-row:nth-child(odd) {
+            background: #fff;
+        }
+
+        /* Sample lines (1, 6, 11, 16, 21, 26) have shaded background */
+        .data-row.sample-line {
+            background: #e8f0e0 !important;
+        }
+
+        /* Head of household rows */
+        .data-row.head-row {
+            border-top: 2px solid #2d5016;
+        }
+
+        .data-cell {
+            border-right: 1px solid #ccc;
+            padding: 2px 3px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-height: 18px;
+            display: flex;
+            align-items: center;
+        }
+
+        .data-cell.line-num {
+            background: #e8e8d8;
+            font-weight: bold;
+            justify-content: center;
+            color: #2d5016;
+        }
+
+        .data-cell.name-cell {
+            font-weight: bold;
+        }
+
+        .data-cell.center {
+            justify-content: center;
+        }
+
+        /* Sample line additional columns section */
+        .sample-section {
+            margin-top: 15px;
+            border: 1px solid #2d5016;
+            padding: 5px;
+            background: #f0f8e8;
+        }
+
+        .sample-section-title {
+            font-weight: bold;
+            color: #2d5016;
+            font-size: 10px;
+            margin-bottom: 8px;
+            text-align: center;
+            border-bottom: 1px solid #2d5016;
+            padding-bottom: 3px;
+        }
+
+        .sample-headers {
+            display: grid;
+            grid-template-columns:
+                25px    /* Line */
+                100px   /* Name */
+                40px    /* 21: Same house */
+                40px    /* 22: On farm */
+                40px    /* 23: Same county */
+                40px    /* 26: Grade */
+                35px    /* 27: Completed */
+                40px    /* 28: School */
+                45px    /* 30: Weeks worked */
+                55px    /* 31: Income wages */
+                55px    /* 33: Other income */
+                40px    /* Veteran */
+                40px    /* WW1 */
+                40px;   /* WW2 */
+            background: #2d5016;
+            color: white;
+            font-size: 7px;
+            font-weight: bold;
+        }
+
+        .sample-row {
+            display: grid;
+            grid-template-columns:
+                25px    /* Line */
+                100px   /* Name */
+                40px    /* 21: Same house */
+                40px    /* 22: On farm */
+                40px    /* 23: Same county */
+                40px    /* 26: Grade */
+                35px    /* 27: Completed */
+                40px    /* 28: School */
+                45px    /* 30: Weeks worked */
+                55px    /* 31: Income wages */
+                55px    /* 33: Other income */
+                40px    /* Veteran */
+                40px    /* WW1 */
+                40px;   /* WW2 */
+            border-bottom: 1px solid #aaa;
+            font-size: 8px;
+            background: #fff;
+        }
+
+        .sample-row:nth-child(even) {
+            background: #f8f8f0;
+        }
+
+        /* Second Page - Non-form data */
+        .second-page {
+            background: #fffff5;
+            border: 2px solid #5a3d16;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 8px;
+        }
+
+        .second-page .form-title {
+            color: #5a3d16;
+            border-bottom-color: #5a3d16;
+        }
+
+        .second-page .form-subtitle {
+            color: #5a3d16;
+        }
+
+        .codes-headers {
+            display: grid;
+            grid-template-columns:
+                25px    /* Line */
+                120px   /* Name */
+                80px    /* Checked by */
+                120px   /* Full Name (alternate) */
+                45px    /* Code B */
+                45px    /* Code C */
+                45px    /* Code C1 */
+                45px    /* Code C2 */
+                100px   /* Spouse */
+                100px   /* Child */
+                100px;  /* Parent */
+            background: #5a3d16;
+            color: white;
+            font-size: 7px;
+            font-weight: bold;
+        }
+
+        .codes-row {
+            display: grid;
+            grid-template-columns:
+                25px    /* Line */
+                120px   /* Name */
+                80px    /* Checked by */
+                120px   /* Full Name (alternate) */
+                45px    /* Code B */
+                45px    /* Code C */
+                45px    /* Code C1 */
+                45px    /* Code C2 */
+                100px   /* Spouse */
+                100px   /* Child */
+                100px;  /* Parent */
+            border-bottom: 1px solid #aaa;
+            font-size: 8px;
+            background: #fff;
+        }
+
+        .codes-row:nth-child(even) {
+            background: #f8f5e8;
+        }
+
+        .codes-row.head-row {
+            border-top: 2px solid #5a3d16;
+        }
+
+        /* Footer */
+        .form-footer {
+            margin-top: 10px;
+            padding: 5px;
+            border-top: 1px solid #2d5016;
+            font-size: 8px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .second-page .form-footer {
+            border-top-color: #5a3d16;
+        }
+
+        .legend {
+            margin-top: 10px;
+            padding: 8px;
+            background: #f8f8e8;
+            border: 1px solid #2d5016;
+            font-size: 8px;
+        }
+
+        .legend-title {
+            font-weight: bold;
+            color: #2d5016;
+            margin-bottom: 5px;
+        }
+
+        .legend-items {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+        }
+
+        .legend-item {
+            padding: 2px;
+        }
+
+        .legend-item strong {
+            color: #2d5016;
+        }
+
+        .page-break {
+            page-break-before: always;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .census-form, .second-page {
+                border: 1px solid #000;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- PAGE 1: CENSUS FORM P1 -->
+    <div class="census-form">
+        <div class="form-title">SEVENTEENTH DECENNIAL CENSUS OF THE UNITED STATES</div>
+        <div class="form-subtitle">CENSUS OF POPULATION: 1950 - POPULATION AND HOUSING SCHEDULE (Form P1)</div>
+
+        <!-- Header Section -->
+        <div class="header-section">
+            <div class="header-item">
+                <label>a. State</label>
+                <div class="value">California</div>
+            </div>
+            <div class="header-item">
+                <label>b. County</label>
+                <div class="value">San Diego</div>
+            </div>
+            <div class="header-item">
+                <label>c. City/Township</label>
+                <div class="value">San Diego</div>
+            </div>
+            <div class="header-item">
+                <label>d. E.D. Number</label>
+                <div class="value">72-91</div>
+            </div>
+            <div class="header-item">
+                <label>e. Sheet No.</label>
+                <div class="value">10</div>
+            </div>
+            <div class="header-item">
+                <label>f. Date</label>
+                <div class="value">April 4, 1950</div>
+            </div>
+            <div class="header-item">
+                <label>g. Enumerator</label>
+                <div class="value">Bertha Harris</div>
+            </div>
+            <div class="header-item">
+                <label>h. Checked by</label>
+                <div class="value">All Groom</div>
+            </div>
+        </div>
+
+        <!-- Column Headers -->
+        <div class="column-headers">
+            <div class="col-header"><div class="col-num">LINE</div></div>
+            <div class="col-header"><div class="col-num">1</div><div class="col-title">STREET</div></div>
+            <div class="col-header"><div class="col-num">2</div><div class="col-title">HOUSE#</div></div>
+            <div class="col-header"><div class="col-num">3</div><div class="col-title">DWELL#</div></div>
+            <div class="col-header"><div class="col-num">4</div><div class="col-title">FARM</div></div>
+            <div class="col-header"><div class="col-num">5</div><div class="col-title">3+AC</div></div>
+            <div class="col-header"><div class="col-num">7</div><div class="col-title">NAME (Last, First)</div></div>
+            <div class="col-header"><div class="col-num">8</div><div class="col-title">RELATION</div></div>
+            <div class="col-header"><div class="col-num">9</div><div class="col-title">RACE</div></div>
+            <div class="col-header"><div class="col-num">10</div><div class="col-title">SEX</div></div>
+            <div class="col-header"><div class="col-num">11</div><div class="col-title">AGE</div></div>
+            <div class="col-header"><div class="col-num">12</div><div class="col-title">MAR</div></div>
+            <div class="col-header"><div class="col-num">13</div><div class="col-title">BIRTHPLACE</div></div>
+            <div class="col-header"><div class="col-num">15</div><div class="col-title">STAT</div></div>
+            <div class="col-header"><div class="col-num">16</div><div class="col-title">WRK</div></div>
+            <div class="col-header"><div class="col-num">17</div><div class="col-title">LKG</div></div>
+            <div class="col-header"><div class="col-num">19</div><div class="col-title">HRS</div></div>
+            <div class="col-header"><div class="col-num">20a</div><div class="col-title">OCCUPATION</div></div>
+            <div class="col-header"><div class="col-num">20b</div><div class="col-title">INDUSTRY</div></div>
+            <div class="col-header"><div class="col-num">20c</div><div class="col-title">CL</div></div>
+        </div>
+
+        <!-- Data Rows -->
+        <div class="data-rows">
+            <!-- Line 1 - Sample Line, Head of Household -->
+            <div class="data-row sample-line head-row">
+                <div class="data-cell line-num">1</div>
+                <div class="data-cell">Wabash Ave</div>
+                <div class="data-cell center">3552</div>
+                <div class="data-cell center">110</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell name-cell">Stauch, Martin O</div>
+                <div class="data-cell">Head</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center">60</div>
+                <div class="data-cell center">Mar</div>
+                <div class="data-cell">Iowa</div>
+                <div class="data-cell center">Ot</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">40</div>
+                <div class="data-cell">Ot</div>
+                <div class="data-cell">Forces</div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 2 -->
+            <div class="data-row">
+                <div class="data-cell line-num">2</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Stauch, Florence D</div>
+                <div class="data-cell">Wife</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">44</div>
+                <div class="data-cell center">Mar</div>
+                <div class="data-cell">Virginia</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 3 -->
+            <div class="data-row">
+                <div class="data-cell line-num">3</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Shindler, Margie F</div>
+                <div class="data-cell">Daughter</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">25</div>
+                <div class="data-cell center">Nev</div>
+                <div class="data-cell">Virginia</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">40</div>
+                <div class="data-cell">Typing Gen Office Wk</div>
+                <div class="data-cell">Naval Supply</div>
+                <div class="data-cell center">G</div>
+            </div>
+
+            <!-- Line 4 -->
+            <div class="data-row">
+                <div class="data-cell line-num">4</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Shindler, Shirley J</div>
+                <div class="data-cell">Daughter</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">22</div>
+                <div class="data-cell center">Nev</div>
+                <div class="data-cell">California</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell">Ot</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 5 -->
+            <div class="data-row">
+                <div class="data-cell line-num">5</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Shindler, Ted M</div>
+                <div class="data-cell">Son</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">Nev</div>
+                <div class="data-cell">California</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 6 - Sample Line, Head of Household -->
+            <div class="data-row sample-line head-row">
+                <div class="data-cell line-num">6</div>
+                <div class="data-cell">Wabash Ave</div>
+                <div class="data-cell center">3544</div>
+                <div class="data-cell center">111</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell name-cell">Iams, Ross L</div>
+                <div class="data-cell">Head</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center">68</div>
+                <div class="data-cell center">Mar</div>
+                <div class="data-cell">Pennsylvania</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell">Ot</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 7 -->
+            <div class="data-row">
+                <div class="data-cell line-num">7</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Iams, Elizabeth S</div>
+                <div class="data-cell">Wife</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">56</div>
+                <div class="data-cell center">Mar</div>
+                <div class="data-cell">Pennsylvania</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 8 -->
+            <div class="data-row">
+                <div class="data-cell line-num">8</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Iams, Ross F</div>
+                <div class="data-cell">Son</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center">32</div>
+                <div class="data-cell center">Mar</div>
+                <div class="data-cell">Pennsylvania</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">40</div>
+                <div class="data-cell">Collector For Magazine</div>
+                <div class="data-cell">Magazine Subscr</div>
+                <div class="data-cell center">P</div>
+            </div>
+
+            <!-- Line 9 - Head of Household -->
+            <div class="data-row head-row">
+                <div class="data-cell line-num">9</div>
+                <div class="data-cell">Wabash Ave</div>
+                <div class="data-cell center">3536</div>
+                <div class="data-cell center">112</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell name-cell">Couvrette, John F</div>
+                <div class="data-cell">Head</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center">31</div>
+                <div class="data-cell center">Mar</div>
+                <div class="data-cell">North Dakota</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">40</div>
+                <div class="data-cell">Cert Public Accountant</div>
+                <div class="data-cell">General Accountant</div>
+                <div class="data-cell center">P</div>
+            </div>
+
+            <!-- Line 10 -->
+            <div class="data-row">
+                <div class="data-cell line-num">10</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Couvrette, Margaret M</div>
+                <div class="data-cell">Wife</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">27</div>
+                <div class="data-cell center">Mar</div>
+                <div class="data-cell">California</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 11 - Sample Line -->
+            <div class="data-row sample-line">
+                <div class="data-cell line-num">11</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Couvrette, Mary Ann</div>
+                <div class="data-cell">Daughter</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">1</div>
+                <div class="data-cell center">Nev</div>
+                <div class="data-cell">California</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 12 - Head of Household -->
+            <div class="data-row head-row">
+                <div class="data-cell line-num">12</div>
+                <div class="data-cell">Wabash Ave</div>
+                <div class="data-cell center">3528</div>
+                <div class="data-cell center">113</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell name-cell">Airhart, Harold W</div>
+                <div class="data-cell">Head</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center">44</div>
+                <div class="data-cell center">Mar</div>
+                <div class="data-cell">California</div>
+                <div class="data-cell center">Wk</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">40</div>
+                <div class="data-cell">Wk</div>
+                <div class="data-cell">Wholesale Oil Co</div>
+                <div class="data-cell center">P</div>
+            </div>
+
+            <!-- Line 13 -->
+            <div class="data-row">
+                <div class="data-cell line-num">13</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Airhart, Margaret C</div>
+                <div class="data-cell">Wife</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">36</div>
+                <div class="data-cell center">Mar</div>
+                <div class="data-cell">Colorado</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 14 -->
+            <div class="data-row">
+                <div class="data-cell line-num">14</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Airhart, Joanna W</div>
+                <div class="data-cell">Daughter</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">3</div>
+                <div class="data-cell center">Nev</div>
+                <div class="data-cell">California</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 15 -->
+            <div class="data-row">
+                <div class="data-cell line-num">15</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Airhart, Howard C</div>
+                <div class="data-cell">Son</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">Nev</div>
+                <div class="data-cell">California</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 16 - Sample Line, Head of Household -->
+            <div class="data-row sample-line head-row">
+                <div class="data-cell line-num">16</div>
+                <div class="data-cell">Wabash Ave</div>
+                <div class="data-cell center">3512</div>
+                <div class="data-cell center">114</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell name-cell">Chase, Myrtle J</div>
+                <div class="data-cell">Head</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">56</div>
+                <div class="data-cell center">Wd</div>
+                <div class="data-cell">South Dakota</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">48</div>
+                <div class="data-cell">Practical Nurse</div>
+                <div class="data-cell">County Fire Insp</div>
+                <div class="data-cell center">O</div>
+            </div>
+
+            <!-- Line 17 -->
+            <div class="data-row">
+                <div class="data-cell line-num">17</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Chase, Fred O</div>
+                <div class="data-cell">Son</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center">17</div>
+                <div class="data-cell center">Nev</div>
+                <div class="data-cell">South Dakota</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell">Ot</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 18 -->
+            <div class="data-row">
+                <div class="data-cell line-num">18</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Dolan, James P</div>
+                <div class="data-cell">Son-in-law</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center">31</div>
+                <div class="data-cell center">Mar</div>
+                <div class="data-cell">Illinois</div>
+                <div class="data-cell center">Wk</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">40</div>
+                <div class="data-cell">Wk</div>
+                <div class="data-cell">State Blend Shop</div>
+                <div class="data-cell center">G</div>
+            </div>
+
+            <!-- Line 19 -->
+            <div class="data-row">
+                <div class="data-cell line-num">19</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Dolan, Freda M</div>
+                <div class="data-cell">Daughter</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">32</div>
+                <div class="data-cell center">Mar</div>
+                <div class="data-cell">South Dakota</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell">Ot</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 20 -->
+            <div class="data-row">
+                <div class="data-cell line-num">20</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Dolan, Jean C</div>
+                <div class="data-cell">Granddaughter</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">3</div>
+                <div class="data-cell center">Nev</div>
+                <div class="data-cell">Illinois</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 21 - Sample Line -->
+            <div class="data-row sample-line">
+                <div class="data-cell line-num">21</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Dolan, Mary Jane</div>
+                <div class="data-cell">Granddaughter</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">1</div>
+                <div class="data-cell center">Nev</div>
+                <div class="data-cell">California</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 22 - Empty -->
+            <div class="data-row">
+                <div class="data-cell line-num">22</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell name-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 23 - Head of Household -->
+            <div class="data-row head-row">
+                <div class="data-cell line-num">23</div>
+                <div class="data-cell">Norwood</div>
+                <div class="data-cell center">4817</div>
+                <div class="data-cell center">116</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell name-cell">Ludwig, Frank C</div>
+                <div class="data-cell">Head</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center">49</div>
+                <div class="data-cell center">D</div>
+                <div class="data-cell">Arkansas</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell">Ot</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 24 -->
+            <div class="data-row">
+                <div class="data-cell line-num">24</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Goodin, James D</div>
+                <div class="data-cell">Lodger</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center">25</div>
+                <div class="data-cell center">Nev</div>
+                <div class="data-cell">California</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center">40</div>
+                <div class="data-cell">Plumber</div>
+                <div class="data-cell">Ship Repair</div>
+                <div class="data-cell center">G</div>
+            </div>
+
+            <!-- Line 25 -->
+            <div class="data-row">
+                <div class="data-cell line-num">25</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Rucker, Rex</div>
+                <div class="data-cell">Lodger</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center">33</div>
+                <div class="data-cell center">D</div>
+                <div class="data-cell">Texas</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center">40</div>
+                <div class="data-cell">Commercial Fisherman</div>
+                <div class="data-cell">Fishing Boat</div>
+                <div class="data-cell center">P</div>
+            </div>
+
+            <!-- Line 26 - Sample Line -->
+            <div class="data-row sample-line">
+                <div class="data-cell line-num">26</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Schandelmeier, James</div>
+                <div class="data-cell">Lodger</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center">27</div>
+                <div class="data-cell center">Nev</div>
+                <div class="data-cell">Arizona</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center">40</div>
+                <div class="data-cell">Commercial Salesman</div>
+                <div class="data-cell">Fishing Boat</div>
+                <div class="data-cell center">P</div>
+            </div>
+
+            <!-- Line 27 - Head of Household -->
+            <div class="data-row head-row">
+                <div class="data-cell line-num">27</div>
+                <div class="data-cell">Norwood</div>
+                <div class="data-cell center">4827</div>
+                <div class="data-cell center">117</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell name-cell">Kendall, Mary F</div>
+                <div class="data-cell">Head</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">55</div>
+                <div class="data-cell center">D</div>
+                <div class="data-cell">Kansas</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 28 -->
+            <div class="data-row">
+                <div class="data-cell line-num">28</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Stone, Byron K</div>
+                <div class="data-cell">Son-in-law</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">M</div>
+                <div class="data-cell center">29</div>
+                <div class="data-cell center">Mar</div>
+                <div class="data-cell">Washington</div>
+                <div class="data-cell center">Wk</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">40</div>
+                <div class="data-cell">Wk</div>
+                <div class="data-cell">Forces</div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 29 -->
+            <div class="data-row">
+                <div class="data-cell line-num">29</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Stone, Delores B</div>
+                <div class="data-cell">Daughter</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center">26</div>
+                <div class="data-cell center">Mar</div>
+                <div class="data-cell">California</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Line 30 -->
+            <div class="data-row">
+                <div class="data-cell line-num">30</div>
+                <div class="data-cell">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell center">"</div>
+                <div class="data-cell name-cell">Stone, Clarice L</div>
+                <div class="data-cell">Granddaughter</div>
+                <div class="data-cell center">W</div>
+                <div class="data-cell center">F</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">Nev</div>
+                <div class="data-cell">California</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+            </div>
+        </div>
+
+        <!-- Sample Line Section (Columns 21-33) -->
+        <div class="sample-section">
+            <div class="sample-section-title">SAMPLE LINE PERSONS - ADDITIONAL QUESTIONS (Cols 21-33)</div>
+            <div class="sample-headers">
+                <div class="col-header"><div class="col-title">LINE</div></div>
+                <div class="col-header"><div class="col-title">NAME</div></div>
+                <div class="col-header"><div class="col-num">21</div><div class="col-title">SAME HSE</div></div>
+                <div class="col-header"><div class="col-num">22</div><div class="col-title">ON FARM</div></div>
+                <div class="col-header"><div class="col-num">23</div><div class="col-title">SAME CO</div></div>
+                <div class="col-header"><div class="col-num">26</div><div class="col-title">GRADE</div></div>
+                <div class="col-header"><div class="col-num">27</div><div class="col-title">COMPL</div></div>
+                <div class="col-header"><div class="col-num">28</div><div class="col-title">SCHOOL</div></div>
+                <div class="col-header"><div class="col-num">30</div><div class="col-title">WKS WKD</div></div>
+                <div class="col-header"><div class="col-num">31</div><div class="col-title">INCOME</div></div>
+                <div class="col-header"><div class="col-num">33</div><div class="col-title">OTHER INC</div></div>
+                <div class="col-header"><div class="col-title">VETERAN</div></div>
+                <div class="col-header"><div class="col-title">WW1</div></div>
+                <div class="col-header"><div class="col-title">WW2</div></div>
+            </div>
+
+            <!-- Sample Person Line 1 -->
+            <div class="sample-row">
+                <div class="data-cell line-num">1</div>
+                <div class="data-cell name-cell">Stauch, Martin O</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">C3</div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">52</div>
+                <div class="data-cell center">$2,080</div>
+                <div class="data-cell center">None</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Sample Person Line 6 -->
+            <div class="sample-row">
+                <div class="data-cell line-num">6</div>
+                <div class="data-cell name-cell">Iams, Ross L</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center">C1</div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center">30+</div>
+                <div class="data-cell center">52</div>
+                <div class="data-cell center">$3,800</div>
+                <div class="data-cell center">None</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">Yes</div>
+            </div>
+
+            <!-- Sample Person Line 11 -->
+            <div class="sample-row">
+                <div class="data-cell line-num">11</div>
+                <div class="data-cell name-cell">Couvrette, Mary Ann</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">C1</div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">$70</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Sample Person Line 16 -->
+            <div class="sample-row">
+                <div class="data-cell line-num">16</div>
+                <div class="data-cell name-cell">Chase, Myrtle J</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">S12</div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">52</div>
+                <div class="data-cell center">$520</div>
+                <div class="data-cell center">$2,080</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+                <div class="data-cell center">No</div>
+            </div>
+
+            <!-- Sample Person Line 21 -->
+            <div class="sample-row">
+                <div class="data-cell line-num">21</div>
+                <div class="data-cell name-cell">Dolan, Mary Jane</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">S7</div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">None</div>
+                <div class="data-cell center">$360</div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center"></div>
+            </div>
+
+            <!-- Sample Person Line 26 -->
+            <div class="sample-row">
+                <div class="data-cell line-num">26</div>
+                <div class="data-cell name-cell">Schandelmeier, James</div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">S12</div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">52</div>
+                <div class="data-cell center">$3,840</div>
+                <div class="data-cell center">None</div>
+                <div class="data-cell center">Yes</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">No</div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-title">ABBREVIATIONS</div>
+            <div class="legend-items">
+                <div class="legend-item"><strong>Race:</strong> W=White</div>
+                <div class="legend-item"><strong>Marital:</strong> Mar=Married, Nev=Never, Wd=Widowed, D=Divorced</div>
+                <div class="legend-item"><strong>Status:</strong> Wk=Working, Ot=Other, H=House</div>
+                <div class="legend-item"><strong>Class:</strong> P=Private, G=Gov't, O=Own</div>
+            </div>
+        </div>
+
+        <div class="form-footer">
+            <div>Form P1 - Population and Housing Schedule</div>
+            <div>Generated from census.db</div>
+        </div>
+    </div>
+
+    <!-- PAGE 2: NON-FORM DATA -->
+    <div class="second-page page-break">
+        <div class="form-title">SUPPLEMENTAL DATA - NOT ON ORIGINAL FORM</div>
+        <div class="form-subtitle">Processing Codes, Relationships, and Administrative Fields</div>
+
+        <div class="codes-headers">
+            <div class="col-header"><div class="col-title">LINE</div></div>
+            <div class="col-header"><div class="col-title">NAME</div></div>
+            <div class="col-header"><div class="col-title">CHECKED BY</div></div>
+            <div class="col-header"><div class="col-title">FULL NAME (ALT)</div></div>
+            <div class="col-header"><div class="col-title">CODE B</div></div>
+            <div class="col-header"><div class="col-title">CODE C</div></div>
+            <div class="col-header"><div class="col-title">CODE C1</div></div>
+            <div class="col-header"><div class="col-title">CODE C2</div></div>
+            <div class="col-header"><div class="col-title">SPOUSE</div></div>
+            <div class="col-header"><div class="col-title">CHILD</div></div>
+            <div class="col-header"><div class="col-title">PARENT</div></div>
+        </div>
+
+        <div class="data-rows">
+            <div class="codes-row head-row">
+                <div class="data-cell line-num">1</div>
+                <div class="data-cell name-cell">Stauch, Martin O</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Martin Oscar Stauch</div>
+                <div class="data-cell center">042</div>
+                <div class="data-cell center">595</div>
+                <div class="data-cell center">916</div>
+                <div class="data-cell center">1</div>
+                <div class="data-cell">Florence D Stauch</div>
+                <div class="data-cell">Ted M Shindler</div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">2</div>
+                <div class="data-cell name-cell">Stauch, Florence D</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Florence Dandridge Martin</div>
+                <div class="data-cell center">054</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell">Martin O Stauch</div>
+                <div class="data-cell">Shirley J Shindler</div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">3</div>
+                <div class="data-cell name-cell">Shindler, Margie F</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center">054</div>
+                <div class="data-cell center">390</div>
+                <div class="data-cell center">916</div>
+                <div class="data-cell center">2</div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell">Florence D Stauch</div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">4</div>
+                <div class="data-cell name-cell">Shindler, Shirley J</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell">Florence D Stauch</div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">5</div>
+                <div class="data-cell name-cell">Shindler, Ted M</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Ted Martin Stauch</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell">Florence D Stauch</div>
+            </div>
+            <div class="codes-row head-row">
+                <div class="data-cell line-num">6</div>
+                <div class="data-cell name-cell">Iams, Ross L</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center">023</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell">Elizabeth S Iams</div>
+                <div class="data-cell">Ross F Iams</div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">7</div>
+                <div class="data-cell name-cell">Iams, Elizabeth S</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center">023</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell">Ross L Iams</div>
+                <div class="data-cell">Ross F Iams</div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">8</div>
+                <div class="data-cell name-cell">Iams, Ross F</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Frederick Ross Iams</div>
+                <div class="data-cell center">023</div>
+                <div class="data-cell center">321</div>
+                <div class="data-cell center">698</div>
+                <div class="data-cell center">1</div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell">Ross L Iams</div>
+            </div>
+            <div class="codes-row head-row">
+                <div class="data-cell line-num">9</div>
+                <div class="data-cell name-cell">Couvrette, John F</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center">044</div>
+                <div class="data-cell center">000</div>
+                <div class="data-cell center">246</div>
+                <div class="data-cell center">1</div>
+                <div class="data-cell">Margaret M Couvrette</div>
+                <div class="data-cell">Mary Ann Couvrette</div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">10</div>
+                <div class="data-cell name-cell">Couvrette, Margaret M</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Margaret Mary Withers</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell">John F Couvrette</div>
+                <div class="data-cell">Mary Ann Couvrette</div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">11</div>
+                <div class="data-cell name-cell">Couvrette, Mary Ann</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell">Margaret M Couvrette</div>
+            </div>
+            <div class="codes-row head-row">
+                <div class="data-cell line-num">12</div>
+                <div class="data-cell name-cell">Airhart, Harold W</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Harold Whitney Airhart</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">683</div>
+                <div class="data-cell center">618</div>
+                <div class="data-cell center">1</div>
+                <div class="data-cell">Margaret C Airhart</div>
+                <div class="data-cell">Howard C Airhart</div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">13</div>
+                <div class="data-cell name-cell">Airhart, Margaret C</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Margaret Cannon</div>
+                <div class="data-cell center">084</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell">Harold W Airhart</div>
+                <div class="data-cell">Joanna W Airhart</div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">14</div>
+                <div class="data-cell name-cell">Airhart, Joanna W</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Joanna Whitney Airhart</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell">Margaret C Airhart</div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">15</div>
+                <div class="data-cell name-cell">Airhart, Howard C</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Howard Cannon Airhart</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell">Margaret C Airhart</div>
+            </div>
+            <div class="codes-row head-row">
+                <div class="data-cell line-num">16</div>
+                <div class="data-cell name-cell">Chase, Myrtle J</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Myrtle Jane Callahan</div>
+                <div class="data-cell center">045</div>
+                <div class="data-cell center">781</div>
+                <div class="data-cell center">869</div>
+                <div class="data-cell center">2</div>
+                <div class="data-cell"></div>
+                <div class="data-cell">Fred O Chase</div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">17</div>
+                <div class="data-cell name-cell">Chase, Fred O</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Fred Chase</div>
+                <div class="data-cell center">045</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell">Myrtle J Chase</div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">18</div>
+                <div class="data-cell name-cell">Dolan, James P</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center">033</div>
+                <div class="data-cell center">310</div>
+                <div class="data-cell center">896</div>
+                <div class="data-cell center">2</div>
+                <div class="data-cell">Freda M Dolan</div>
+                <div class="data-cell">Mary Jane Dolan</div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">19</div>
+                <div class="data-cell name-cell">Dolan, Freda M</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Freda Mae Chase</div>
+                <div class="data-cell center">045</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell">James P Dolan</div>
+                <div class="data-cell">Mary Jane Dolan</div>
+                <div class="data-cell">Myrtle J Chase</div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">20</div>
+                <div class="data-cell name-cell">Dolan, Jean C</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center">033</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell">Freda M Dolan</div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">21</div>
+                <div class="data-cell name-cell">Dolan, Mary Jane</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell">Freda M Dolan</div>
+            </div>
+            <div class="codes-row head-row">
+                <div class="data-cell line-num">23</div>
+                <div class="data-cell name-cell">Ludwig, Frank C</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center">071</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">24</div>
+                <div class="data-cell name-cell">Goodin, James D</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center">574</div>
+                <div class="data-cell center">378</div>
+                <div class="data-cell center">2</div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">25</div>
+                <div class="data-cell name-cell">Rucker, Rex</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Rex Rucker</div>
+                <div class="data-cell center">074</div>
+                <div class="data-cell center">910</div>
+                <div class="data-cell center">126</div>
+                <div class="data-cell center">1</div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">26</div>
+                <div class="data-cell name-cell">Schandelmeier, James</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center">086</div>
+                <div class="data-cell center">910</div>
+                <div class="data-cell center">126</div>
+                <div class="data-cell center">1</div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row head-row">
+                <div class="data-cell line-num">27</div>
+                <div class="data-cell name-cell">Kendall, Mary F</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Mary Frances Barnes</div>
+                <div class="data-cell center">047</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell">Delores B Stone</div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">28</div>
+                <div class="data-cell name-cell">Stone, Byron K</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Byron Kenneth Stone</div>
+                <div class="data-cell center">091</div>
+                <div class="data-cell center">595</div>
+                <div class="data-cell center">916</div>
+                <div class="data-cell center">5</div>
+                <div class="data-cell">Delores B Stone</div>
+                <div class="data-cell">Clarice L Stone</div>
+                <div class="data-cell"></div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">29</div>
+                <div class="data-cell name-cell">Stone, Delores B</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell">Dolores Betty Kendall</div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell">Byron K Stone</div>
+                <div class="data-cell">Clarice L Stone</div>
+                <div class="data-cell">Mary F Kendall</div>
+            </div>
+            <div class="codes-row">
+                <div class="data-cell line-num">30</div>
+                <div class="data-cell name-cell">Stone, Clarice L</div>
+                <div class="data-cell">All Groom</div>
+                <div class="data-cell"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell center"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell"></div>
+                <div class="data-cell">Delores B Stone</div>
+            </div>
+        </div>
+
+        <div class="legend" style="border-color: #5a3d16;">
+            <div class="legend-title" style="color: #5a3d16;">PROCESSING CODES (Added After Enumeration)</div>
+            <div class="legend-items">
+                <div class="legend-item"><strong>Code B:</strong> Industry code</div>
+                <div class="legend-item"><strong>Code C:</strong> Occupation code</div>
+                <div class="legend-item"><strong>Code C1:</strong> Occupation detailed</div>
+                <div class="legend-item"><strong>Code C2:</strong> Class of worker code</div>
+            </div>
+        </div>
+
+        <div class="form-footer">
+            <div>Supplemental Data - Processing codes added by Census Bureau</div>
+            <div>Generated from census.db extended fields</div>
+        </div>
+    </div>
+</body>
+</html>

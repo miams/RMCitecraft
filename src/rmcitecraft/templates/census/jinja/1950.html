@@ -1,0 +1,177 @@
+{# 1950 Census Form Template #}
+{% extends "base.html" %}
+
+{% block extra_styles %}
+<style>
+    {# Inline year-specific styles if needed #}
+</style>
+{% endblock %}
+
+{% block content %}
+{% set page = ctx.primary_page %}
+<!-- PAGE 1: CENSUS FORM P1 -->
+<div class="census-form census-1950">
+    <div class="form-title">SEVENTEENTH DECENNIAL CENSUS OF THE UNITED STATES</div>
+    <div class="form-subtitle">CENSUS OF POPULATION: 1950 - POPULATION AND HOUSING SCHEDULE (Form P1)</div>
+
+    <!-- Header Section -->
+    <div class="header-section">
+        <div class="header-item">
+            <label>a. State</label>
+            <div class="value">{{ page.state }}</div>
+        </div>
+        <div class="header-item">
+            <label>b. County</label>
+            <div class="value">{{ page.county }}</div>
+        </div>
+        <div class="header-item">
+            <label>c. City/Township</label>
+            <div class="value">{{ page.township_city }}</div>
+        </div>
+        <div class="header-item">
+            <label>d. E.D. Number</label>
+            <div class="value">{{ page.enumeration_district or page.ed_display }}</div>
+        </div>
+        <div class="header-item">
+            <label>e. Sheet No.</label>
+            <div class="value">{{ page.stamp_number or page.sheet_number or page.page_number }}</div>
+        </div>
+        <div class="header-item">
+            <label>f. Date</label>
+            <div class="value">{{ page.enumeration_date }}</div>
+        </div>
+        <div class="header-item">
+            <label>g. Enumerator</label>
+            <div class="value">{{ page.enumerator_name }}</div>
+        </div>
+        <div class="header-item">
+            <label>h. Checked by</label>
+            <div class="value">{{ page.checked_by }}</div>
+        </div>
+    </div>
+
+    <!-- Column Headers -->
+    <div class="column-headers">
+        <div class="col-header"><div class="col-num">LINE</div></div>
+        <div class="col-header"><div class="col-num">1</div><div class="col-title">STREET</div></div>
+        <div class="col-header"><div class="col-num">2</div><div class="col-title">HOUSE#</div></div>
+        <div class="col-header"><div class="col-num">3</div><div class="col-title">DWELL#</div></div>
+        <div class="col-header"><div class="col-num">4</div><div class="col-title">FARM</div></div>
+        <div class="col-header"><div class="col-num">5</div><div class="col-title">3+AC</div></div>
+        <div class="col-header"><div class="col-num">7</div><div class="col-title">NAME (Last, First)</div></div>
+        <div class="col-header"><div class="col-num">8</div><div class="col-title">RELATION</div></div>
+        <div class="col-header"><div class="col-num">9</div><div class="col-title">RACE</div></div>
+        <div class="col-header"><div class="col-num">10</div><div class="col-title">SEX</div></div>
+        <div class="col-header"><div class="col-num">11</div><div class="col-title">AGE</div></div>
+        <div class="col-header"><div class="col-num">12</div><div class="col-title">MAR</div></div>
+        <div class="col-header"><div class="col-num">13</div><div class="col-title">BIRTHPLACE</div></div>
+        <div class="col-header"><div class="col-num">15</div><div class="col-title">STAT</div></div>
+        <div class="col-header"><div class="col-num">16</div><div class="col-title">WRK</div></div>
+        <div class="col-header"><div class="col-num">17</div><div class="col-title">LKG</div></div>
+        <div class="col-header"><div class="col-num">19</div><div class="col-title">HRS</div></div>
+        <div class="col-header"><div class="col-num">20a</div><div class="col-title">OCCUPATION</div></div>
+        <div class="col-header"><div class="col-num">20b</div><div class="col-title">INDUSTRY</div></div>
+        <div class="col-header"><div class="col-num">20c</div><div class="col-title">CL</div></div>
+    </div>
+
+    <!-- Data Rows -->
+    <div class="data-rows">
+        {% for person in page.persons %}
+        {% set row_classes = ['data-row'] %}
+        {% if person.is_sample_person %}{% set _ = row_classes.append('sample-line') %}{% endif %}
+        {% if person.is_head_of_household %}{% set _ = row_classes.append('head-row') %}{% endif %}
+        {% if person.is_target %}{% set _ = row_classes.append('target-row') %}{% endif %}
+        <div class="{{ row_classes | join(' ') }}">
+            <div class="data-cell line-num">{{ person.line_number or '' }}</div>
+            <div class="data-cell">{{ person.get_field('street_name') }}</div>
+            <div class="data-cell center">{{ person.get_field('house_number') }}</div>
+            <div class="data-cell center">{{ person.get_field('dwelling_number') }}</div>
+            <div class="data-cell center">{{ person.get_field('is_dwelling_on_farm') }}</div>
+            <div class="data-cell center">{{ person.get_field('farm_3_plus_acres') }}</div>
+            <div class="data-cell name-cell">{{ person.get_field('full_name') }}</div>
+            <div class="data-cell">{{ person.get_field('relationship_to_head') }}</div>
+            <div class="data-cell center">{{ person.get_field('race') }}</div>
+            <div class="data-cell center">{{ person.get_field('sex') }}</div>
+            <div class="data-cell center">{{ person.get_field('age') }}</div>
+            <div class="data-cell center">{{ person.get_field('marital_status') }}</div>
+            <div class="data-cell">{{ person.get_field('birthplace') }}</div>
+            <div class="data-cell center">{{ person.get_field('employment_status') }}</div>
+            <div class="data-cell center">{{ person.get_field('any_work_last_week') }}</div>
+            <div class="data-cell center">{{ person.get_field('looking_for_work') }}</div>
+            <div class="data-cell center">{{ person.get_field('hours_worked') }}</div>
+            <div class="data-cell">{{ person.get_field('occupation') }}</div>
+            <div class="data-cell">{{ person.get_field('industry') }}</div>
+            <div class="data-cell center">{{ person.get_field('worker_class') }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if ctx.show_sample_columns %}
+    <!-- Sample Line Section (Columns 21-33) -->
+    {% set sample_persons = page.persons | selectattr('is_sample_person') | list %}
+    {% if sample_persons %}
+    <div class="sample-section">
+        <div class="sample-section-title">SAMPLE LINE PERSONS - ADDITIONAL QUESTIONS (Cols 21-33)</div>
+        <div class="sample-headers">
+            <div class="col-header"><div class="col-title">LINE</div></div>
+            <div class="col-header"><div class="col-title">NAME</div></div>
+            <div class="col-header"><div class="col-num">21</div><div class="col-title">SAME HSE</div></div>
+            <div class="col-header"><div class="col-num">22</div><div class="col-title">ON FARM</div></div>
+            <div class="col-header"><div class="col-num">23</div><div class="col-title">SAME CO</div></div>
+            <div class="col-header"><div class="col-num">26</div><div class="col-title">GRADE</div></div>
+            <div class="col-header"><div class="col-num">27</div><div class="col-title">COMPL</div></div>
+            <div class="col-header"><div class="col-num">28</div><div class="col-title">SCHOOL</div></div>
+            <div class="col-header"><div class="col-num">30</div><div class="col-title">WKS WKD</div></div>
+            <div class="col-header"><div class="col-num">31</div><div class="col-title">INCOME</div></div>
+            <div class="col-header"><div class="col-num">33</div><div class="col-title">OTHER INC</div></div>
+            <div class="col-header"><div class="col-title">VETERAN</div></div>
+            <div class="col-header"><div class="col-title">WW1</div></div>
+            <div class="col-header"><div class="col-title">WW2</div></div>
+        </div>
+
+        {% for person in sample_persons %}
+        <div class="sample-row">
+            <div class="data-cell line-num">{{ person.line_number or '' }}</div>
+            <div class="data-cell name-cell">{{ person.get_field('full_name') }}</div>
+            <div class="data-cell center">{{ person.get_field('residence_1949_same_house') }}</div>
+            <div class="data-cell center">{{ person.get_field('residence_1949_on_farm') }}</div>
+            <div class="data-cell center">{{ person.get_field('residence_1949_same_county') }}</div>
+            <div class="data-cell center">{{ person.get_field('highest_grade_attended') }}</div>
+            <div class="data-cell center">{{ person.get_field('completed_grade') }}</div>
+            <div class="data-cell center">{{ person.get_field('school_attendance') }}</div>
+            <div class="data-cell center">{{ person.get_field('weeks_worked_1949') }}</div>
+            <div class="data-cell center">{{ person.get_field('income_wages_1949') }}</div>
+            <div class="data-cell center">{{ person.get_field('income_other_1949') }}</div>
+            <div class="data-cell center">{{ person.get_field('veteran_status') }}</div>
+            <div class="data-cell center">{{ person.get_field('veteran_ww1') }}</div>
+            <div class="data-cell center">{{ person.get_field('veteran_ww2') }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <div class="legend">
+        <div class="legend-title">ABBREVIATIONS</div>
+        <div class="legend-items">
+            <div class="legend-item"><strong>Race:</strong> W=White</div>
+            <div class="legend-item"><strong>Marital:</strong> Mar=Married, Nev=Never, Wd=Widowed, D=Divorced</div>
+            <div class="legend-item"><strong>Status:</strong> Wk=Working, Ot=Other, H=House</div>
+            <div class="legend-item"><strong>Class:</strong> P=Private, G=Gov't, O=Own</div>
+        </div>
+    </div>
+
+    <div class="form-footer">
+        <div>Form P1 - Population and Housing Schedule</div>
+        <div>Generated from census.db{% if ctx.extracted_at %} - {{ ctx.extracted_at.strftime('%Y-%m-%d') }}{% endif %}</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block footer %}
+{% if ctx.familysearch_url %}
+<p class="no-print" style="text-align: center; font-size: 10px; margin-top: 10px;">
+    <a href="{{ ctx.familysearch_url }}" target="_blank">View on FamilySearch</a>
+</p>
+{% endif %}
+{% endblock %}

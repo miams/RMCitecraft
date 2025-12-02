@@ -1,0 +1,465 @@
+/**
+ * Census Form Styles
+ *
+ * Shared CSS for rendering census forms across all years (1790-1950).
+ * Year-specific variations are handled through CSS classes.
+ */
+
+/* =============================================================================
+   Reset & Base
+   ============================================================================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    background: #f5f5dc;
+    padding: 10px;
+}
+
+/* =============================================================================
+   Census Form Container
+   ============================================================================= */
+
+.census-form {
+    background: #fffef0;
+    border: 2px solid #2d5016;
+    max-width: 1200px;
+    margin: 0 auto 20px auto;
+    padding: 8px;
+}
+
+.form-title {
+    text-align: center;
+    font-weight: bold;
+    font-size: 16px;
+    color: #2d5016;
+    border-bottom: 2px solid #2d5016;
+    padding-bottom: 5px;
+    margin-bottom: 8px;
+}
+
+.form-subtitle {
+    text-align: center;
+    font-size: 12px;
+    color: #2d5016;
+    margin-bottom: 10px;
+}
+
+/* =============================================================================
+   Header Section
+   ============================================================================= */
+
+.header-section {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 5px;
+    margin-bottom: 10px;
+    padding: 5px;
+    border: 1px solid #2d5016;
+    background: #f8f8e8;
+}
+
+.header-item {
+    border: 1px solid #2d5016;
+    padding: 4px;
+    font-size: 10px;
+}
+
+.header-item label {
+    display: block;
+    font-weight: bold;
+    color: #2d5016;
+    font-size: 9px;
+    text-transform: uppercase;
+}
+
+.header-item .value {
+    font-size: 12px;
+    color: #000;
+    min-height: 16px;
+}
+
+/* =============================================================================
+   Column Headers
+   ============================================================================= */
+
+.column-headers {
+    display: grid;
+    background: #2d5016;
+    color: white;
+    font-size: 9px;
+    font-weight: bold;
+}
+
+/* 1950 Census Grid - 20 columns - wider for better readability */
+.census-1950 .column-headers,
+.census-1950 .data-row {
+    grid-template-columns:
+        30px    /* Line */
+        80px    /* 1: Street */
+        40px    /* 2: House # */
+        38px    /* 3: Dwelling # */
+        32px    /* 4: Farm */
+        32px    /* 5: 3+ acres */
+        160px   /* 7: Name */
+        65px    /* 8: Relation */
+        32px    /* 9: Race */
+        28px    /* 10: Sex */
+        32px    /* 11: Age */
+        32px    /* 12: Marital */
+        80px    /* 13: Birthplace */
+        28px    /* 15: Status */
+        28px    /* 16: Work */
+        28px    /* 17: Looking */
+        35px    /* 19: Hours */
+        130px   /* 20a: Occupation */
+        110px   /* 20b: Industry */
+        28px;   /* 20c: Class */
+}
+
+.col-header {
+    border: 1px solid #1a3009;
+    padding: 3px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.col-header .col-num {
+    font-size: 10px;
+    border-bottom: 1px solid #4a7025;
+    margin-bottom: 2px;
+}
+
+.col-header .col-title {
+    font-size: 8px;
+    line-height: 1.2;
+}
+
+/* =============================================================================
+   Data Rows
+   ============================================================================= */
+
+.data-rows {
+    border: 1px solid #2d5016;
+}
+
+.data-row {
+    display: grid;
+    border-bottom: 1px solid #aaa;
+    font-size: 10px;
+}
+
+.data-row:nth-child(even) {
+    background: #f8f8f0;
+}
+
+.data-row:nth-child(odd) {
+    background: #fff;
+}
+
+/* Sample lines (1, 6, 11, 16, 21, 26) have shaded background */
+.data-row.sample-line {
+    background: #e8f0e0 !important;
+}
+
+/* Head of household rows */
+.data-row.head-row {
+    border-top: 2px solid #2d5016;
+}
+
+/* Target person highlighting */
+.data-row.target-row {
+    background: #fffacd !important;
+    border-left: 3px solid #ffa500;
+}
+
+.data-cell {
+    border-right: 1px solid #ccc;
+    padding: 3px 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-height: 22px;
+    display: flex;
+    align-items: center;
+}
+
+.data-cell.line-num {
+    background: #e8e8d8;
+    font-weight: bold;
+    justify-content: center;
+    color: #2d5016;
+}
+
+.data-cell.name-cell {
+    font-weight: bold;
+}
+
+.data-cell.center {
+    justify-content: center;
+}
+
+/* =============================================================================
+   Sample Line Section (1950 Census)
+   ============================================================================= */
+
+.sample-section {
+    margin-top: 15px;
+    border: 1px solid #2d5016;
+    padding: 5px;
+    background: #f0f8e8;
+}
+
+.sample-section-title {
+    font-weight: bold;
+    color: #2d5016;
+    font-size: 12px;
+    margin-bottom: 8px;
+    text-align: center;
+    border-bottom: 1px solid #2d5016;
+    padding-bottom: 3px;
+}
+
+.sample-headers {
+    display: grid;
+    grid-template-columns:
+        30px    /* Line */
+        130px   /* Name */
+        50px    /* 21: Same house */
+        50px    /* 22: On farm */
+        50px    /* 23: Same county */
+        50px    /* 26: Grade */
+        45px    /* 27: Completed */
+        50px    /* 28: School */
+        55px    /* 30: Weeks worked */
+        70px    /* 31: Income wages */
+        70px    /* 33: Other income */
+        50px    /* Veteran */
+        50px    /* WW1 */
+        50px;   /* WW2 */
+    background: #2d5016;
+    color: white;
+    font-size: 9px;
+    font-weight: bold;
+}
+
+.sample-row {
+    display: grid;
+    grid-template-columns:
+        30px    /* Line */
+        130px   /* Name */
+        50px    /* 21: Same house */
+        50px    /* 22: On farm */
+        50px    /* 23: Same county */
+        50px    /* 26: Grade */
+        45px    /* 27: Completed */
+        50px    /* 28: School */
+        55px    /* 30: Weeks worked */
+        70px    /* 31: Income wages */
+        70px    /* 33: Other income */
+        50px    /* Veteran */
+        50px    /* WW1 */
+        50px;   /* WW2 */
+    border-bottom: 1px solid #aaa;
+    font-size: 10px;
+    background: #fff;
+}
+
+.sample-row:nth-child(even) {
+    background: #f8f8f0;
+}
+
+/* =============================================================================
+   Second Page - Supplemental Data
+   ============================================================================= */
+
+.second-page {
+    background: #fffff5;
+    border: 2px solid #5a3d16;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 8px;
+}
+
+.second-page .form-title {
+    color: #5a3d16;
+    border-bottom-color: #5a3d16;
+}
+
+.second-page .form-subtitle {
+    color: #5a3d16;
+}
+
+.codes-headers {
+    display: grid;
+    grid-template-columns:
+        25px    /* Line */
+        120px   /* Name */
+        80px    /* Checked by */
+        120px   /* Full Name (alternate) */
+        45px    /* Code B */
+        45px    /* Code C */
+        45px    /* Code C1 */
+        45px    /* Code C2 */
+        100px   /* Spouse */
+        100px   /* Child */
+        100px;  /* Parent */
+    background: #5a3d16;
+    color: white;
+    font-size: 7px;
+    font-weight: bold;
+}
+
+.codes-row {
+    display: grid;
+    grid-template-columns:
+        25px    /* Line */
+        120px   /* Name */
+        80px    /* Checked by */
+        120px   /* Full Name (alternate) */
+        45px    /* Code B */
+        45px    /* Code C */
+        45px    /* Code C1 */
+        45px    /* Code C2 */
+        100px   /* Spouse */
+        100px   /* Child */
+        100px;  /* Parent */
+    border-bottom: 1px solid #aaa;
+    font-size: 8px;
+    background: #fff;
+}
+
+.codes-row:nth-child(even) {
+    background: #f8f5e8;
+}
+
+.codes-row.head-row {
+    border-top: 2px solid #5a3d16;
+}
+
+/* =============================================================================
+   Quality Indicators
+   ============================================================================= */
+
+.quality-verified {
+    /* No special styling - verified fields are normal */
+}
+
+.quality-clear {
+    /* No special styling - clear fields are normal */
+}
+
+.quality-uncertain {
+    color: #856404;
+    background-color: #fff3cd;
+}
+
+.quality-damaged {
+    color: #721c24;
+    background-color: #f8d7da;
+}
+
+.quality-illegible {
+    color: #383d41;
+    background-color: #d6d8db;
+    font-style: italic;
+}
+
+.quality-badge {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-left: 2px;
+    vertical-align: middle;
+}
+
+.quality-badge.uncertain { background: #ffc107; }
+.quality-badge.damaged { background: #dc3545; }
+.quality-badge.illegible { background: #6c757d; }
+
+/* =============================================================================
+   Footer & Legend
+   ============================================================================= */
+
+.form-footer {
+    margin-top: 10px;
+    padding: 5px;
+    border-top: 1px solid #2d5016;
+    font-size: 8px;
+    color: #666;
+    display: flex;
+    justify-content: space-between;
+}
+
+.second-page .form-footer {
+    border-top-color: #5a3d16;
+}
+
+.legend {
+    margin-top: 10px;
+    padding: 8px;
+    background: #f8f8e8;
+    border: 1px solid #2d5016;
+    font-size: 8px;
+}
+
+.legend-title {
+    font-weight: bold;
+    color: #2d5016;
+    margin-bottom: 5px;
+}
+
+.legend-items {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+}
+
+.legend-item {
+    padding: 2px;
+}
+
+.legend-item strong {
+    color: #2d5016;
+}
+
+/* =============================================================================
+   Print Styles
+   ============================================================================= */
+
+.page-break {
+    page-break-before: always;
+}
+
+@media print {
+    body {
+        background: white;
+        padding: 0;
+    }
+    .census-form, .second-page {
+        border: 1px solid #000;
+    }
+    .no-print {
+        display: none;
+    }
+}
+
+/* =============================================================================
+   Responsive Adjustments
+   ============================================================================= */
+
+@media screen and (max-width: 1200px) {
+    .census-form, .second-page {
+        max-width: 100%;
+        overflow-x: auto;
+    }
+}

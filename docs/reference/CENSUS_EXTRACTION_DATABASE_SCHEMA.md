@@ -26,9 +26,13 @@ The Census Extraction Database (`~/.rmcitecraft/census.db`) stores detailed cens
 
 ## Schema Version
 
-Current schema version: **1**
+Current schema version: **2**
 
 The schema is auto-created on first use by `CensusExtractionRepository`.
+
+**Version History:**
+- v1: Initial schema with extraction, page, person, field, quality tables
+- v2: Added `field_history` table for version control of field edits
 
 ## Architecture
 
@@ -58,10 +62,10 @@ The schema is auto-created on first use by `CensusExtractionRepository`.
 │  └──────────────────┘ └──────────────────┘ └──────────────────┘│
 │              │                                                   │
 │              ▼                                                   │
-│  ┌──────────────────┐                                           │
-│  │  field_quality   │                                           │
-│  │(optional QA data)│                                           │
-│  └──────────────────┘                                           │
+│  ┌──────────────────┐       ┌──────────────────┐                │
+│  │  field_quality   │       │  field_history   │                │
+│  │(optional QA data)│       │(version control) │                │
+│  └──────────────────┘       └──────────────────┘                │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -259,6 +263,40 @@ Optional per-field quality assessment for transcription verification.
 **Indexes:**
 - `idx_field_quality_person` on `(person_id)` - Quality by person
 - `idx_field_quality_field` on `(person_field_id)` - Quality by field
+
+---
+
+### `field_history`
+
+Version control for field edits. Tracks the original FamilySearch-extracted value and all subsequent manual edits with timestamps.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `history_id` | INTEGER | PRIMARY KEY | Auto-increment ID |
+| `person_id` | INTEGER | NOT NULL, FK | References `census_person` |
+| `field_name` | TEXT | NOT NULL | Name of the field being tracked |
+| `field_value` | TEXT | | The value at this version |
+| `field_source` | TEXT | NOT NULL | Source: `familysearch`, `manual_edit`, `ai_transcription` |
+| `is_original` | INTEGER | | 1 if this is the original imported value |
+| `created_at` | TEXT | NOT NULL | ISO timestamp when this version was created |
+| `created_by` | TEXT | | User who made the edit (blank for system imports) |
+
+**Indexes:**
+- `idx_field_history_person` on `(person_id)` - Get all history for person
+- `idx_field_history_field` on `(person_id, field_name)` - Get history for specific field
+
+**Field Sources:**
+- `familysearch` - Original value extracted from FamilySearch
+- `manual_edit` - User manually edited the value
+- `ai_transcription` - AI transcription from census image
+
+**Usage Pattern:**
+
+When a field is edited:
+1. If no history exists for the field, create an "original" entry with `is_original=1`
+2. Create a new entry with the new value and `is_original=0`
+
+This allows retrieving the original FamilySearch value at any time, even after multiple edits.
 
 ---
 
@@ -622,6 +660,7 @@ from rmcitecraft.database.census_extraction_db import (
     CensusPerson,
     RMTreeLink,
     FieldQuality,
+    FieldHistory,
     get_census_repository,
     CENSUS_DB_PATH,
 )
@@ -644,6 +683,12 @@ repo.get_persons_on_page(page_id) -> list[CensusPerson]
 repo.get_person_fields(person_id) -> dict[str, Any]
 repo.search_persons(surname, given_name, census_year, state, county) -> list[CensusPerson]
 repo.get_extraction_stats() -> dict[str, Any]
+
+# Field history (version control) methods
+repo.insert_field_history(person_id, field_name, field_value, field_source, is_original, created_by) -> int
+repo.get_field_history(person_id, field_name=None) -> list[FieldHistory]
+repo.get_original_field_value(person_id, field_name) -> str | None
+repo.record_field_change(person_id, field_name, old_value, new_value, source, created_by) -> None
 ```
 
 ---
@@ -657,5 +702,5 @@ repo.get_extraction_stats() -> dict[str, Any]
 
 ---
 
-**Last Updated:** 2025-11-30
-**Schema Version:** 1
+**Last Updated:** 2025-12-02
+**Schema Version:** 2

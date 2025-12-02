@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ ctx.title or 'Census Form' }}{% endblock %}</title>
+    {% block styles %}
+    {% if embed_css and css_content %}
+    <style>
+{{ css_content }}
+    </style>
+    {% else %}
+    <link rel="stylesheet" href="{% block css_path %}../static/census_forms.css{% endblock %}">
+    {% endif %}
+    {% endblock %}
+    {% block extra_styles %}{% endblock %}
+</head>
+<body>
+    {% block content %}{% endblock %}
+    {% block footer %}{% endblock %}
+</body>
+</html>

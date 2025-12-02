@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from loguru import logger
-from playwright.async_api import Browser, BrowserContext, Page, async_playwright
+from playwright.async_api import BrowserContext, Page, async_playwright
 
 # Chrome profile directory (persistent login)
 CHROME_PROFILE_DIR = os.path.expanduser("~/chrome-debug-profile")
@@ -221,9 +221,8 @@ class FamilySearchAutomation:
         Returns:
             Page instance or None if connection failed
         """
-        if not self.browser:
-            if not await self.connect_to_chrome():
-                return None
+        if not self.browser and not await self.connect_to_chrome():
+            return None
 
         # self.browser is now a BrowserContext directly (from launch_persistent_context)
         context = self.browser
@@ -280,8 +279,8 @@ class FamilySearchAutomation:
                         page.goto(url, wait_until="domcontentloaded"),
                         timeout=10.0
                     )
-                except asyncio.TimeoutError:
-                    logger.warning(f"Navigation timed out after 10 seconds")
+                except TimeoutError:
+                    logger.warning("Navigation timed out after 10 seconds")
                     # Check if we're at least on FamilySearch
                     if "familysearch.org" not in page.url:
                         raise
@@ -320,8 +319,8 @@ class FamilySearchAutomation:
             citation_data["eventDate"] = year_match.group(1) if year_match else ""
 
             # Extract event place and census details from table structure
-            # Use year-specific extraction logic based on census era
-            table_data = await page.evaluate(self._get_extraction_javascript(census_year))
+            # Use Playwright native features for more reliable extraction with CDP
+            table_data = await self._extract_table_data_playwright(page, census_year)
 
             # Log found labels for debugging
             found_labels = table_data.get("foundLabels", [])
@@ -558,6 +557,156 @@ class FamilySearchAutomation:
             }}
         """
 
+    def _get_extraction_flags(self, census_year: int | None) -> tuple[bool, bool, bool, bool]:
+        """
+        Determine which fields to extract based on census year.
+
+        Args:
+            census_year: Census year to determine extraction strategy
+
+        Returns:
+            Tuple of (extract_ed, extract_sheet, extract_page, extract_line)
+        """
+        if census_year is None:
+            # No year provided - extract all possible fields
+            return (True, True, True, True)
+        elif 1790 <= census_year <= 1840:
+            # Era 1: Household only - page numbers only
+            return (False, False, True, False)
+        elif 1850 <= census_year <= 1870:
+            # Era 2: Individual, NO ED - page + line
+            return (False, False, True, True)
+        elif 1880 <= census_year <= 1940:
+            # Era 3: With ED - ED + sheet + line (NO page)
+            return (True, True, False, True)
+        elif census_year == 1950:
+            # Era 4: Modern - page + line + ED
+            return (True, False, True, True)
+        else:
+            # Unknown year - extract all fields
+            return (True, True, True, True)
+
+    async def _extract_table_data_playwright(
+        self, page: Page, census_year: int | None
+    ) -> dict[str, Any]:
+        """
+        Extract census data from tables using Playwright's native features.
+
+        This replaces _get_extraction_javascript() for more reliable extraction
+        when connected via CDP.
+
+        Args:
+            page: Playwright Page object
+            census_year: Census year to determine extraction strategy
+
+        Returns:
+            Dict with eventPlace, enumerationDistrict, sheetNumber, sheetLetter,
+            pageNumber, line, family, dwelling, foundLabels
+        """
+        result: dict[str, Any] = {
+            "eventPlace": "",
+            "enumerationDistrict": "",
+            "sheetNumber": "",
+            "sheetLetter": "",
+            "pageNumber": "",
+            "line": "",
+            "family": "",
+            "dwelling": "",
+            "foundLabels": [],
+        }
+
+        # Get year-specific extraction flags
+        extract_ed, extract_sheet, extract_page, extract_line = self._get_extraction_flags(
+            census_year
+        )
+        is_1940 = census_year == 1940
+
+        try:
+            tables = page.locator("table")
+            table_count = await tables.count()
+            logger.debug(f"Found {table_count} tables on page")
+
+            for t in range(table_count):
+                table = tables.nth(t)
+                rows = table.locator("tr")
+                row_count = await rows.count()
+
+                for r in range(row_count):
+                    row = rows.nth(r)
+                    cells = row.locator("td, th")
+                    cell_count = await cells.count()
+
+                    if cell_count >= 2:
+                        try:
+                            label = (await cells.nth(0).inner_text()).strip().lower()
+                            value = (await cells.nth(1).inner_text()).strip()
+
+                            if label and value:
+                                result["foundLabels"].append(label)
+
+                                # Event place extraction
+                                # 1940 census: Use ONLY "Event Place" (not "Event Place (Original)")
+                                if (
+                                    (not is_1940 and label == "event place (original)")
+                                    or (label == "event place" and not result["eventPlace"])
+                                ):
+                                    result["eventPlace"] = value
+
+                                # Enumeration District (1880-1950)
+                                elif extract_ed and (
+                                    "enumeration" in label or label in ["ed", "e.d."]
+                                ):
+                                    result["enumerationDistrict"] = value
+
+                                # Sheet number (1880-1940)
+                                elif (
+                                    extract_sheet
+                                    and "sheet" in label
+                                    and "letter" not in label
+                                ):
+                                    result["sheetNumber"] = value
+
+                                # Sheet letter (1880-1940)
+                                elif extract_sheet and label == "sheet letter":
+                                    result["sheetLetter"] = value
+
+                                # Page number (1790-1870, 1950)
+                                elif extract_page and label in [
+                                    "page number",
+                                    "page",
+                                    "page no.",
+                                ]:
+                                    result["pageNumber"] = value
+
+                                # Line number (1850-1950)
+                                elif extract_line and label in [
+                                    "line number",
+                                    "line",
+                                    "line no.",
+                                ]:
+                                    result["line"] = value
+
+                                # Family number (optional, all years)
+                                elif "family" in label:
+                                    result["family"] = value
+
+                                # Dwelling number (optional, all years)
+                                elif "dwelling" in label:
+                                    result["dwelling"] = value
+
+                        except Exception as e:
+                            logger.debug(f"Error extracting cell data: {e}")
+                            continue
+
+        except Exception as e:
+            logger.warning(f"Error during Playwright table extraction: {e}")
+
+        logger.debug(
+            f"Playwright extraction found {len(result['foundLabels'])} labels: "
+            f"{result['foundLabels'][:10]}"
+        )
+        return result
+
     def _transform_citation_data(self, raw_data: dict, census_year: int | None = None) -> dict:
         """
         Transform FamilySearch extraction format to expected citation format.
@@ -627,12 +776,15 @@ class FamilySearchAutomation:
                 # First part is typically the locality (city, township, ward, etc.)
                 # Skip if it's just the county name repeated (some records don't have locality)
                 first_part = parts[0]
-                # Also skip if first part is "ED XX" pattern (malformed data)
-                if first_part and not re.match(r'^ED\s+\d+', first_part, re.IGNORECASE):
-                    # Check if first part is different from county (avoid duplicate)
-                    if len(parts) >= 2 and first_part.lower() != transformed['county'].lower():
-                        transformed['town_ward'] = first_part
-                        logger.debug(f"Extracted locality '{first_part}' from Event Place: {event_place}")
+                # Skip if first part is "ED XX" pattern (malformed data) or same as county
+                if (
+                    first_part
+                    and not re.match(r'^ED\s+\d+', first_part, re.IGNORECASE)
+                    and len(parts) >= 2
+                    and first_part.lower() != transformed['county'].lower()
+                ):
+                    transformed['town_ward'] = first_part
+                    logger.debug(f"Extracted locality '{first_part}' from Event Place: {event_place}")
 
         # 1920 Census Special Case: Also extract ED from Event Place (Original) if not already set
         # Format: "Township, ED XX, County, State, United States"

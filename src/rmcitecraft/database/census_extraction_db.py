@@ -162,6 +162,20 @@ class FieldQuality:
     verified_at: datetime | None = None
 
 
+@dataclass
+class FieldHistory:
+    """Version control entry for field edits."""
+
+    history_id: int | None = None
+    person_id: int | None = None
+    field_name: str = ""
+    field_value: str = ""
+    field_source: str = ""  # 'familysearch', 'manual_edit', 'ai_transcription'
+    is_original: bool = False  # True if this is the original imported value
+    created_at: datetime = field(default_factory=datetime.now)
+    created_by: str = ""  # User who made the edit (blank for system imports)
+
+
 # =============================================================================
 # Database Schema
 # =============================================================================
@@ -304,13 +318,28 @@ CREATE TABLE IF NOT EXISTS field_quality (
 CREATE INDEX IF NOT EXISTS idx_field_quality_person ON field_quality(person_id);
 CREATE INDEX IF NOT EXISTS idx_field_quality_field ON field_quality(person_field_id);
 
+-- Field edit history for version control
+CREATE TABLE IF NOT EXISTS field_history (
+    history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    person_id INTEGER NOT NULL REFERENCES census_person(person_id),
+    field_name TEXT NOT NULL,
+    field_value TEXT DEFAULT '',
+    field_source TEXT NOT NULL DEFAULT 'manual_edit',
+    is_original INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_field_history_person ON field_history(person_id);
+CREATE INDEX IF NOT EXISTS idx_field_history_field ON field_history(person_id, field_name);
+
 -- Schema version tracking
 CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER PRIMARY KEY,
     applied_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-INSERT OR IGNORE INTO schema_version (version) VALUES (1);
+INSERT OR IGNORE INTO schema_version (version) VALUES (2);
 """
 
 
@@ -607,7 +636,7 @@ class CensusExtractionRepository:
                 )
 
     def get_person_fields(self, person_id: int) -> dict[str, Any]:
-        """Get all extended fields for a person."""
+        """Get all extended fields for a person as a dict."""
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT field_name, field_value, field_type FROM census_person_field WHERE person_id = ?",
@@ -623,6 +652,39 @@ class CensusExtractionRepository:
                     value = value == "1"
                 fields[row["field_name"]] = value
             return fields
+
+    def get_person_field_objects(self, person_id: int) -> list[CensusPersonField]:
+        """Get all extended fields for a person as CensusPersonField objects."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT field_id, person_id, field_name, field_value, field_type, familysearch_label
+                   FROM census_person_field WHERE person_id = ?""",
+                (person_id,),
+            ).fetchall()
+
+            return [
+                CensusPersonField(
+                    field_id=row["field_id"],
+                    person_id=row["person_id"],
+                    field_name=row["field_name"],
+                    field_value=row["field_value"],
+                    field_type=row["field_type"],
+                    familysearch_label=row["familysearch_label"],
+                )
+                for row in rows
+            ]
+
+    def move_person_field(self, field_id: int, new_person_id: int) -> None:
+        """Move a field to a different person (update person_id).
+
+        Used for fixing sample line offset where FamilySearch associates
+        sample line data with line+2 instead of the actual sample line person.
+        """
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE census_person_field SET person_id = ? WHERE field_id = ?",
+                (new_person_id, field_id),
+            )
 
     # -------------------------------------------------------------------------
     # Relationships
@@ -764,6 +826,150 @@ class CensusExtractionRepository:
                 )
                 for row in rows
             ]
+
+    # -------------------------------------------------------------------------
+    # Field History (Version Control)
+    # -------------------------------------------------------------------------
+
+    def insert_field_history(
+        self,
+        person_id: int,
+        field_name: str,
+        field_value: str,
+        field_source: str = "manual_edit",
+        is_original: bool = False,
+        created_by: str = "",
+    ) -> int:
+        """Insert a field history entry for version control.
+
+        Args:
+            person_id: The census person ID
+            field_name: Name of the field being tracked
+            field_value: The value at this version
+            field_source: Source of the value ('familysearch', 'manual_edit', 'ai_transcription')
+            is_original: True if this is the original imported value
+            created_by: User who made the edit (blank for system imports)
+
+        Returns:
+            The history_id of the inserted record
+        """
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO field_history
+                (person_id, field_name, field_value, field_source, is_original, created_by)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (person_id, field_name, field_value, field_source, 1 if is_original else 0, created_by),
+            )
+            return cursor.lastrowid
+
+    def get_field_history(self, person_id: int, field_name: str | None = None) -> list[FieldHistory]:
+        """Get field history for a person, optionally filtered by field name.
+
+        Args:
+            person_id: The census person ID
+            field_name: Optional field name to filter by
+
+        Returns:
+            List of FieldHistory records ordered by created_at descending (newest first)
+        """
+        with self._connect() as conn:
+            if field_name:
+                rows = conn.execute(
+                    """SELECT * FROM field_history
+                       WHERE person_id = ? AND field_name = ?
+                       ORDER BY created_at DESC""",
+                    (person_id, field_name),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """SELECT * FROM field_history
+                       WHERE person_id = ?
+                       ORDER BY field_name, created_at DESC""",
+                    (person_id,),
+                ).fetchall()
+
+            return [
+                FieldHistory(
+                    history_id=row["history_id"],
+                    person_id=row["person_id"],
+                    field_name=row["field_name"],
+                    field_value=row["field_value"],
+                    field_source=row["field_source"],
+                    is_original=bool(row["is_original"]),
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    created_by=row["created_by"],
+                )
+                for row in rows
+            ]
+
+    def get_original_field_value(self, person_id: int, field_name: str) -> str | None:
+        """Get the original imported value for a field.
+
+        Args:
+            person_id: The census person ID
+            field_name: Name of the field
+
+        Returns:
+            The original value, or None if no history exists
+        """
+        with self._connect() as conn:
+            row = conn.execute(
+                """SELECT field_value FROM field_history
+                   WHERE person_id = ? AND field_name = ? AND is_original = 1
+                   LIMIT 1""",
+                (person_id, field_name),
+            ).fetchone()
+            return row["field_value"] if row else None
+
+    def record_field_change(
+        self,
+        person_id: int,
+        field_name: str,
+        old_value: str,
+        new_value: str,
+        source: str = "manual_edit",
+        created_by: str = "",
+    ) -> None:
+        """Record a field value change, creating original entry if needed.
+
+        This is the main method to use when editing fields. It will:
+        1. Check if there's an existing history for this field
+        2. If not, create an 'original' entry with the old value
+        3. Create a new entry with the new value
+
+        Args:
+            person_id: The census person ID
+            field_name: Name of the field being changed
+            old_value: Previous value before the edit
+            new_value: New value after the edit
+            source: Source of the change ('manual_edit', 'ai_transcription')
+            created_by: User who made the edit
+        """
+        with self._connect() as conn:
+            # Check if we have any history for this field
+            existing = conn.execute(
+                "SELECT COUNT(*) FROM field_history WHERE person_id = ? AND field_name = ?",
+                (person_id, field_name),
+            ).fetchone()[0]
+
+            if existing == 0 and old_value:
+                # No history exists - create the original entry first
+                conn.execute(
+                    """INSERT INTO field_history
+                       (person_id, field_name, field_value, field_source, is_original, created_by)
+                       VALUES (?, ?, ?, 'familysearch', 1, '')""",
+                    (person_id, field_name, old_value),
+                )
+
+            # Now insert the new value
+            conn.execute(
+                """INSERT INTO field_history
+                   (person_id, field_name, field_value, field_source, is_original, created_by)
+                   VALUES (?, ?, ?, ?, 0, ?)""",
+                (person_id, field_name, new_value, source, created_by),
+            )
 
     # -------------------------------------------------------------------------
     # Query Utilities
