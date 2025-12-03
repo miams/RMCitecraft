@@ -1147,15 +1147,16 @@ class CensusTranscriptionTab:
                 household_count = len(result.related_persons) if result.related_persons else 0
                 total = 1 + household_count
 
+                logger.info(f"Import successful: {total} persons, closing dialog")
+
+                # Close dialog on success - use submit() which is more reliable for async contexts
+                # submit() triggers the dialog's on_close and ensures proper cleanup
+                self._import_dialog.submit(f"Imported {total} persons")
+
                 ui.notify(
                     f"Successfully imported {total} persons: {name}",
                     type="positive",
                 )
-
-                # Close dialog on success
-                self._import_dialog.close()
-
-                # Show info notification after dialog closes
                 ui.notify("Data saved to census.db - view in Census Extraction Viewer tab", type="info")
 
             else:
