@@ -843,7 +843,9 @@ class FamilySearchCensusExtractor:
         1. Person ARK page (1:1:xxxx) - Summary with "View Original Document" button
         2. Detail page (3:1:xxxx?view=index) - Full census data with image viewer
 
-        This method navigates to the detail page and extracts all available data.
+        CRITICAL: The person ARK page has LINE NUMBER in table data, but the detail view
+        does NOT include Line Number in data-dense elements. We MUST extract table data
+        from the person page FIRST, then navigate to detail view for additional fields.
 
         Args:
             page: Playwright page object
@@ -853,14 +855,22 @@ class FamilySearchCensusExtractor:
         data: dict[str, Any] = {}
         data["_current_url"] = page.url
 
-        # Step 1: Navigate to detail view if we're on a person ARK page
-        if "view=index" not in page.url:
-            logger.info("On person ARK page, navigating to detail view...")
+        # Step 1: Extract from person ARK page FIRST (has Line Number, Name, etc.)
+        # This data is NOT available on the detail view!
+        on_person_page = "view=index" not in page.url and "/1:1:" in page.url
+        if on_person_page:
+            logger.info("On person ARK page, extracting table data FIRST (has Line Number)...")
+            await self._extract_person_page_table(page, data)
+            logger.debug(f"Person page extraction got: line_number={data.get('line_number')}, name={data.get('name')}")
+
+        # Step 2: Navigate to detail view if we're on a person ARK page
+        if on_person_page:
+            logger.info("Now navigating to detail view for additional fields...")
             navigated = await self._navigate_to_detail_view(page)
             if navigated:
                 logger.info("Successfully navigated to detail view")
             else:
-                logger.warning("Could not navigate to detail view, extracting from person page")
+                logger.warning("Could not navigate to detail view, using person page data only")
 
         # Step 1.5: Check if detail panel is already open, if not click to open it
         # The detail panel contains div[data-dense] elements with "Label: Value" data
@@ -1498,6 +1508,51 @@ class FamilySearchCensusExtractor:
 
         except Exception as e:
             logger.debug(f"Error closing InfoSheet panel: {e}")
+
+    async def _extract_person_page_table(self, page: Page, data: dict[str, Any]) -> None:
+        """Extract data from person ARK page table (th/td pairs).
+
+        CRITICAL: This extracts Line Number and Name which are NOT available
+        on the detail view. Must be called BEFORE navigating to detail view.
+
+        The person ARK page has a table with fields like:
+        - Name: R Lynn Ijams
+        - Line Number: 12
+        - Age: 49
+        - Relationship to Head of Household: Head
+        - etc.
+        """
+        try:
+            table_rows = page.locator("table tr")
+            row_count = await table_rows.count()
+            logger.debug(f"Person page: Found {row_count} table rows")
+
+            for i in range(row_count):
+                row = table_rows.nth(i)
+                th = row.locator("th").first
+                td = row.locator("td").first
+
+                if await th.count() > 0 and await td.count() > 0:
+                    try:
+                        label = (await th.inner_text()).strip()
+                        # Try to get value from strong tag first, then plain td
+                        strong = td.locator("strong")
+                        if await strong.count() > 0:
+                            value = (await strong.first.inner_text()).strip()
+                        else:
+                            value = (await td.inner_text()).strip()
+
+                        if label and len(label) < 50 and value:
+                            key = label.lower().replace(" ", "_")
+                            # Validate value before storing
+                            if key not in data and self._is_valid_extraction_value(key, value):
+                                data[key] = value
+                                data[f"_label_{key}"] = label
+                                logger.debug(f"Person page table: {label} = {value[:50] if len(value) > 50 else value}")
+                    except Exception as e:
+                        logger.debug(f"Error extracting person page row {i}: {e}")
+        except Exception as e:
+            logger.warning(f"Person page table extraction failed: {e}")
 
     async def _navigate_to_detail_view(self, page: Page) -> bool:
         """Navigate to the detail view page by clicking 'View Original Document' button.
