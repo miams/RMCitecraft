@@ -1149,15 +1149,15 @@ class CensusTranscriptionTab:
 
                 logger.info(f"Import successful: {total} persons, closing dialog")
 
-                # Close dialog on success - use submit() which is more reliable for async contexts
-                # submit() triggers the dialog's on_close and ensures proper cleanup
-                self._import_dialog.submit(f"Imported {total} persons")
-
                 ui.notify(
                     f"Successfully imported {total} persons: {name}",
                     type="positive",
                 )
                 ui.notify("Data saved to census.db - view in Census Extraction Viewer tab", type="info")
+
+                # Close dialog using timer to ensure it runs in proper UI context
+                # Direct close()/submit() don't work reliably from async callbacks
+                ui.timer(0.1, lambda: self._import_dialog.close(), once=True)
 
             else:
                 self._import_status_label.set_text(f"Error: {result.error_message}")
