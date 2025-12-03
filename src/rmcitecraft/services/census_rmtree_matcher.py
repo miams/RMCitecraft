@@ -655,36 +655,39 @@ class CensusRMTreeMatcher:
 
         logger.info(f"Searching for citations containing ARK: {ark_id}")
 
-        # Search for citations containing this ARK in their footnote
-        # Check both CitationTable.Footnote and SourceTable.Fields (for free-form)
-        cursor = self.conn.cursor()
+        # Connect to RootsMagic database
+        conn = connect_rmtree(self.rmtree_path, self.icu_extension_path)
+        try:
+            cursor = conn.cursor()
 
-        # Try CitationTable.Footnote first
-        cursor.execute("""
-            SELECT DISTINCT c.CitationID
-            FROM CitationTable c
-            WHERE c.Footnote LIKE ?
-            LIMIT 1
-        """, (f"%{ark_id}%",))
-
-        row = cursor.fetchone()
-        if not row:
-            # Try SourceTable.Fields (free-form citations)
+            # Try CitationTable.Footnote first
             cursor.execute("""
                 SELECT DISTINCT c.CitationID
                 FROM CitationTable c
-                JOIN SourceTable s ON c.SourceID = s.SourceID
-                WHERE s.TemplateID = 0 AND CAST(s.Fields AS TEXT) LIKE ?
+                WHERE c.Footnote LIKE ?
                 LIMIT 1
             """, (f"%{ark_id}%",))
+
             row = cursor.fetchone()
+            if not row:
+                # Try SourceTable.Fields (free-form citations)
+                cursor.execute("""
+                    SELECT DISTINCT c.CitationID
+                    FROM CitationTable c
+                    JOIN SourceTable s ON c.SourceID = s.SourceID
+                    WHERE s.TemplateID = 0 AND CAST(s.Fields AS TEXT) LIKE ?
+                    LIMIT 1
+                """, (f"%{ark_id}%",))
+                row = cursor.fetchone()
 
-        if not row:
-            logger.info(f"No citation found containing ARK {ark_id}")
-            return None
+            if not row:
+                logger.info(f"No citation found containing ARK {ark_id}")
+                return None
 
-        citation_id = row[0]
-        logger.info(f"Found citation {citation_id} containing ARK {ark_id}")
+            citation_id = row[0]
+            logger.info(f"Found citation {citation_id} containing ARK {ark_id}")
+        finally:
+            conn.close()
 
         # Use existing method to do the matching
         return self.match_citation_to_census(
