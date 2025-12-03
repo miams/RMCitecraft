@@ -779,8 +779,17 @@ class CensusTranscriptionTab:
                 ('occupation', 'Occupation', '120px'),
             ]
 
-        # Sample lines for 1950 census
-        sample_lines = {6, 11, 16, 21, 26} if census_year == 1950 else set()
+        # Sample line fields for 1950 census (columns 21-33)
+        # NOTE: Sample lines vary by form version (5 versions of Form P1), so we check
+        # for presence of sample field data, not line number
+        sample_fields_1950 = {
+            "residence_1949_same_house", "residence_1949_on_farm",
+            "residence_1949_same_county", "residence_1949_different_location",
+            "highest_grade_attended", "completed_grade", "school_attendance",
+            "weeks_looking_for_work", "weeks_worked_1949", "income_wages_1949",
+            "income_self_employment_1949", "income_other_1949",
+            "veteran_status", "veteran_ww1", "veteran_ww2",
+        } if census_year == 1950 else set()
 
         # Build HTML
         html_parts = [f'''<!DOCTYPE html>
@@ -914,9 +923,11 @@ class CensusTranscriptionTab:
             if is_target:
                 classes.append('target-row')
 
-            # Check if sample row
-            line_num = record.get('line_number')
-            if line_num in sample_lines:
+            # Check if sample row (by presence of sample field data, not line number)
+            has_sample_fields = any(
+                record.get(field) for field in sample_fields_1950
+            )
+            if has_sample_fields:
                 classes.append('sample-row')
 
             # Check for household boundary
@@ -1133,22 +1144,27 @@ class CensusTranscriptionTab:
 
             if result.success:
                 name = result.extracted_data.get("primary_name", "Unknown")
+                household_count = len(result.related_persons) if result.related_persons else 0
+                total = 1 + household_count
+
                 ui.notify(
-                    f"Successfully imported: {name}",
+                    f"Successfully imported {total} persons: {name}",
                     type="positive",
                 )
-                self._import_status_label.set_text(f"Imported: {name}")
 
-                # Show success message
-                ui.notify("Data saved to census.db - view in Census Extractions tab", type="info")
+                # Close dialog on success
+                self._import_dialog.close()
+
+                # Show info notification after dialog closes
+                ui.notify("Data saved to census.db - view in Census Extraction Viewer tab", type="info")
 
             else:
                 self._import_status_label.set_text(f"Error: {result.error_message}")
                 ui.notify(f"Import failed: {result.error_message}", type="negative")
+                self._import_btn.enable()
 
         except Exception as e:
             logger.error(f"FamilySearch import failed: {e}")
             self._import_status_label.set_text(f"Error: {e}")
             ui.notify(f"Import failed: {e}", type="negative")
-        finally:
             self._import_btn.enable()
