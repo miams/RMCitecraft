@@ -526,65 +526,6 @@ class CensusExtractionRepository:
             )
             return cursor.lastrowid
 
-    def get_person_by_page_and_line(self, page_id: int, line_number: int) -> CensusPerson | None:
-        """Get a census person by page ID and line number.
-
-        Used to detect duplicates when the same person is indexed under
-        multiple FamilySearch ARKs.
-
-        Args:
-            page_id: Census page ID
-            line_number: Line number on the page
-
-        Returns:
-            CensusPerson if found, None otherwise
-        """
-        with self._connect() as conn:
-            row = conn.execute(
-                """
-                SELECT person_id, page_id, line_number, dwelling_number, family_number,
-                       household_id, full_name, given_name, surname, name_suffix,
-                       relationship_to_head, sex, race, age, age_months,
-                       marital_status, birthplace, birthplace_father, birthplace_mother,
-                       occupation, industry, worker_class,
-                       familysearch_ark, familysearch_person_id, is_target_person
-                FROM census_person
-                WHERE page_id = ? AND line_number = ?
-                LIMIT 1
-                """,
-                (page_id, line_number),
-            ).fetchone()
-
-            if row:
-                return CensusPerson(
-                    person_id=row[0],
-                    page_id=row[1],
-                    line_number=row[2],
-                    dwelling_number=row[3],
-                    family_number=row[4],
-                    household_id=row[5],
-                    full_name=row[6],
-                    given_name=row[7],
-                    surname=row[8],
-                    name_suffix=row[9],
-                    relationship_to_head=row[10],
-                    sex=row[11],
-                    race=row[12],
-                    age=row[13],
-                    age_months=row[14],
-                    marital_status=row[15],
-                    birthplace=row[16],
-                    birthplace_father=row[17],
-                    birthplace_mother=row[18],
-                    occupation=row[19],
-                    industry=row[20],
-                    worker_class=row[21],
-                    familysearch_ark=row[22],
-                    familysearch_person_id=row[23],
-                    is_target_person=bool(row[24]),
-                )
-            return None
-
     def get_person_by_ark(self, ark: str) -> CensusPerson | None:
         """Find person by FamilySearch ARK URL."""
         with self._connect() as conn:

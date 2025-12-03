@@ -548,23 +548,9 @@ class FamilySearchCensusExtractor:
 
             result.page_id = page_id
 
-            # Check for duplicate by page + line number (same person with different ARK)
+            # Insert person
             person_data.page_id = page_id
             person_data.is_target_person = True
-
-            if person_data.line_number:
-                existing_person = self.repository.get_person_by_page_and_line(
-                    page_id, person_data.line_number
-                )
-                if existing_person:
-                    logger.info(
-                        f"Skipping duplicate: {person_data.full_name} already exists on "
-                        f"page {page_id} line {person_data.line_number} (different ARK)"
-                    )
-                    result.person_id = existing_person.person_id
-                    result.success = True
-                    return result
-
             person_id = self.repository.insert_person(person_data)
             result.person_id = person_id
 
