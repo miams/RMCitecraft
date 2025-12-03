@@ -1,468 +1,509 @@
-# Census Transcriber Refactoring Plan
+# Census Transcription Batch Processing Enhancement Plan
 
 ## Overview
 
-Refactor `CensusTranscriber` to implement all 5 architectural recommendations from the evaluation, with comprehensive test coverage.
+Transform the census transcription system from single-item UI-driven extraction to robust batch processing with:
+1. **Primary extraction method**: Person page table ARKs (family members with relationships)
+2. **Secondary extraction method**: SLS API (fallback for complete page coverage)
+3. **Duplicate prevention**: Track processed census images to avoid re-processing
+4. **Edge detection**: Notify operator when families span page boundaries
+5. **Batch UI**: Multi-select queue with progress tracking (similar to Find a Grave)
 
-## Recommendations to Implement
+---
 
-1. **High**: Expand 1950 schema to match 1940's detail level
-2. **High**: Split 1910-1930 into individual year schemas
-3. **Medium**: Externalize schemas to YAML files
-4. **Medium**: Add missing year-specific instructions
-5. **Lower**: Refactor to separate concerns
+## Phase 1: Extract Family Member ARKs from Person Page Table
 
-## Implementation Plan
+### Current State
+The person page table on FamilySearch already extracts:
+- Core fields: Name, Line Number, Age, Relationship to Head, etc.
+- Household member links via DOM: `a[href*="/ark:/61903/1:1:"]`
 
-### Phase 1: Create YAML Schema Infrastructure
-
-**Files to Create:**
+### Enhancement Required
+The person page table on FamilySearch displays family relationships with names AND clickable links. For example, when viewing a person's record, you see:
 ```
-src/rmcitecraft/schemas/
-├── __init__.py
-└── census/
-    ├── __init__.py
-    ├── 1790.yaml
-    ├── 1800.yaml
-    ├── 1810.yaml
-    ├── 1820.yaml
-    ├── 1830.yaml
-    ├── 1840.yaml
-    ├── 1850.yaml
-    ├── 1860.yaml
-    ├── 1870.yaml
-    ├── 1880.yaml
-    ├── 1900.yaml
-    ├── 1910.yaml
-    ├── 1920.yaml
-    ├── 1930.yaml
-    ├── 1940.yaml
-    └── 1950.yaml
+Household Members (in this household)
+Father: William C James  [link to ARK]
+Mother: Mary E James     [link to ARK]
+Wife:   Ella M James     [link to ARK]
 ```
 
-**YAML Schema Format:**
-```yaml
-# Example: 1940.yaml
-year: 1940
-era: "individual_with_ed_sheet"
-form_structure:
-  lines_per_side: 40
-  sides: ["A", "B"]
-  supplemental_lines: [14, 29]
+**New Method**: `_extract_family_member_arks_from_table()`
+```python
+async def _extract_family_member_arks_from_table(
+    self, page: Page
+) -> list[dict[str, str]]:
+    """
+    Extract family member ARKs from person page table.
 
-columns:
-  - name: line_number
-    column_number: null
-    data_type: integer
-    description: "Line number (1-40 on each sheet side)"
-    required: true
+    The FamilySearch person page displays "Household Members" section
+    with relationship labels and linked ARKs.
 
-  - name: street_name
-    column_number: 1
-    data_type: string
-    description: "Street name"
-    required: false
-
-  # ... all 32+ columns
-
-instructions: |
-  1940 CENSUS FORM STRUCTURE:
-
-  The 1940 census sheet has 40 lines per side (A/B)...
-  [detailed instructions]
-
-abbreviations:
-  "do": "same as above"
-  "—": "same as above"
-  "O": "Owned"
-  "R": "Rented"
-  # etc.
-
-valid_values:
-  sex: ["M", "F"]
-  marital_status: ["S", "M", "Wd", "D"]
-  race: ["W", "Neg", "In", "Ch", "Jp", "Fil", "Hin", "Kor"]
+    Returns:
+        List of dicts with keys: name, ark, relationship
+        e.g., [{'name': 'Mary E James', 'ark': '1:1:XXXX', 'relationship': 'Wife'}]
+    """
 ```
 
-### Phase 2: Create Schema Data Classes
+### Implementation Notes
+- Parse table rows with relationship labels (Father, Mother, Wife, Son, etc.)
+- Extract both name AND ARK URL from links
+- This gives us NAMED family members (unlike SLS API which returns ARKs only)
+- Use as PRIMARY extraction method when filtering to RootsMagic persons
 
-**File: `src/rmcitecraft/models/census_schema.py`**
+---
+
+## Phase 2: Census Transcription Batch State Schema
+
+### New Tables (in `batch_state.db`)
+
+Migration `003_create_census_transcription_tables.sql`:
+
+```sql
+-- Census Transcription Sessions (different from census_batch_sessions)
+-- census_batch_sessions is for Citation Batch Processing (updating existing citations)
+-- This is for Transcription Processing (extracting data from FamilySearch into census.db)
+CREATE TABLE IF NOT EXISTS census_transcription_sessions (
+    session_id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    started_at TEXT,
+    completed_at TEXT,
+    status TEXT DEFAULT 'queued',  -- queued, running, paused, completed, failed
+    total_items INTEGER DEFAULT 0,
+    completed_count INTEGER DEFAULT 0,
+    error_count INTEGER DEFAULT 0,
+    skipped_count INTEGER DEFAULT 0,
+    census_year INTEGER,  -- Filter: 1790-1950 or NULL for all
+    config_snapshot TEXT  -- JSON
+);
+
+-- Census Transcription Items (one per RootsMagic citation to process)
+CREATE TABLE IF NOT EXISTS census_transcription_items (
+    item_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL REFERENCES census_transcription_sessions(session_id),
+
+    -- RootsMagic source data
+    rmtree_citation_id INTEGER NOT NULL,
+    rmtree_person_id INTEGER,  -- Head of household RIN
+    person_name TEXT,
+    census_year INTEGER NOT NULL,
+    state TEXT,
+    county TEXT,
+
+    -- FamilySearch references
+    familysearch_ark TEXT,  -- Person ARK from citation
+    image_ark TEXT,         -- Image ARK (3:1:XXXX format)
+
+    -- Processing state
+    status TEXT DEFAULT 'queued',
+    -- Status values: queued, extracting, extracted, complete, error, skipped
+    error_message TEXT,
+    retry_count INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT,
+    last_attempt_at TEXT,
+
+    -- Results
+    census_db_person_id INTEGER,  -- ID in census.db after extraction
+    census_db_page_id INTEGER,    -- ID in census.db
+    household_extracted_count INTEGER DEFAULT 0,
+
+    -- Edge detection flags
+    first_line_flag INTEGER DEFAULT 0,  -- Person on line 1
+    last_line_flag INTEGER DEFAULT 0,   -- Person on last line (30/40)
+
+    UNIQUE(session_id, rmtree_citation_id)
+);
+
+-- Processed Census Images (for duplicate prevention)
+CREATE TABLE IF NOT EXISTS processed_census_images (
+    image_ark TEXT PRIMARY KEY,      -- Image ARK (3:1:XXXX format)
+    census_year INTEGER NOT NULL,
+    state TEXT,
+    county TEXT,
+    enumeration_district TEXT,
+    sheet_number TEXT,
+
+    -- Processing info
+    first_processed_at TEXT NOT NULL,
+    last_processed_at TEXT,
+    session_id TEXT,                 -- Session that first processed this
+    total_persons_extracted INTEGER DEFAULT 0,
+
+    -- Page info for duplicate detection
+    census_db_page_id INTEGER        -- Link to census.db census_page
+);
+
+-- Transcription checkpoints
+CREATE TABLE IF NOT EXISTS census_transcription_checkpoints (
+    session_id TEXT PRIMARY KEY REFERENCES census_transcription_sessions(session_id),
+    last_processed_item_id INTEGER,
+    last_processed_citation_id INTEGER,
+    checkpoint_at TEXT NOT NULL
+);
+
+-- Index for duplicate checking
+CREATE INDEX IF NOT EXISTS idx_processed_images_year_state
+ON processed_census_images(census_year, state, county);
+```
+
+---
+
+## Phase 3: Duplicate Prevention System
+
+### Image-Level Duplicate Prevention
+
+**Problem**: Multiple RootsMagic persons may share the same census page. Without tracking, we'd re-extract the same image multiple times.
+
+**Solution**: Track processed images by Image ARK (3:1:XXXX format).
 
 ```python
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any
+class CensusTranscriptionRepository:
+    """Repository for census transcription batch state."""
 
-class CensusEra(Enum):
-    HOUSEHOLD_ONLY = "household_only"           # 1790-1840
-    INDIVIDUAL_NO_ED = "individual_no_ed"       # 1850-1870
-    INDIVIDUAL_WITH_ED_SHEET = "individual_with_ed_sheet"  # 1880-1940
-    INDIVIDUAL_WITH_ED_PAGE = "individual_with_ed_page"    # 1950
+    def is_image_already_processed(self, image_ark: str) -> bool:
+        """Check if an image has already been processed."""
 
-@dataclass
-class CensusColumn:
-    name: str
-    data_type: str
-    description: str
-    column_number: int | None = None
-    required: bool = False
-    abbreviations: dict[str, str] | None = None
-    valid_values: list[str] | None = None
-
-@dataclass
-class FormStructure:
-    lines_per_side: int | None = None
-    sides: list[str] | None = None
-    supplemental_lines: list[int] | None = None
-    uses_page: bool = False
-    uses_sheet: bool = False
-
-@dataclass
-class CensusYearSchema:
-    year: int
-    era: CensusEra
-    columns: list[CensusColumn]
-    instructions: str
-    form_structure: FormStructure
-    abbreviations: dict[str, str] = field(default_factory=dict)
-    valid_values: dict[str, list[str]] = field(default_factory=dict)
-```
-
-### Phase 3: Create Separated Service Classes
-
-**Files to Create:**
-```
-src/rmcitecraft/services/census/
-├── __init__.py
-├── schema_registry.py      # Loads/caches YAML schemas
-├── prompt_builder.py       # Builds LLM prompts from schemas
-├── response_parser.py      # Parses JSON/markdown responses
-├── transcription_service.py # Orchestrates transcription
-└── data_validator.py       # Validates extracted data
-```
-
-#### 3.1 CensusSchemaRegistry
-
-```python
-class CensusSchemaRegistry:
-    """Loads and caches census schemas from YAML files."""
-
-    _schemas: dict[int, CensusYearSchema] = {}
-
-    @classmethod
-    def get_schema(cls, year: int) -> CensusYearSchema:
-        """Get schema for a census year, loading from YAML if needed."""
-
-    @classmethod
-    def get_era(cls, year: int) -> CensusEra:
-        """Get the census era for a year."""
-
-    @classmethod
-    def list_years(cls) -> list[int]:
-        """List all available census years."""
-```
-
-#### 3.2 CensusPromptBuilder
-
-```python
-class CensusPromptBuilder:
-    """Builds LLM prompts from census schemas."""
-
-    def build_transcription_prompt(
+    def mark_image_processed(
         self,
-        schema: CensusYearSchema,
-        target_names: list[str] | None = None,
-        target_line: int | None = None,
-        sheet: str | None = None,
-        enumeration_district: str | None = None,
-    ) -> str:
-        """Build complete transcription prompt."""
+        image_ark: str,
+        census_year: int,
+        state: str,
+        county: str,
+        ed: str,
+        sheet: str,
+        census_db_page_id: int,
+        person_count: int,
+        session_id: str
+    ) -> None:
+        """Mark an image as processed to prevent duplicates."""
 
-    def _build_schema_section(self, schema: CensusYearSchema) -> str:
-        """Build the JSON schema section."""
-
-    def _build_targeting_section(self, ...) -> str:
-        """Build targeting hints section."""
-
-    def _build_rules_section(self, schema: CensusYearSchema) -> str:
-        """Build transcription rules from schema."""
+    def get_processed_image_info(self, image_ark: str) -> dict | None:
+        """Get info about a previously processed image."""
 ```
 
-#### 3.3 CensusResponseParser
+### Person-Level Duplicate Prevention
+
+Use existing `normalize_ark_url()` and `repository.get_person_by_ark()` in census.db.
+
+### Queue Filtering
+
+When building the transcription queue:
+1. Query RootsMagic citations with FamilySearch ARKs
+2. For each citation, check if the Image ARK has been processed
+3. Skip citations for already-processed images (show count in UI)
+4. Include option to "Re-process" for manual override
+
+---
+
+## Phase 4: Edge Detection for Page Boundaries
+
+### Problem
+Census families can span page boundaries:
+- Family starts on line 1 → may have started on previous page
+- Family ends on last line (30 for 1950, 40 for 1940) → may continue on next page
+
+### Detection Logic
 
 ```python
-class CensusResponseParser:
-    """Parses LLM responses into structured data."""
+# Line limits by census year
+LINE_LIMITS = {
+    1950: 30,  # 30 lines per sheet
+    1940: 40,  # 40 lines per sheet
+    1930: 100, # 100 lines per sheet
+    1920: 100,
+    # etc.
+}
 
-    def parse_response(self, response_text: str) -> dict[str, Any]:
-        """Parse JSON from LLM response (handles markdown, etc.)"""
+def detect_edge_conditions(
+    line_number: int,
+    census_year: int,
+    relationship_to_head: str,
+) -> dict[str, bool]:
+    """
+    Detect if a person may span page boundaries.
 
-    def extract_json(self, text: str) -> str:
-        """Extract JSON from text (handles code blocks)."""
+    Returns:
+        {
+            'first_line_warning': True/False,
+            'last_line_warning': True/False,
+            'warning_message': str or None
+        }
+    """
+    max_line = LINE_LIMITS.get(census_year, 40)
+
+    first_line_warning = (line_number == 1)
+    last_line_warning = (line_number >= max_line - 2)  # Within 2 of last line
+
+    message = None
+    if first_line_warning and relationship_to_head not in ('Head', 'head'):
+        message = f"Line 1: {relationship_to_head} may have family on previous page"
+    elif last_line_warning:
+        message = f"Line {line_number}/{max_line}: Family may continue on next page"
+
+    return {
+        'first_line_warning': first_line_warning,
+        'last_line_warning': last_line_warning,
+        'warning_message': message,
+    }
 ```
 
-#### 3.4 CensusDataValidator
+### UI Notifications
+
+- **In-progress indicator**: Yellow warning badge on items with edge flags
+- **Summary report**: List all items needing manual page boundary review
+- **Log output**: Clear message for each edge case detected
+
+---
+
+## Phase 5: Batch Processing Service
+
+### CensusTranscriptionBatchService
 
 ```python
-class CensusDataValidator:
-    """Validates extracted census data against schema."""
-
-    def validate(
-        self,
-        data: dict[str, Any],
-        schema: CensusYearSchema
-    ) -> list[str]:
-        """Validate data against schema, return warnings."""
-
-    def validate_required_fields(self, ...) -> list[str]:
-        """Check all required fields are present."""
-
-    def validate_field_values(self, ...) -> list[str]:
-        """Validate field values against constraints."""
-```
-
-#### 3.5 CensusTranscriptionService (Refactored)
-
-```python
-class CensusTranscriptionService:
-    """Orchestrates census transcription using separated concerns."""
+class CensusTranscriptionBatchService:
+    """Orchestrates census transcription batch processing."""
 
     def __init__(
         self,
-        provider: LLMProvider | None = None,
-        model: str | None = None,
+        extractor: FamilySearchCensusExtractor,
+        state_repo: CensusTranscriptionRepository,
+        rm_db_path: str,
     ):
-        self.provider = provider or create_provider(...)
-        self.model = model
-        self.schema_registry = CensusSchemaRegistry()
-        self.prompt_builder = CensusPromptBuilder()
-        self.response_parser = CensusResponseParser()
-        self.validator = CensusDataValidator()
+        self.extractor = extractor
+        self.state_repo = state_repo
+        self.rm_db_path = rm_db_path
 
-    def transcribe(
+    async def build_transcription_queue(
         self,
-        image_path: str | Path,
+        census_year: int | None = None,
+        limit: int | None = None,
+    ) -> list[dict]:
+        """
+        Build queue of citations to transcribe.
+
+        1. Query RootsMagic for census citations with FamilySearch ARKs
+        2. Filter out citations for already-processed images
+        3. Group by image ARK (multiple citations may share an image)
+        4. Return sorted queue
+        """
+
+    async def process_batch(
+        self,
+        session_id: str,
+        on_progress: Callable[[int, int, str], None] | None = None,
+        on_edge_warning: Callable[[str, dict], None] | None = None,
+    ) -> BatchResult:
+        """
+        Process all items in a session.
+
+        For each item:
+        1. Check if image already processed → skip with link to existing data
+        2. Navigate to person ARK
+        3. Extract family member ARKs from person page table (PRIMARY)
+        4. Filter to RootsMagic persons using fuzzy name matching
+        5. Extract data for matched persons
+        6. Fallback to SLS API for any missed persons (SECONDARY)
+        7. Detect edge conditions and flag for review
+        8. Mark image as processed
+        9. Record metrics and checkpoint
+        """
+
+    async def _extract_with_family_priority(
+        self,
+        ark_url: str,
         census_year: int,
-        target_names: list[str] | None = None,
-        target_line: int | None = None,
-        sheet: str | None = None,
-        enumeration_district: str | None = None,
-    ) -> ExtractionResponse:
-        """Transcribe census image."""
-        schema = self.schema_registry.get_schema(census_year)
-        prompt = self.prompt_builder.build_transcription_prompt(
-            schema, target_names, target_line, sheet, enumeration_district
-        )
-        response = self.provider.complete_with_image(prompt, str(image_path), ...)
-        data = self.response_parser.parse_response(response.text)
-        warnings = self.validator.validate(data, schema)
-        # ...
-```
+        rm_persons: list[RMPersonData],
+    ) -> ExtractionResult:
+        """
+        Extract using family table ARKs as primary method.
 
-### Phase 4: Remove LLMProvider Duplication
-
-**Modify: `src/rmcitecraft/llm/base.py`**
-
-Remove or deprecate `transcribe_census_image()` method, replacing with delegation to `CensusTranscriptionService`.
-
-### Phase 5: Backward Compatibility
-
-**Modify: `src/rmcitecraft/services/census_transcriber.py`**
-
-Keep `CensusTranscriber` as a facade that delegates to the new `CensusTranscriptionService`:
-
-```python
-class CensusTranscriber:
-    """Census transcriber - delegates to CensusTranscriptionService.
-
-    This class is maintained for backward compatibility.
-    New code should use CensusTranscriptionService directly.
-    """
-
-    def __init__(self, ...):
-        self._service = CensusTranscriptionService(...)
-
-    def transcribe_census(self, ...) -> ExtractionResponse:
-        return self._service.transcribe(...)
+        1. Navigate to person ARK page
+        2. Extract family member ARKs from table (names + ARKs + relationships)
+        3. Match against rm_persons using fuzzy name matching
+        4. Extract data for matched family members
+        5. If any rm_persons not found, fallback to SLS API
+        """
 ```
 
 ---
 
-## Test Plan
+## Phase 6: Updated UI for Batch Operations
 
-### Unit Tests
+### New Tab: "Census Transcription"
 
-**File: `tests/unit/test_census_schema_registry.py`**
-- Test loading each year's YAML schema
-- Test schema validation
-- Test era detection
-- Test caching behavior
+Replace current single-import dialog with batch processing tab:
 
-**File: `tests/unit/test_census_prompt_builder.py`**
-- Test prompt generation for each era
-- Test targeting section generation
-- Test schema section formatting
-- Test abbreviation inclusion
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Census Transcription                                               │
+├─────────────────────────────────────────────────────────────────────┤
+│  [Year: 1950 ▼]  [State: All ▼]  [Load Queue]  [Resume Session ▼]  │
+├─────────────────────────────────────────────────────────────────────┤
+│  Queue: 45 citations | Skipped: 12 (already processed) | Errors: 0  │
+├─────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │ □  R Lynn Ijams       1950  Franklin Co., IL    ED 94-123      │ │
+│  │ ⚠  Mary E James       1950  Franklin Co., IL    ED 94-123  [L1]│ │
+│  │ □  John W Iams        1950  Noble Co., OH       ED 67-45       │ │
+│  │ ...                                                             │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                     │
+│  [Select All]  [Deselect All]  [Process Selected (3)]              │
+├─────────────────────────────────────────────────────────────────────┤
+│  Progress: ████████░░░░░░░░ 8/45 (17.8%)                           │
+│  Current: Extracting Mary E James...                                │
+│  Warnings: 2 items need page boundary review                        │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
-**File: `tests/unit/test_census_response_parser.py`**
-- Test JSON extraction from plain text
-- Test JSON extraction from markdown code blocks
-- Test handling of malformed JSON
-- Test handling of empty responses
+### UI Components
 
-**File: `tests/unit/test_census_data_validator.py`**
-- Test required field validation for each era
-- Test value validation (age ranges, valid values)
-- Test warning generation
+1. **Filter Controls**
+   - Census year dropdown (1790-1950)
+   - State filter
+   - Show/hide already processed toggle
 
-**File: `tests/unit/test_census_year_schemas.py`**
-- Test each year's schema has required fields
-- Test schema structure consistency
-- Test era-appropriate fields present/absent
+2. **Queue Table**
+   - Checkbox for multi-select
+   - Person name, year, location, ED
+   - Status icons (queued, processing, complete, error)
+   - Edge warning badges ([L1], [L30])
 
-### Integration Tests
+3. **Action Buttons**
+   - Load Queue: Build queue from RootsMagic
+   - Process Selected: Start batch for selected items
+   - Resume Session: Show incomplete sessions dialog
+   - Clear Queue: Reset current queue
 
-**File: `tests/integration/test_census_transcription_service.py`**
-- Test full transcription flow (mocked LLM)
-- Test different census years
-- Test targeting hints
+4. **Progress Section**
+   - Progress bar with item count
+   - Current item being processed
+   - Edge warnings summary
+   - Error summary with retry option
 
-### Functional Tests
-
-**File: `tests/functional/test_census_schema_loading.py`**
-- Test all 17 YAML files load correctly
-- Test schema validation passes for all years
-- Test no duplicate field names
-
-### E2E Tests (Playwright not needed - these are LLM-based)
-
-**File: `tests/e2e/test_census_transcription_e2e.py`** (marked `@pytest.mark.llm`)
-- Test real transcription with sample census images
-- Test 1940 census image extraction
-- Test 1950 census image extraction
-- Validate extracted data matches known values
-
----
-
-## Detailed YAML Schemas by Year
-
-Based on `docs/analysis/CENSUS-COMPLETE-ANALYSIS-1790-1950.md`, here are the schemas:
-
-### Era 1: Household Only (1790-1840)
-
-**Common structure for 1790-1840:**
-- Head of household name only
-- Statistical tallies by age/sex categories
-- Page number (no sheet, no ED)
-
-### Era 2: Individual, No ED (1850-1870)
-
-**1850:**
-- First year with individual names
-- dwelling_number, family_number
-- name, age, sex, color, occupation
-- value_real_estate, birthplace
-- page_number, line_number
-
-**1860:**
-- Same as 1850 plus:
-- value_personal_estate
-
-**1870:**
-- Same as 1860 plus:
-- relationship field appears
-
-### Era 3: Individual, With ED, Sheet (1880-1940)
-
-**1880:**
-- First year with Enumeration Districts
-- Sheet number (not page)
-- relationship_to_head, marital_status added
-- father_birthplace, mother_birthplace
-
-**1900:**
-- birth_month, birth_year added
-- immigration/naturalization fields
-- mother_children_born/living
-
-**1910:**
-- Similar to 1900
-- Industry field
-
-**1920:**
-- Similar to 1910
-- Year naturalized
-
-**1930:**
-- Similar to 1920
-- Value of home, radio set
-- Veteran status
-
-**1940:**
-- Most detailed pre-1950
-- 32+ columns with specific positions
-- Residence in 1935
-- Employment status
-- Supplemental questions (lines 14, 29)
-
-### Era 4: Individual, With ED, Page (1950)
-
-**1950:**
-- Returns to page numbers (not sheets)
-- Uses "stamp" instead of "sheet" in citations
-- Enumeration District required
-- Industry field
-- Residence in 1949
+5. **Summary Panel** (on completion)
+   - Total extracted
+   - Skipped (duplicates)
+   - Edge warnings requiring review
+   - Errors needing attention
 
 ---
 
 ## Implementation Order
 
-1. Create `src/rmcitecraft/schemas/` directory structure
-2. Create `CensusYearSchema` and related models
-3. Create `CensusSchemaRegistry` with YAML loading
-4. Write YAML schemas for all 17 years (1790-1950)
-5. Create `CensusPromptBuilder`
-6. Create `CensusResponseParser`
-7. Create `CensusDataValidator`
-8. Create `CensusTranscriptionService`
-9. Refactor `CensusTranscriber` as facade
-10. Remove duplication from `LLMProvider.transcribe_census_image()`
-11. Write unit tests
+### Week 1: Foundation
+1. Create migration `003_create_census_transcription_tables.sql`
+2. Implement `CensusTranscriptionRepository` with session/item CRUD
+3. Add `_extract_family_member_arks_from_table()` method
+4. Write unit tests for new repository
+
+### Week 2: Duplicate Prevention & Edge Detection
+5. Implement image-level duplicate tracking
+6. Add edge detection logic with census-year-specific line limits
+7. Update `extract_from_ark()` to return edge flags
+8. Write tests for duplicate prevention and edge detection
+
+### Week 3: Batch Service
+9. Implement `CensusTranscriptionBatchService`
+10. Add primary (table ARKs) + secondary (SLS API) extraction logic
+11. Integrate with existing retry strategy and adaptive timeout
 12. Write integration tests
-13. Write functional tests
-14. Update documentation
+
+### Week 4: UI
+13. Create new Census Transcription tab
+14. Implement queue building and filtering
+15. Add progress tracking and edge warning display
+16. Add session resume functionality
 
 ---
 
-## Files to Modify
+## Files to Create/Modify
 
-- `src/rmcitecraft/services/census_transcriber.py` - Refactor as facade
-- `src/rmcitecraft/llm/base.py` - Remove/deprecate census method
+### New Files
+- `migrations/003_create_census_transcription_tables.sql`
+- `src/rmcitecraft/database/census_transcription_repository.py`
+- `src/rmcitecraft/services/census_transcription_batch.py`
+- `src/rmcitecraft/ui/tabs/census_transcription.py`
+- `tests/unit/test_census_transcription_repository.py`
+- `tests/integration/test_census_transcription_batch.py`
 
-## Files to Create
+### Modified Files
+- `src/rmcitecraft/services/familysearch_census_extractor.py`
+  - Add `_extract_family_member_arks_from_table()`
+  - Add edge detection to `extract_from_ark()`
+- `src/rmcitecraft/ui/tabs/census_extraction_viewer.py`
+  - Convert to batch mode (or create separate tab)
+- `src/rmcitecraft/main.py`
+  - Add new tab to navigation
 
-- `src/rmcitecraft/schemas/__init__.py`
-- `src/rmcitecraft/schemas/census/__init__.py`
-- `src/rmcitecraft/schemas/census/1790.yaml` through `1950.yaml` (17 files)
-- `src/rmcitecraft/models/census_schema.py`
-- `src/rmcitecraft/services/census/__init__.py`
-- `src/rmcitecraft/services/census/schema_registry.py`
-- `src/rmcitecraft/services/census/prompt_builder.py`
-- `src/rmcitecraft/services/census/response_parser.py`
-- `src/rmcitecraft/services/census/data_validator.py`
-- `src/rmcitecraft/services/census/transcription_service.py`
-- `tests/unit/test_census_schema_registry.py`
-- `tests/unit/test_census_prompt_builder.py`
-- `tests/unit/test_census_response_parser.py`
-- `tests/unit/test_census_data_validator.py`
-- `tests/unit/test_census_year_schemas.py`
-- `tests/integration/test_census_transcription_service.py`
-- `tests/functional/test_census_schema_loading.py`
+---
 
-## Estimated File Count
+## Success Criteria
 
-- 17 YAML schema files
-- 8 Python source files
-- 7 test files
-- **Total: 32 new files**
+1. **Family ARK Extraction**: Successfully extract family member ARKs from person page table with relationship labels
+2. **Duplicate Prevention**: No census image is processed twice (tracked by Image ARK)
+3. **Edge Detection**: All line 1 and last-line entries are flagged with clear warnings
+4. **Batch Processing**: Process multiple citations in a single session with checkpoint/resume
+5. **Performance**: Process 10+ citations per minute with proper throttling
+6. **UI**: Clear queue display with progress, warnings, and error handling
+
+---
+
+## Risk Mitigation
+
+1. **FamilySearch Rate Limiting**: Use existing adaptive timeout and retry logic
+2. **Page Structure Changes**: Abstract DOM selectors for easy updates
+3. **Large Queue Sizes**: Implement pagination and lazy loading
+4. **Browser Crashes**: Leverage existing crash recovery from Find a Grave
+5. **Network Failures**: Checkpoint after each successful extraction
+
+---
+
+## Implementation Status
+
+### Completed (2025-12-03)
+
+1. **Migration 004**: `migrations/004_create_census_transcription_tables.sql`
+   - `census_transcription_sessions` table
+   - `census_transcription_items` table
+   - `processed_census_images` table (duplicate prevention)
+   - `census_transcription_checkpoints` table
+
+2. **CensusTranscriptionRepository**: `src/rmcitecraft/database/census_transcription_repository.py`
+   - Session CRUD operations
+   - Item CRUD operations with bulk insert
+   - Duplicate prevention via `is_image_processed()` / `mark_image_processed()`
+   - Checkpoint operations for resume support
+   - Analytics queries (summary, status distribution)
+   - 22 unit tests passing
+
+3. **Family Member ARK Extraction**: `_extract_family_member_arks_from_table()` in `familysearch_census_extractor.py`
+   - Extracts names, ARKs, and relationships from person page table
+   - Scans relationship labels (Father, Mother, Wife, Son, etc.)
+   - Also checks "Household Members" section outside tables
+
+4. **Edge Detection**: `src/rmcitecraft/services/census_edge_detection.py`
+   - `detect_edge_conditions()` for first/last line warnings
+   - Census-year-specific line limits (30 for 1950, 40 for 1940, etc.)
+   - Relationship-aware warnings (non-head on line 1)
+   - 18 unit tests passing
+
+5. **Batch Service**: `src/rmcitecraft/services/census_transcription_batch.py`
+   - `CensusTranscriptionBatchService` orchestration class
+   - `build_transcription_queue()` from RootsMagic citations
+   - `create_session_from_queue()` for session creation
+   - `process_batch()` with progress callbacks and edge warnings
+   - `resume_session()` for crash recovery
+
+### Remaining
+
+6. **Census Transcription UI Tab**: Batch operations interface
+   - Queue display with multi-select
+   - Progress tracking
+   - Edge warning display
+   - Session resume dialog
+
+---
+
+*Last Updated: 2025-12-03*
+*Status: Implementation in Progress*

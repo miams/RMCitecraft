@@ -2824,7 +2824,7 @@ designed for easy navigation by LLMs and developers.
   - Implementation Steps
   - Key UX Principles Applied
 
-### [Census Transcriber Refactoring Plan](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/project/PLAN_census_transcriber_refactor.md)
+### [Census Transcriber Refactoring Plan](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/project/docs/project/docs/project/docs/project/PLAN_census_transcriber_refactor.md)
 
 - Overview
 - Recommendations to Implement
