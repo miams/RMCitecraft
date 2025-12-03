@@ -334,6 +334,17 @@ FAMILYSEARCH_FIELD_MAP = {
     "children born count": "children_born",
     "married more than once": "married_more_than_once",
     "years since marital status change": "years_marital_change",
+
+    # Household form (P3) relationship fields - 1950 census experimental forms
+    # These fields contain person names (e.g., "Marjorie R. Ijams")
+    "spouse": "hf_spouse",
+    "child": "hf_child",
+    "father": "hf_father",
+    "mother": "hf_mother",
+    "parent": "hf_parent",
+    "sibling": "hf_sibling",
+    "sister": "hf_sister",
+    "brother": "hf_brother",
 }
 
 # Fields that go to census_person_field (EAV) instead of core fields
@@ -394,10 +405,21 @@ EXTENDED_FIELDS = {
     "children_born",
     "married_more_than_once",
     "years_marital_change",
+
+    # Household form (P3) relationship fields - 1950 census experimental forms
+    # These store person names, not relationship types
+    "hf_spouse",
+    "hf_child",
+    "hf_father",
+    "hf_mother",
+    "hf_parent",
+    "hf_sibling",
+    "hf_sister",
+    "hf_brother",
 }
 
 # Sample line fields (columns 21-33 from 1950 census)
-# FamilySearch indexes these with a +2 line offset, so we need to correct this
+# These fields only appear for sample line persons
 SAMPLE_LINE_FIELDS = {
     # Residence April 1, 1949 (cols 21-24)
     "residence_1949_same_house",
@@ -420,18 +442,50 @@ SAMPLE_LINE_FIELDS = {
     "veteran_ww2",
 }
 
-# 1950 census sample line offset correction
-# FamilySearch indexes sample line data at line+2, so data at line 3 belongs to line 1
-# Sample lines are: 1, 6, 11, 16, 21, 26 (every 5th starting at 1)
-# Offset lines are: 3, 8, 13, 18, 23, 28
-SAMPLE_LINE_OFFSET_MAP = {
-    3: 1,
-    8: 6,
-    13: 11,
-    18: 16,
-    23: 21,
-    28: 26,
+# NOTE: Sample lines in the 1950 census vary by form version
+# There were 5 versions of Form P1, each with different sample lines
+# (e.g., version A: 1,6,11,16,21,26; version B: 2,7,12,17,22,27; etc.)
+# We determine if a person is a sample person by checking if they have
+# sample line field data (columns 21-33), NOT by hardcoded line numbers.
+
+# Household form (P3) relationship fields
+# These fields indicate a 1950 census household form (P3), used experimentally
+# in parts of Ohio and Michigan. Unlike P1 forms, household forms store
+# family relationships as explicit name fields (e.g., "spouse: Marjorie R. Ijams")
+# rather than in a "Relationship to Head" column.
+HOUSEHOLD_FORM_RELATIONSHIP_FIELDS = {
+    "spouse",
+    "child",
+    "father",
+    "mother",
+    "parent",
+    "sibling",
+    "sister",
+    "brother",
 }
+
+
+def is_household_form(raw_data: dict) -> bool:
+    """Detect if extracted data is from a 1950 census household form (P3).
+
+    Household forms are identified by the presence of explicit relationship
+    fields that contain person names (e.g., "spouse": "Marjorie R. Ijams").
+    Standard P1 forms use "Relationship to Head" column values instead.
+
+    Args:
+        raw_data: Extracted data dictionary from FamilySearch
+
+    Returns:
+        True if this appears to be a household form
+    """
+    for field_name in HOUSEHOLD_FORM_RELATIONSHIP_FIELDS:
+        value = raw_data.get(field_name, "")
+        # Household form fields contain person names (multi-word strings)
+        # Skip if it's a short value like "Yes" or "No"
+        if value and len(value) > 5 and " " in value:
+            logger.debug(f"Detected household form via {field_name}: {value}")
+            return True
+    return False
 
 
 class FamilySearchCensusExtractor:
@@ -514,7 +568,8 @@ class FamilySearchCensusExtractor:
             await self._navigate_to_url(page, ark_url)
 
             # Extract data from the page (locator waits handle any remaining load)
-            raw_data = await self._extract_page_data(page)
+            # Pass ark_url as target_ark to ensure we click the correct person in the index
+            raw_data = await self._extract_page_data(page, target_ark=ark_url)
             if not raw_data:
                 result.error_message = "Failed to extract data from page"
                 return result
@@ -581,13 +636,25 @@ class FamilySearchCensusExtractor:
 
             # Extract household members if requested
             if extract_household:
-                # Use API-based extraction (more complete - gets ALL people on page)
-                # The DOM-based extraction in _extract_page_data only finds visible links
-                household_members = await self._extract_household_index(page)
-
-                # Fallback to DOM-based extraction if API failed
-                if not household_members:
+                # Check if this is a 1950 census household form (P3)
+                # Household forms have family relationships stored as explicit name fields
+                # (e.g., "spouse": "Marjorie R. Ijams") rather than in a "Relationship to Head" column
+                if is_household_form(raw_data):
+                    # HOUSEHOLD FORM PATH (1950 P3 - experimental Ohio/Michigan forms)
+                    # For household forms, the person detail page has correct family member ARKs
+                    # The SLS API on the image index page returns OTHER HOUSEHOLDS on the same page,
+                    # not the family members, so we use _household_members from person detail instead
+                    logger.info("Detected 1950 census household form (P3) - using person detail page for family members")
                     household_members = raw_data.get("_household_members", [])
+                else:
+                    # STANDARD P1 FORM PATH (1950 and other census years)
+                    # Use API-based extraction (more complete - gets ALL people on page)
+                    # The DOM-based extraction in _extract_page_data only finds visible links
+                    household_members = await self._extract_household_index(page)
+
+                    # Fallback to DOM-based extraction if API failed
+                    if not household_members:
+                        household_members = raw_data.get("_household_members", [])
 
                 logger.info(f"Found {len(household_members)} household members")
 
@@ -601,14 +668,16 @@ class FamilySearchCensusExtractor:
                     member_ark_normalized = normalize_ark_url(member_ark) if member_ark else None
                     member_name = member.get("name", "Unknown")
 
-                    # Determine if this is the target person using ARK or fuzzy name matching
+                    # Determine if this is the target person using ARK comparison
+                    # ARK is definitive - only fall back to fuzzy name match if NO ARK available
                     is_target = False
                     if member_ark_normalized and member_ark_normalized == target_ark_normalized:
                         is_target = True
                         logger.debug(f"Identified target person by ARK: {member_name}")
-                    elif names_match_fuzzy(member_name, target_name):
+                    elif not member_ark_normalized and names_match_fuzzy(member_name, target_name):
+                        # Only use fuzzy name match when there's no ARK to compare
                         is_target = True
-                        logger.debug(f"Identified target person by name match: {member_name} ~ {target_name}")
+                        logger.debug(f"Identified target person by name match (no ARK): {member_name} ~ {target_name}")
 
                     # If this is the target person, we already extracted them above
                     if is_target:
@@ -699,12 +768,6 @@ class FamilySearchCensusExtractor:
                                 "ark": member_ark_normalized,
                                 "error": member_result.error_message,
                             })
-
-            # Fix sample line offset for 1950 census
-            # FamilySearch indexes sample line data at line+2, so we need to move
-            # fields from offset lines (3,8,13,18,23,28) to sample lines (1,6,11,16,21,26)
-            if census_year == 1950 and extract_household:
-                self._fix_sample_line_offset(page_id)
 
             result.success = True
             logger.info(
@@ -834,7 +897,70 @@ class FamilySearchCensusExtractor:
 
         return True
 
-    async def _extract_page_data(self, page: Page) -> dict[str, Any]:
+    async def _extract_family_arks_from_person_page(self, page: Page) -> list[dict[str, Any]]:
+        """Extract family member ARK links from the person ARK page.
+
+        On person ARK pages (not detail view), FamilySearch shows a table with
+        "Spouses and Children" section containing clickable links to each family
+        member's individual record. These ARK links are ONLY available on this page,
+        not on the detail view.
+
+        This is critical for 1950 household forms (P3) where the detail view
+        does not provide individual ARK links for family members.
+
+        Returns:
+            List of dicts with 'name' and 'ark' keys for each family member
+        """
+        family_members = []
+
+        try:
+            # Wait for the page to load fully
+            await page.wait_for_timeout(1000)
+
+            # Find ARK links in the "Spouses and Children" table
+            # These are anchor tags with href containing /ark:/61903/1:1:
+            ark_links = page.locator('a[href*="/ark:/61903/1:1:"]')
+            link_count = await ark_links.count()
+            logger.debug(f"Found {link_count} ARK links on person page")
+
+            seen_arks = set()
+            for i in range(link_count):
+                try:
+                    link = ark_links.nth(i)
+                    name = (await link.inner_text()).strip()
+                    href = await link.get_attribute("href")
+
+                    # Skip invalid names (UI elements, etc.)
+                    if not name or len(name) < 2:
+                        continue
+                    if not name[0].isupper():
+                        continue
+                    if any(x in name.lower() for x in ["view", "click", "census", "document", "record"]):
+                        continue
+
+                    # Normalize the ARK URL
+                    if href and href not in seen_arks:
+                        # Ensure it's a full URL
+                        if href.startswith("/ark:"):
+                            href = f"https://www.familysearch.org{href}"
+
+                        seen_arks.add(href)
+                        family_members.append({
+                            "name": name,
+                            "ark": href.split("?")[0],  # Remove query params
+                        })
+                        logger.debug(f"Found family member: {name} -> {href}")
+                except Exception as e:
+                    logger.debug(f"Error extracting ARK link {i}: {e}")
+
+            logger.info(f"Extracted {len(family_members)} family member ARKs from person page")
+
+        except Exception as e:
+            logger.warning(f"Failed to extract family ARKs from person page: {e}")
+
+        return family_members
+
+    async def _extract_page_data(self, page: Page, target_ark: str | None = None) -> dict[str, Any]:
         """
         Extract all census data from the FamilySearch page using Playwright's native features.
 
@@ -843,49 +969,85 @@ class FamilySearchCensusExtractor:
         2. Detail page (3:1:xxxx?view=index) - Full census data with image viewer
 
         This method navigates to the detail page and extracts all available data.
+
+        Args:
+            page: The Playwright page object.
+            target_ark: Optional ARK URL of the target person. Used to ensure we click
+                        the correct person in the index panel.
         """
         data: dict[str, Any] = {}
         data["_current_url"] = page.url
 
-        # Step 1: Navigate to detail view if we're on a person ARK page
+        # Step 0: If on person ARK page, extract family member ARKs BEFORE navigating to detail view
+        # This is critical for household forms (P3) where family member links are only on person page
         if "view=index" not in page.url:
-            logger.info("On person ARK page, navigating to detail view...")
+            logger.info("On person ARK page, extracting family member ARKs first...")
+            family_arks = await self._extract_family_arks_from_person_page(page)
+            if family_arks:
+                data["_household_members"] = family_arks
+                logger.info(f"Extracted {len(family_arks)} family member ARKs from person page")
+
+        # Step 1: Extract from person page FIRST, then navigate to detail view for extended fields
+        # Person ARK page has: family member ARKs + basic census data
+        # Detail view has: extended fields (veteran status, income, education, etc.)
+        # We need BOTH sources for complete extraction
+        if "view=index" not in page.url:
+            # Check if we have table data on this page
+            table_rows = page.locator("table tr")
+            row_count = await table_rows.count()
+            logger.debug(f"Person page has {row_count} table rows")
+
+            # Also check for family member ARKs (these are only on person page!)
+            family_links = page.locator('a[href*="/ark:/61903/1:1:"]')
+            family_count = await family_links.count()
+            logger.debug(f"Person page has {family_count} family member links")
+
+            if row_count > 10:
+                logger.info(f"Person page has basic data ({row_count} rows, {family_count} family links)")
+                # Store that we started on person page so we can extract table data first
+                data["_from_person_page"] = True
+
+            # ALWAYS try to navigate to detail view for extended fields
+            # The detail view has 45+ fields vs 23 on person page (veteran status, income, etc.)
+            logger.info("Navigating to detail view for extended fields...")
             navigated = await self._navigate_to_detail_view(page)
             if navigated:
                 logger.info("Successfully navigated to detail view")
             else:
-                logger.warning("Could not navigate to detail view, extracting from person page")
+                logger.info("Staying on person page (detail view not accessible)")
 
-        # Step 1.5: Check if detail panel is already open, if not click to open it
-        # The detail panel contains div[data-dense] elements with "Label: Value" data
-        # If panel is already open (from manual click or previous navigation), skip clicking
-        #
-        # Key insight: If URL contains personArk=, the page should auto-select that person
-        # and the detail panel should open automatically after a short wait
-        has_person_ark = "personArk=" in page.url
+        # Step 1.5: For detail view pages, check if detail panel is open
+        # This step is ONLY needed on detail view pages (view=index or 3:1:)
+        # Person ARK pages have data in simple table format, no panel clicking needed
+        if "view=index" in page.url or "/3:1:" in page.url:
+            # On detail view - need to click person row to open detail panel
+            has_person_ark = "personArk=" in page.url
 
-        # Wait a bit longer if personArk is in URL, as the page may be loading the person
-        if has_person_ark:
-            await page.wait_for_timeout(500)
+            # Wait a bit longer if personArk is in URL, as the page may be loading the person
+            if has_person_ark:
+                await page.wait_for_timeout(500)
 
-        dense_check = page.locator("div[data-dense]")
-        dense_count = await dense_check.count()
-        if dense_count > 5:  # Panel is already open with data
-            logger.info(f"Detail panel already open with {dense_count} data fields")
-        elif has_person_ark and dense_count > 0:
-            # PersonArk in URL but not many dense elements - wait a bit more
-            logger.debug(f"PersonArk in URL, waiting for panel to populate (found {dense_count} dense elements)")
-            await page.wait_for_timeout(1000)
+            dense_check = page.locator("div[data-dense]")
             dense_count = await dense_check.count()
-            if dense_count > 5:
-                logger.info(f"Detail panel now open with {dense_count} data fields")
+            if dense_count > 5:  # Panel is already open with data
+                logger.info(f"Detail panel already open with {dense_count} data fields")
+            elif has_person_ark and dense_count > 0:
+                # PersonArk in URL but not many dense elements - wait a bit more
+                logger.debug(f"PersonArk in URL, waiting for panel to populate (found {dense_count} dense elements)")
+                await page.wait_for_timeout(1000)
+                dense_count = await dense_check.count()
+                if dense_count > 5:
+                    logger.info(f"Detail panel now open with {dense_count} data fields")
+                else:
+                    logger.debug("Panel still not fully populated, clicking to open...")
+                    await self._click_selected_person(page, target_ark)
             else:
-                logger.debug("Panel still not fully populated, clicking to open...")
-                await self._click_selected_person(page)
+                # Need to click a person row to open the detail panel
+                logger.info("Detail panel not open, clicking person row...")
+                await self._click_selected_person(page, target_ark)
         else:
-            # Need to click a person row to open the detail panel
-            logger.info("Detail panel not open, clicking person row...")
-            await self._click_selected_person(page)
+            # On person ARK page - data is in table format, no panel clicking needed
+            logger.info("On person ARK page - data available in table format")
 
         # Step 2: Wait for content to load
         await page.wait_for_load_state("domcontentloaded")
@@ -1222,38 +1384,43 @@ class FamilySearchCensusExtractor:
             logger.debug(f"Aria-label extraction failed: {e}")
 
         # === EXTRACT HOUSEHOLD MEMBERS ===
-        household_members = []
-        try:
-            # Look for links to other person records
-            person_links = page.locator('a[href*="/ark:/61903/1:1:"]')
-            link_count = await person_links.count()
-            logger.debug(f"Found {link_count} person ARK links")
+        # Only extract from detail view if we don't already have family ARKs from person page
+        # (For household forms, the person page extraction has the correct ARKs)
+        if "_household_members" not in data or not data["_household_members"]:
+            household_members = []
+            try:
+                # Look for links to other person records
+                person_links = page.locator('a[href*="/ark:/61903/1:1:"]')
+                link_count = await person_links.count()
+                logger.debug(f"Found {link_count} person ARK links on detail view")
 
-            seen_names = set()
-            for i in range(link_count):
-                link = person_links.nth(i)
-                try:
-                    name = (await link.inner_text()).strip()
-                    href = await link.get_attribute("href")
-                    # Skip if not a valid person name
-                    if (
-                        name
-                        and len(name) > 2
-                        and name not in seen_names
-                        and name[0].isupper()
-                        and not any(x in name.lower() for x in ["view", "click", "census", "document"])
-                    ):
-                        seen_names.add(name)
-                        household_members.append({
-                            "name": name,
-                            "ark": href,
-                        })
-                except Exception:
-                    pass
-        except Exception as e:
-            logger.debug(f"Household member extraction failed: {e}")
+                seen_names = set()
+                for i in range(link_count):
+                    link = person_links.nth(i)
+                    try:
+                        name = (await link.inner_text()).strip()
+                        href = await link.get_attribute("href")
+                        # Skip if not a valid person name
+                        if (
+                            name
+                            and len(name) > 2
+                            and name not in seen_names
+                            and name[0].isupper()
+                            and not any(x in name.lower() for x in ["view", "click", "census", "document"])
+                        ):
+                            seen_names.add(name)
+                            household_members.append({
+                                "name": name,
+                                "ark": href,
+                            })
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.debug(f"Household member extraction failed: {e}")
 
-        data["_household_members"] = household_members
+            data["_household_members"] = household_members
+        else:
+            logger.debug(f"Keeping {len(data['_household_members'])} family ARKs from person page extraction")
 
         # Log extraction summary with VALUES for debugging
         extracted_keys = [k for k in data if not k.startswith("_")]
@@ -1268,8 +1435,8 @@ class FamilySearchCensusExtractor:
 
         return data
 
-    async def _click_selected_person(self, page: Page) -> bool:
-        """Click on the selected/highlighted person in the index to open their detail panel.
+    async def _click_selected_person(self, page: Page, target_ark: str | None = None) -> bool:
+        """Click on the target person in the index to open their detail panel.
 
         On the FamilySearch detail view page (view=index), the page shows:
         - Left: Census image
@@ -1277,6 +1444,12 @@ class FamilySearchCensusExtractor:
 
         The "NAMES" button must be clicked first to expand the index list.
         Then clicking a name opens the person's detail panel with all data.
+
+        Args:
+            page: The Playwright page object.
+            target_ark: Optional ARK ID of the target person to click.
+                        If provided, will find and click the person matching this ARK.
+                        If None, clicks the first person found.
 
         Returns:
             True if a person was clicked, False otherwise.
@@ -1337,13 +1510,60 @@ class FamilySearchCensusExtractor:
                 'a[href*="/ark:/61903/1:1:"]',
             ]
 
+            # If target_ark provided, try to find and click that specific person first
+            if target_ark:
+                # Extract the ARK ID (e.g., "6JJZ-JB42" from full URL)
+                target_ark_id = target_ark.split("/")[-1].split("?")[0]
+                logger.info(f"Looking for target person with ARK: {target_ark_id}")
+
+                # Try to find the person row containing the target ARK link
+                target_selectors = [
+                    # Row containing link to target ARK
+                    f'div[role="button"]:has(a[href*="{target_ark_id}"])',
+                    # Direct link to target ARK
+                    f'a[href*="{target_ark_id}"]',
+                    # Row with itemselected (may already be selected)
+                    'div[role="button"][itemselected]',
+                ]
+
+                for selector in target_selectors:
+                    try:
+                        target_element = page.locator(selector).first
+                        if await target_element.count() > 0:
+                            name = await target_element.inner_text(timeout=2000)
+                            name_clean = name.split('\n')[0].strip() if name else "Unknown"
+                            logger.info(f"Found target person: {name_clean} (ARK: {target_ark_id})")
+
+                            try:
+                                await target_element.click(timeout=5000, force=True)
+                            except Exception as click_err:
+                                logger.debug(f"Force click failed, trying JS click: {click_err}")
+                                await target_element.evaluate("el => el.click()")
+
+                            # Wait for detail panel to load
+                            try:
+                                await page.locator('div[data-dense]').first.wait_for(
+                                    state="visible", timeout=3000
+                                )
+                                logger.info("Detail panel loaded for target person")
+                                return True
+                            except Exception:
+                                await page.wait_for_timeout(1000)
+                                return True
+                    except Exception as e:
+                        logger.debug(f"Target selector {selector} failed: {e}")
+                        continue
+
+                logger.warning(f"Could not find target person {target_ark_id}, falling back to first person")
+
+            # Fallback: click first person found
             for selector in person_selectors:
                 try:
                     elements = page.locator(selector)
                     count = await elements.count()
                     logger.debug(f"Found {count} elements with selector: {selector}")
                     if count > 0:
-                        # Click the first element (the first/selected person)
+                        # Click the first element (fallback when no target ARK)
                         element = elements.first
                         name = await element.inner_text(timeout=2000)
                         # Clean up the name (may have multiple lines)
@@ -1907,75 +2127,6 @@ class FamilySearchCensusExtractor:
                 relationships.append((rel_type, value))
 
         return relationships
-
-    def _fix_sample_line_offset(self, page_id: int) -> int:
-        """Fix sample line data offset for 1950 census.
-
-        FamilySearch indexes 1950 census sample line data (columns 21-33) with a +2
-        line offset. Sample lines are 1, 6, 11, 16, 21, 26 but the data is stored at
-        lines 3, 8, 13, 18, 23, 28.
-
-        This method moves sample line fields from offset lines to the correct
-        sample line persons.
-
-        Args:
-            page_id: The census page ID to fix
-
-        Returns:
-            Number of fields moved
-        """
-        fields_moved = 0
-
-        try:
-            # Get all persons on this page with their line numbers
-            persons = self.repository.get_persons_on_page(page_id)
-            if not persons:
-                return 0
-
-            # Build lookup by line number
-            persons_by_line = {p.line_number: p for p in persons if p.line_number}
-
-            for offset_line, sample_line in SAMPLE_LINE_OFFSET_MAP.items():
-                # Skip if either person doesn't exist
-                if offset_line not in persons_by_line or sample_line not in persons_by_line:
-                    continue
-
-                offset_person = persons_by_line[offset_line]
-                sample_person = persons_by_line[sample_line]
-
-                # Get sample line fields from the offset person
-                offset_fields = self.repository.get_person_field_objects(offset_person.person_id)
-                sample_fields_to_move = [
-                    f for f in offset_fields
-                    if f.field_name in SAMPLE_LINE_FIELDS
-                ]
-
-                if not sample_fields_to_move:
-                    continue
-
-                logger.debug(
-                    f"Moving {len(sample_fields_to_move)} sample line fields from "
-                    f"line {offset_line} ({offset_person.full_name}) to "
-                    f"line {sample_line} ({sample_person.full_name})"
-                )
-
-                # Move each field to the correct sample line person
-                for field_obj in sample_fields_to_move:
-                    self.repository.move_person_field(
-                        field_obj.field_id,
-                        sample_person.person_id
-                    )
-                    fields_moved += 1
-
-            if fields_moved > 0:
-                logger.info(
-                    f"Fixed sample line offset: moved {fields_moved} fields on page {page_id}"
-                )
-
-        except Exception as e:
-            logger.warning(f"Error fixing sample line offset for page {page_id}: {e}")
-
-        return fields_moved
 
 
 # =============================================================================

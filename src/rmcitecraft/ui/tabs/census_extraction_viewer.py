@@ -21,7 +21,14 @@ from rmcitecraft.database.census_extraction_db import (
     CensusPage,
     CensusPerson,
     FieldQuality,
+    RMTreeLink,
     get_census_repository,
+)
+from rmcitecraft.services.census_rmtree_matcher import (
+    CensusRMTreeMatcher,
+    MatchCandidate,
+    MatchResult,
+    create_matcher,
 )
 
 # State abbreviations for compact display
@@ -41,8 +48,9 @@ STATE_ABBREVIATIONS = {
     "Wisconsin": "WI", "Wyoming": "WY", "District of Columbia": "DC",
 }
 
-# Sample line numbers for 1950 census
-SAMPLE_LINES_1950 = {1, 6, 11, 16, 21, 26}
+# NOTE: Sample lines in the 1950 census vary by form version (5 versions of Form P1).
+# We determine if a person is a sample person by checking if they have sample line
+# field data (columns 21-33), NOT by hardcoded line numbers.
 
 # Field categories organized by census form sections
 IDENTITY_FIELDS = [
@@ -312,7 +320,6 @@ class CensusExtractionViewerTab:
         is_selected = (
             self.selected_person and self.selected_person.person_id == person.person_id
         )
-        is_sample = person.line_number in SAMPLE_LINES_1950 if person.line_number else False
 
         with ui.card().classes(
             f"w-full p-2 cursor-pointer hover:bg-blue-50 "
@@ -320,9 +327,11 @@ class CensusExtractionViewerTab:
         ).on("click", lambda p=person: self._select_person(p)):
             # Top row: Line#, Name, Year badge
             with ui.row().classes("w-full items-center gap-2"):
-                # Target indicator
+                # Target indicator - person whose ARK was used to initiate the extraction
                 if person.is_target_person:
-                    ui.icon("star", size="xs").classes("text-yellow-500")
+                    ui.icon("star", size="xs").classes("text-yellow-500").tooltip(
+                        "Target person - extraction was initiated from this person's FamilySearch record"
+                    )
 
                 # Line number
                 if person.line_number:
@@ -335,10 +344,6 @@ class CensusExtractionViewerTab:
                 # Year badge
                 if page:
                     ui.badge(str(page.census_year), color="blue").classes("text-xs")
-
-                # Sample line indicator
-                if is_sample:
-                    ui.badge("S", color="green").props("outline").classes("text-xs")
 
             # Bottom row: Location, Age
             with ui.row().classes("w-full items-center gap-2 text-xs text-gray-500 mt-1"):
@@ -422,10 +427,9 @@ class CensusExtractionViewerTab:
             # Card D: Employment (if applicable)
             self._render_employment_card(person)
 
-            # Card E: Sample Line Data (expandable, only for sample persons)
-            is_sample = person.line_number in SAMPLE_LINES_1950 if person.line_number else False
-            if is_sample:
-                self._render_sample_line_card(person)
+            # Card E: Sample Line Data (expandable, shows if person has sample field data)
+            # Note: _render_sample_line_card checks for actual sample field data presence
+            self._render_sample_line_card(person)
 
             # Card F: RootsMagic Links (expandable)
             self._render_links_card(person)
@@ -488,6 +492,12 @@ class CensusExtractionViewerTab:
                         icon="description",
                         on_click=lambda: self._view_census_form(page.page_id),
                     ).props("color=green size=sm outline dense")
+
+                    ui.button(
+                        "Match to RootsMagic",
+                        icon="link",
+                        on_click=lambda: self._show_match_dialog(page.page_id),
+                    ).props("color=purple size=sm outline dense")
 
                 # Edit/Save buttons
                 if self.is_editing:
@@ -924,8 +934,11 @@ class CensusExtractionViewerTab:
 
             with ui.column().classes("w-full gap-2"):
                 for entry in history:
-                    # Format timestamp
-                    timestamp = entry.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                    # Format timestamp as "02 Dec 2025, 9:36am" in local time
+                    dt = entry.created_at
+                    hour = dt.hour % 12 or 12  # Convert 0 to 12 for 12am
+                    am_pm = "am" if dt.hour < 12 else "pm"
+                    timestamp = f"{dt.day:02d} {dt.strftime('%b')} {dt.year}, {hour}:{dt.minute:02d}{am_pm}"
                     source_label = {
                         "familysearch": "FamilySearch Import",
                         "manual_edit": "Manual Edit",
@@ -1247,6 +1260,251 @@ class CensusExtractionViewerTab:
 
         # Log the summary
         logger.info("\n".join(log_lines))
+
+    # =========================================================================
+    # RootsMagic Matching Dialog
+    # =========================================================================
+
+    def _show_match_dialog(self, page_id: int) -> None:
+        """Show dialog to match census persons to RootsMagic."""
+        with ui.dialog() as dialog, ui.card().classes("w-[800px] max-h-[90vh]"):
+            ui.label("Match Census to RootsMagic").classes("text-xl font-bold mb-2")
+
+            # Citation ID input
+            with ui.row().classes("w-full items-end gap-4 mb-4"):
+                citation_input = ui.input(
+                    label="RootsMagic Citation ID",
+                    placeholder="e.g., 10681",
+                ).classes("w-48")
+
+                ark_input = ui.input(
+                    label="FamilySearch ARK URL (optional)",
+                    placeholder="Leave blank to use page data",
+                ).classes("flex-1")
+
+                find_btn = ui.button("Find Matches", icon="search").props("color=primary")
+
+            # Results container
+            results_container = ui.column().classes("w-full gap-2")
+
+            # Status area
+            with ui.row().classes("w-full items-center gap-2"):
+                status_spinner = ui.spinner(size="sm").classes("hidden")
+                status_label = ui.label("").classes("text-sm text-gray-500")
+
+            async def do_match():
+                citation_id = citation_input.value
+                ark_url = ark_input.value
+
+                if not citation_id:
+                    ui.notify("Please enter a Citation ID", type="warning")
+                    return
+
+                try:
+                    citation_id = int(citation_id)
+                except ValueError:
+                    ui.notify("Citation ID must be a number", type="warning")
+                    return
+
+                # Show spinner
+                status_spinner.classes(remove="hidden")
+                status_label.set_text("Searching for matches...")
+                results_container.clear()
+
+                try:
+                    matcher = create_matcher()
+
+                    # Get the ARK from the current page if not provided
+                    if not ark_url:
+                        # Get persons on this page to find an ARK
+                        census_persons = self.repository.get_persons_on_page(page_id)
+                        if census_persons:
+                            ark_url = census_persons[0].familysearch_ark
+
+                    if not ark_url:
+                        status_spinner.classes(add="hidden")
+                        status_label.set_text("No FamilySearch ARK available")
+                        return
+
+                    # Run matching
+                    result = matcher.match_citation_to_census(
+                        citation_id=citation_id,
+                        ark_url=ark_url,
+                        threshold=0.5,
+                        create_links=False,  # Don't auto-create links
+                    )
+
+                    status_spinner.classes(add="hidden")
+
+                    if not result:
+                        status_label.set_text("No matching data found")
+                        return
+
+                    # Display results
+                    self._render_match_results(
+                        results_container, result, matcher, dialog
+                    )
+
+                except Exception as e:
+                    logger.error(f"Matching failed: {e}", exc_info=True)
+                    status_spinner.classes(add="hidden")
+                    status_label.set_text(f"Error: {e}")
+                    ui.notify(f"Matching failed: {e}", type="negative")
+
+            find_btn.on("click", do_match)
+
+            # Close button
+            with ui.row().classes("w-full justify-end mt-4"):
+                ui.button("Close", on_click=dialog.close).props("flat")
+
+        dialog.open()
+
+    def _render_match_results(
+        self,
+        container: ui.column,
+        result: MatchResult,
+        matcher: CensusRMTreeMatcher,
+        dialog,
+    ) -> None:
+        """Render matching results in the dialog."""
+        with container:
+            # Summary header
+            with ui.card().classes("w-full p-3 bg-blue-50"):
+                with ui.row().classes("w-full items-center gap-4"):
+                    ui.icon("analytics", size="md").classes("text-blue-600")
+                    ui.label(f"{result.census_year} Census Matching").classes("font-bold")
+                    ui.badge(f"{result.success_rate:.0%} Match Rate", color="blue")
+
+                with ui.row().classes("w-full gap-4 text-sm mt-2"):
+                    ui.label(f"Matched: {len(result.matches)}")
+                    ui.label(f"Unmatched RM: {len(result.unmatched_rm)}")
+                    ui.label(f"Unmatched Census: {len(result.unmatched_census)}")
+
+            # Matches section
+            if result.matches:
+                ui.label("Matches").classes("font-bold text-lg mt-4 mb-2")
+                match_checkboxes: dict[int, ui.checkbox] = {}
+
+                for match in result.matches:
+                    with ui.card().classes("w-full p-3 border-l-4 border-green-500"):
+                        with ui.row().classes("w-full items-start gap-4"):
+                            # Checkbox to select for linking
+                            cb = ui.checkbox("", value=True).classes("mt-1")
+                            match_checkboxes[match.rm_person.person_id] = cb
+
+                            # RM Person
+                            with ui.column().classes("flex-1"):
+                                ui.label("RootsMagic").classes("text-xs text-gray-500")
+                                ui.label(match.rm_person.full_name).classes("font-medium")
+                                with ui.row().classes("gap-2 text-xs text-gray-600"):
+                                    ui.label(f"RIN {match.rm_person.person_id}")
+                                    ui.label(f"{match.rm_person.relationship}")
+                                    if match.rm_person.birth_year:
+                                        ui.label(f"b.{match.rm_person.birth_year}")
+
+                            # Arrow
+                            ui.icon("arrow_forward", size="md").classes("text-gray-400 self-center")
+
+                            # Census Person
+                            with ui.column().classes("flex-1"):
+                                ui.label("Census").classes("text-xs text-gray-500")
+                                ui.label(match.census_person.full_name).classes("font-medium")
+                                with ui.row().classes("gap-2 text-xs text-gray-600"):
+                                    ui.label(f"Age {match.census_person.age or '?'}")
+                                    ui.label(match.census_person.relationship)
+                                    ui.label(match.census_person.sex)
+
+                            # Score badge
+                            score_color = self._get_match_score_color(match.score)
+                            with ui.column().classes("items-end"):
+                                ui.badge(f"{match.score:.0%}", color=score_color).classes("text-lg")
+                                ui.label("confidence").classes("text-xs text-gray-400")
+
+                        # Score breakdown (expandable)
+                        with ui.expansion("Score Details", icon="info").classes("w-full mt-2 text-xs"):
+                            with ui.row().classes("w-full gap-4"):
+                                for key, value in match.score_breakdown.items():
+                                    pct = value / sum(match.score_breakdown.values()) * 100 if match.score_breakdown else 0
+                                    ui.label(f"{key}: {value:.2f} ({pct:.0f}%)")
+
+                # Create Links button
+                async def create_selected_links():
+                    selected = [
+                        m for m in result.matches
+                        if match_checkboxes.get(m.rm_person.person_id, ui.checkbox()).value
+                    ]
+
+                    if not selected:
+                        ui.notify("No matches selected", type="warning")
+                        return
+
+                    created = 0
+                    for match in selected:
+                        try:
+                            link = RMTreeLink(
+                                census_person_id=match.census_person.person_id,
+                                rmtree_person_id=match.rm_person.person_id,
+                                rmtree_citation_id=result.citation_id,
+                                rmtree_event_id=result.event_id,
+                                rmtree_database=str(matcher.rmtree_path),
+                                match_confidence=match.score,
+                                match_method="manual_confirm",
+                            )
+                            self.repository.insert_rmtree_link(link)
+                            created += 1
+                        except Exception as e:
+                            logger.warning(f"Failed to create link for {match.rm_person.full_name}: {e}")
+
+                    ui.notify(f"Created {created} RootsMagic links", type="positive")
+                    dialog.close()
+                    self._search_persons()  # Refresh list
+
+                with ui.row().classes("w-full justify-center mt-4"):
+                    ui.button(
+                        f"Create Links for Selected ({len(result.matches)})",
+                        icon="link",
+                        on_click=create_selected_links,
+                    ).props("color=green")
+
+            # Unmatched RM Persons (data quality alert)
+            if result.unmatched_rm:
+                ui.label("Unmatched RootsMagic Persons").classes("font-bold text-lg mt-4 mb-2")
+                with ui.card().classes("w-full p-3 bg-yellow-50 border-l-4 border-yellow-500"):
+                    ui.label(
+                        "These persons are on the RootsMagic citation but NOT found on the census page. "
+                        "This may indicate they were enumerated on a different page."
+                    ).classes("text-sm text-yellow-800 mb-2")
+
+                    for rm_person in result.unmatched_rm:
+                        with ui.row().classes("items-center gap-2 text-sm"):
+                            ui.icon("warning", size="sm").classes("text-yellow-600")
+                            ui.label(rm_person.full_name).classes("font-medium")
+                            ui.label(f"(RIN {rm_person.person_id}, {rm_person.relationship})").classes("text-gray-500")
+
+            # Unmatched Census Persons
+            if result.unmatched_census:
+                ui.label("Unmatched Census Persons").classes("font-bold text-lg mt-4 mb-2")
+                with ui.card().classes("w-full p-3 bg-gray-50"):
+                    ui.label(
+                        "These census persons were not matched to any RootsMagic person on the citation."
+                    ).classes("text-sm text-gray-600 mb-2")
+
+                    for census_person in result.unmatched_census:
+                        with ui.row().classes("items-center gap-2 text-sm"):
+                            ui.icon("person_outline", size="sm").classes("text-gray-400")
+                            ui.label(census_person.full_name).classes("font-medium")
+                            ui.label(f"(Age {census_person.age or '?'}, {census_person.relationship})").classes("text-gray-500")
+
+    def _get_match_score_color(self, score: float) -> str:
+        """Get color name for match score badge."""
+        if score >= 0.9:
+            return "green"
+        elif score >= 0.7:
+            return "yellow"
+        elif score >= 0.5:
+            return "orange"
+        else:
+            return "red"
 
     # =========================================================================
     # Clear Database
