@@ -39,6 +39,10 @@ from rmcitecraft.services.familysearch_automation import (
     get_automation_service,
 )
 
+# Forward declare RMPersonData to avoid circular imports
+# The actual class is in census_rmtree_matcher
+RMPersonData = Any  # Will be properly typed when passed
+
 
 def normalize_ark_url(url: str) -> str:
     """Normalize a FamilySearch ARK URL by removing query parameters.
@@ -476,6 +480,7 @@ class FamilySearchCensusExtractor:
         rmtree_person_id: int | None = None,
         rmtree_database: str = "",
         extract_household: bool = True,
+        rm_persons_filter: list[Any] | None = None,
     ) -> ExtractionResult:
         """
         Extract census data from a FamilySearch ARK URL.
@@ -487,6 +492,9 @@ class FamilySearchCensusExtractor:
             rmtree_person_id: Optional PersonID/RIN from RootsMagic
             rmtree_database: Path to RootsMagic database file
             extract_household: If True, also extract other household members
+            rm_persons_filter: Optional list of RMPersonData. If provided, only extract
+                household members who fuzzy-match one of these RootsMagic persons.
+                This avoids extracting people not in the RootsMagic database.
 
         Returns:
             ExtractionResult with success status and extracted data
@@ -582,21 +590,40 @@ class FamilySearchCensusExtractor:
 
             # Extract household members if requested
             if extract_household:
-                # Use API-based extraction (more complete - gets ALL people on page)
-                # The DOM-based extraction in _extract_page_data only finds visible links
-                household_members = await self._extract_household_index(page)
-
-                # Fallback to DOM-based extraction if API failed
-                if not household_members:
+                # When filtering to RM persons, we need names for matching
+                # The API extraction only gets ARKs without names, so use DOM-based extraction
+                if rm_persons_filter:
+                    logger.info("Using DOM-based extraction for RM filtering (needs names)")
                     household_members = raw_data.get("_household_members", [])
+                    if not household_members:
+                        # Fallback to navigating and parsing DOM
+                        household_members = await self._extract_household_index(page)
+                else:
+                    # Use API-based extraction (more complete - gets ALL people on page)
+                    # The DOM-based extraction in _extract_page_data only finds visible links
+                    household_members = await self._extract_household_index(page)
 
-                logger.info(f"Found {len(household_members)} household members")
+                    # Fallback to DOM-based extraction if API failed
+                    if not household_members:
+                        household_members = raw_data.get("_household_members", [])
+
+                logger.info(f"Found {len(household_members)} household members on page")
+
+                # Log filtering mode
+                if rm_persons_filter:
+                    rm_names = [getattr(p, 'full_name', 'Unknown') for p in rm_persons_filter]
+                    logger.info(f"Filtering to {len(rm_persons_filter)} RootsMagic persons: {rm_names}")
+                else:
+                    logger.info("No RM filter - extracting all household members")
 
                 # Get target person info for matching
                 target_ark_normalized = normalize_ark_url(ark_url)
                 target_name = person_data.full_name or ""
 
-                # Extract ALL household members (don't skip anyone)
+                # Track extraction stats
+                extracted_count = 0
+                skipped_count = 0
+
                 for member in household_members:
                     member_ark = member.get("ark")
                     member_ark_normalized = normalize_ark_url(member_ark) if member_ark else None
@@ -620,7 +647,26 @@ class FamilySearchCensusExtractor:
                             "is_target_person": True,
                             "already_extracted": True,
                         })
+                        extracted_count += 1
                         continue
+
+                    # If RM filter is active, only extract members who match a RootsMagic person
+                    if rm_persons_filter:
+                        matches_rm, matched_rm = self._matches_any_rm_person(member_name, rm_persons_filter)
+                        if not matches_rm:
+                            logger.debug(f"Skipping '{member_name}' - no RootsMagic match")
+                            skipped_count += 1
+                            result.related_persons.append({
+                                "name": member_name,
+                                "ark": member_ark_normalized,
+                                "skipped": True,
+                                "reason": "No RootsMagic match",
+                            })
+                            continue
+                        else:
+                            rm_name = getattr(matched_rm, 'full_name', 'Unknown')
+                            rm_id = getattr(matched_rm, 'person_id', 0)
+                            logger.info(f"Extracting '{member_name}' - matches RM person '{rm_name}' (RIN {rm_id})")
 
                     # If no ARK, create a basic record with available data from the index
                     if not member_ark_normalized:
@@ -656,6 +702,7 @@ class FamilySearchCensusExtractor:
                                 "extracted": True,
                                 "note": "Limited data from index (no ARK)",
                             })
+                            extracted_count += 1
                         except Exception as e:
                             logger.warning(f"Failed to insert household member {member_name}: {e}")
                             result.related_persons.append({
@@ -675,6 +722,7 @@ class FamilySearchCensusExtractor:
                             "person_id": existing.person_id,
                             "already_extracted": True,
                         })
+                        extracted_count += 1
                     else:
                         # Extract full data for this household member
                         logger.info(f"Extracting household member: {member_name} ({member_ark_normalized})")
@@ -690,6 +738,7 @@ class FamilySearchCensusExtractor:
                                 "person_id": member_result.person_id,
                                 "extracted": True,
                             })
+                            extracted_count += 1
                         else:
                             logger.warning(
                                 f"Failed to extract household member {member.get('name')}: "
@@ -700,6 +749,13 @@ class FamilySearchCensusExtractor:
                                 "ark": member_ark_normalized,
                                 "error": member_result.error_message,
                             })
+
+                # Log extraction summary
+                if rm_persons_filter:
+                    logger.info(
+                        f"Household extraction complete: {extracted_count} extracted, "
+                        f"{skipped_count} skipped (not in RootsMagic)"
+                    )
 
             # Fix sample line offset for 1950 census
             # FamilySearch indexes sample line data at line+2, so we need to move
@@ -834,6 +890,46 @@ class FamilySearchCensusExtractor:
                 return False
 
         return True
+
+    def _matches_any_rm_person(
+        self,
+        member_name: str,
+        rm_persons: list[Any],
+    ) -> tuple[bool, Any | None]:
+        """Check if a household member name matches any RootsMagic person.
+
+        Uses fuzzy name matching to determine if the FamilySearch household member
+        corresponds to someone in the RootsMagic database.
+
+        Args:
+            member_name: Name from FamilySearch (e.g., "John W Smith")
+            rm_persons: List of RMPersonData objects from RootsMagic
+
+        Returns:
+            Tuple of (matches: bool, matched_rm_person or None)
+        """
+        if not rm_persons or not member_name:
+            return False, None
+
+        for rm_person in rm_persons:
+            rm_full_name = getattr(rm_person, 'full_name', '')
+            rm_given = getattr(rm_person, 'given_name', '')
+            rm_surname = getattr(rm_person, 'surname', '')
+
+            # Try full name match first
+            if names_match_fuzzy(member_name, rm_full_name):
+                logger.debug(f"RM match found: '{member_name}' ~ '{rm_full_name}'")
+                return True, rm_person
+
+            # Try given + surname if full name didn't match
+            # This handles cases where RootsMagic has "John William" but census has "John W"
+            if rm_given and rm_surname:
+                combined = f"{rm_given} {rm_surname}"
+                if names_match_fuzzy(member_name, combined):
+                    logger.debug(f"RM match found (combined): '{member_name}' ~ '{combined}'")
+                    return True, rm_person
+
+        return False, None
 
     async def _extract_page_data(self, page: Page, target_ark: str | None = None) -> dict[str, Any]:
         """
@@ -2091,9 +2187,14 @@ async def extract_census_from_citation(
     rmtree_citation_id: int | None = None,
     rmtree_person_id: int | None = None,
     rmtree_database: str = "",
+    filter_to_rmtree: bool = True,
 ) -> ExtractionResult:
     """
     Convenience function to extract census data from a FamilySearch ARK URL.
+
+    When a rmtree_citation_id is provided and filter_to_rmtree is True, only
+    household members who match a RootsMagic person on the citation will be
+    extracted. This avoids extracting people not in the RootsMagic database.
 
     Args:
         ark_url: FamilySearch ARK URL
@@ -2101,11 +2202,31 @@ async def extract_census_from_citation(
         rmtree_citation_id: Optional CitationID from RootsMagic
         rmtree_person_id: Optional PersonID/RIN from RootsMagic
         rmtree_database: Path to RootsMagic database
+        filter_to_rmtree: If True and citation_id provided, only extract
+            household members who match RootsMagic persons. Default True.
 
     Returns:
         ExtractionResult with extracted data
     """
     extractor = FamilySearchCensusExtractor()
+
+    # If citation ID provided and filtering enabled, get RM persons
+    rm_persons_filter = None
+    if rmtree_citation_id and filter_to_rmtree:
+        try:
+            from rmcitecraft.services.census_rmtree_matcher import create_matcher
+
+            matcher = create_matcher()
+            rm_persons, event_id, _ = matcher.get_rm_persons_for_citation(rmtree_citation_id)
+            if rm_persons:
+                rm_persons_filter = rm_persons
+                logger.info(
+                    f"Will filter to {len(rm_persons)} RootsMagic persons "
+                    f"from citation {rmtree_citation_id}"
+                )
+        except Exception as e:
+            logger.warning(f"Could not get RM persons for filtering: {e}")
+
     try:
         connected = await extractor.connect()
         if not connected:
@@ -2120,6 +2241,7 @@ async def extract_census_from_citation(
             rmtree_citation_id=rmtree_citation_id,
             rmtree_person_id=rmtree_person_id,
             rmtree_database=rmtree_database,
+            rm_persons_filter=rm_persons_filter,
         )
         extractor.complete_batch()
         return result
