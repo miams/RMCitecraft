@@ -514,7 +514,8 @@ class FamilySearchCensusExtractor:
             await self._navigate_to_url(page, ark_url)
 
             # Extract data from the page (locator waits handle any remaining load)
-            raw_data = await self._extract_page_data(page)
+            # Pass ark_url to ensure we click the correct person in the detail view
+            raw_data = await self._extract_page_data(page, target_ark=ark_url)
             if not raw_data:
                 result.error_message = "Failed to extract data from page"
                 return result
@@ -834,7 +835,7 @@ class FamilySearchCensusExtractor:
 
         return True
 
-    async def _extract_page_data(self, page: Page) -> dict[str, Any]:
+    async def _extract_page_data(self, page: Page, target_ark: str | None = None) -> dict[str, Any]:
         """
         Extract all census data from the FamilySearch page using Playwright's native features.
 
@@ -843,6 +844,11 @@ class FamilySearchCensusExtractor:
         2. Detail page (3:1:xxxx?view=index) - Full census data with image viewer
 
         This method navigates to the detail page and extracts all available data.
+
+        Args:
+            page: Playwright page object
+            target_ark: ARK URL of the target person. Used to click the correct person
+                        in the detail view when multiple people are listed.
         """
         data: dict[str, Any] = {}
         data["_current_url"] = page.url
@@ -881,11 +887,11 @@ class FamilySearchCensusExtractor:
                 logger.info(f"Detail panel now open with {dense_count} data fields")
             else:
                 logger.debug("Panel still not fully populated, clicking to open...")
-                await self._click_selected_person(page)
+                await self._click_selected_person(page, target_ark)
         else:
             # Need to click a person row to open the detail panel
             logger.info("Detail panel not open, clicking person row...")
-            await self._click_selected_person(page)
+            await self._click_selected_person(page, target_ark)
 
         # Step 2: Wait for content to load
         await page.wait_for_load_state("domcontentloaded")
@@ -1268,8 +1274,8 @@ class FamilySearchCensusExtractor:
 
         return data
 
-    async def _click_selected_person(self, page: Page) -> bool:
-        """Click on the selected/highlighted person in the index to open their detail panel.
+    async def _click_selected_person(self, page: Page, target_ark: str | None = None) -> bool:
+        """Click on the target person in the index to open their detail panel.
 
         On the FamilySearch detail view page (view=index), the page shows:
         - Left: Census image
@@ -1277,6 +1283,11 @@ class FamilySearchCensusExtractor:
 
         The "NAMES" button must be clicked first to expand the index list.
         Then clicking a name opens the person's detail panel with all data.
+
+        Args:
+            page: Playwright page object
+            target_ark: ARK URL of the person to click. If provided, will find and click
+                        the specific person. If None, clicks the first person.
 
         Returns:
             True if a person was clicked, False otherwise.
@@ -1323,9 +1334,45 @@ class FamilySearchCensusExtractor:
             if not names_clicked:
                 logger.debug("Could not find or click NAMES button (may already be expanded)")
 
-            # Step 2: Find and click on a person in the expanded index
-            # Based on HTML analysis: person rows are div[role="button"][interactable]
-            # with data-testid containing the person's name
+            # Step 2: If target_ark provided, find and click that specific person
+            if target_ark:
+                # Extract the ARK ID (e.g., "6JJZ-JB42" from full URL)
+                target_ark_id = target_ark.split("/")[-1].split("?")[0]
+                logger.info(f"Looking for target person with ARK: {target_ark_id}")
+
+                # Try to find a link or row containing the target ARK
+                target_selectors = [
+                    f'a[href*="{target_ark_id}"]',
+                    f'div[role="button"]:has(a[href*="{target_ark_id}"])',
+                ]
+
+                for selector in target_selectors:
+                    try:
+                        target_element = page.locator(selector).first
+                        if await target_element.count() > 0:
+                            name = await target_element.inner_text(timeout=2000)
+                            name_clean = name.split('\n')[0].strip() if name else "Unknown"
+                            logger.info(f"Found target person: {name_clean} (ARK: {target_ark_id})")
+
+                            try:
+                                await target_element.click(timeout=5000, force=True)
+                            except Exception as click_err:
+                                logger.debug(f"Force click failed, trying JS click: {click_err}")
+                                await target_element.evaluate("el => el.click()")
+
+                            # Wait for detail panel
+                            await page.wait_for_timeout(1000)
+                            dense_count = await page.locator("div[data-dense]").count()
+                            if dense_count > 5:
+                                logger.info(f"Detail panel loaded for target person ({dense_count} fields)")
+                                return True
+                    except Exception as e:
+                        logger.debug(f"Target selector {selector} failed: {e}")
+                        continue
+
+                logger.warning(f"Could not find target person {target_ark_id}, falling back to first person")
+
+            # Step 3: Fallback - click first person in the expanded index
             person_selectors = [
                 # Primary selector: clickable person rows with role="button"
                 'div[role="button"][interactable]',
