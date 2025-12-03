@@ -79,6 +79,7 @@ class FindAGraveBatchStateRepository:
             "001_create_batch_state_tables.sql",
             "002_create_census_batch_tables.sql",
             "003_schema_improvements.sql",
+            "004_create_census_transcription_tables.sql",
         ]
 
         for migration_file_name in migrations:

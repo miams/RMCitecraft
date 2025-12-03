@@ -1650,6 +1650,152 @@ class FamilySearchCensusExtractor:
         except Exception as e:
             logger.warning(f"Person page table extraction failed: {e}")
 
+    async def _extract_family_member_arks_from_table(
+        self, page: Page
+    ) -> list[dict[str, str]]:
+        """Extract family member ARKs from person page table.
+
+        The FamilySearch person page displays "Household Members" section
+        with relationship labels and linked ARKs. This method extracts:
+        - Family member names
+        - Their person ARKs (1:1:XXXX format)
+        - Their relationship to the current person
+
+        This is the PRIMARY method for identifying household members to extract
+        because it provides NAMES (unlike the SLS API which only returns ARKs).
+
+        Returns:
+            List of dicts with keys: name, ark, relationship
+            e.g., [{'name': 'Mary E James', 'ark': '1:1:XXXX', 'relationship': 'Wife'}]
+        """
+        family_members: list[dict[str, str]] = []
+        seen_arks: set[str] = set()
+
+        try:
+            # Look for table rows with links to person ARKs
+            # Family members appear as rows like:
+            #   <tr><th>Father</th><td><a href="/ark:/61903/1:1:XXXX">William C James</a></td></tr>
+            table_rows = page.locator("table tr")
+            row_count = await table_rows.count()
+            logger.debug(f"Scanning {row_count} table rows for family member ARKs")
+
+            # Relationship labels that indicate family members (on person page)
+            relationship_labels = {
+                "father", "mother", "wife", "husband", "spouse",
+                "son", "daughter", "child", "children",
+                "brother", "sister", "sibling",
+                "head", "head of household",
+                "household members", "other in household",
+                "grandfather", "grandmother", "grandson", "granddaughter",
+                "father-in-law", "mother-in-law", "son-in-law", "daughter-in-law",
+                "uncle", "aunt", "nephew", "niece", "cousin",
+                "boarder", "lodger", "servant", "employee",
+            }
+
+            for i in range(row_count):
+                row = table_rows.nth(i)
+                th = row.locator("th").first
+                td = row.locator("td").first
+
+                if await th.count() == 0 or await td.count() == 0:
+                    continue
+
+                try:
+                    label = (await th.inner_text()).strip().lower()
+
+                    # Check if this row has a relationship label
+                    is_relationship_row = any(
+                        rel in label for rel in relationship_labels
+                    )
+
+                    if not is_relationship_row:
+                        continue
+
+                    # Look for links within the td cell
+                    links = td.locator('a[href*="/ark:/61903/1:1:"]')
+                    link_count = await links.count()
+
+                    for j in range(link_count):
+                        link = links.nth(j)
+                        href = await link.get_attribute("href")
+                        name = (await link.inner_text()).strip()
+
+                        if not href or not name:
+                            continue
+
+                        # Extract the ARK identifier (1:1:XXXX)
+                        ark_match = re.search(r"(1:1:[A-Z0-9-]+)", href)
+                        if not ark_match:
+                            continue
+
+                        ark = ark_match.group(1)
+
+                        # Skip duplicates
+                        if ark in seen_arks:
+                            continue
+                        seen_arks.add(ark)
+
+                        # Determine relationship from label
+                        relationship = label.replace(":", "").strip().title()
+
+                        family_members.append({
+                            "name": name,
+                            "ark": ark,
+                            "relationship": relationship,
+                        })
+                        logger.debug(
+                            f"Found family member: {name} ({relationship}) - {ark}"
+                        )
+
+                except Exception as e:
+                    logger.debug(f"Error processing table row {i}: {e}")
+
+            # Also look for "Household Members" section links outside tables
+            # Some FamilySearch pages have a dedicated household section
+            household_section = page.locator(
+                'section:has-text("Household"), div:has-text("Household Members")'
+            )
+            if await household_section.count() > 0:
+                section_links = household_section.locator('a[href*="/ark:/61903/1:1:"]')
+                section_link_count = await section_links.count()
+
+                for i in range(section_link_count):
+                    link = section_links.nth(i)
+                    href = await link.get_attribute("href")
+                    name = (await link.inner_text()).strip()
+
+                    if not href or not name:
+                        continue
+
+                    # Skip navigation/UI links
+                    if any(x in name.lower() for x in ["view", "click", "census", "document"]):
+                        continue
+
+                    ark_match = re.search(r"(1:1:[A-Z0-9-]+)", href)
+                    if not ark_match:
+                        continue
+
+                    ark = ark_match.group(1)
+                    if ark in seen_arks:
+                        continue
+                    seen_arks.add(ark)
+
+                    family_members.append({
+                        "name": name,
+                        "ark": ark,
+                        "relationship": "Household Member",
+                    })
+                    logger.debug(f"Found household member: {name} - {ark}")
+
+            logger.info(
+                f"Extracted {len(family_members)} family member ARKs from person page table"
+            )
+            return family_members
+
+        except Exception as e:
+            logger.warning(f"Family member ARK extraction failed: {e}")
+            return family_members
+
     async def _navigate_to_detail_view(self, page: Page) -> bool:
         """Navigate to the detail view page by clicking 'View Original Document' button.
 
