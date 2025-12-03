@@ -628,6 +628,104 @@ class CensusRMTreeMatcher:
             success_rate=success_rate,
         )
 
+    def match_census_persons_by_ark(
+        self,
+        ark_url: str,
+        census_year: int,
+        threshold: float = 0.5,
+    ) -> MatchResult | None:
+        """Match census persons to RootsMagic by finding citations containing the ARK.
+
+        This method searches the RootsMagic database for citations that contain
+        the FamilySearch ARK URL in their footnote, then matches the persons.
+
+        Args:
+            ark_url: FamilySearch ARK URL
+            census_year: Census year
+            threshold: Minimum match score
+
+        Returns:
+            MatchResult or None if no matching citation found
+        """
+        # Normalize the ARK to just the ID portion for searching
+        ark_id = ark_url.split("/")[-1].split("?")[0] if ark_url else ""
+        if not ark_id:
+            logger.warning("Invalid ARK URL")
+            return None
+
+        logger.info(f"Searching for citations containing ARK: {ark_id}")
+
+        # Search for citations containing this ARK in their footnote
+        # Check both CitationTable.Footnote and SourceTable.Fields (for free-form)
+        cursor = self.conn.cursor()
+
+        # Try CitationTable.Footnote first
+        cursor.execute("""
+            SELECT DISTINCT c.CitationID
+            FROM CitationTable c
+            WHERE c.Footnote LIKE ?
+            LIMIT 1
+        """, (f"%{ark_id}%",))
+
+        row = cursor.fetchone()
+        if not row:
+            # Try SourceTable.Fields (free-form citations)
+            cursor.execute("""
+                SELECT DISTINCT c.CitationID
+                FROM CitationTable c
+                JOIN SourceTable s ON c.SourceID = s.SourceID
+                WHERE s.TemplateID = 0 AND CAST(s.Fields AS TEXT) LIKE ?
+                LIMIT 1
+            """, (f"%{ark_id}%",))
+            row = cursor.fetchone()
+
+        if not row:
+            logger.info(f"No citation found containing ARK {ark_id}")
+            return None
+
+        citation_id = row[0]
+        logger.info(f"Found citation {citation_id} containing ARK {ark_id}")
+
+        # Use existing method to do the matching
+        return self.match_citation_to_census(
+            citation_id=citation_id,
+            ark_url=ark_url,
+            threshold=threshold,
+            create_links=False,  # Let caller decide
+        )
+
+    def create_links_for_matches(self, match_result: MatchResult) -> int:
+        """Create rmtree_link records for all matches in a MatchResult.
+
+        Args:
+            match_result: MatchResult containing matches to link
+
+        Returns:
+            Number of links created
+        """
+        created = 0
+        for match in match_result.matches:
+            try:
+                link = RMTreeLink(
+                    census_person_id=match.census_person.person_id,
+                    rmtree_person_id=match.rm_person.person_id,
+                    rmtree_citation_id=match_result.citation_id,
+                    rmtree_event_id=match_result.event_id,
+                    rmtree_database=str(self.rmtree_path),
+                    match_confidence=match.score,
+                    match_method="fuzzy_match",
+                )
+                self.census_repo.insert_rmtree_link(link)
+                created += 1
+                logger.info(
+                    f"Created link: {match.rm_person.full_name} (RIN {match.rm_person.person_id}) → "
+                    f"{match.census_person.full_name} (Census ID {match.census_person.person_id})"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to create link for {match.rm_person.full_name}: {e}")
+
+        return created
+
     def _update_statistics(
         self,
         census_year: int,

@@ -255,7 +255,7 @@ Quality levels:
 ### Row Classes
 
 - `.data-row` - Base row styling
-- `.sample-line` - Sample line person (1950: lines 1, 6, 11, 16, 21, 26)
+- `.sample-line` - Sample line person (1950: determined by presence of cols 21-33 data)
 - `.head-row` - Head of household
 - `.target-row` - Target person (highlighted)
 

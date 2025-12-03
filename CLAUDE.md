@@ -175,6 +175,43 @@ RM_MEDIA_ROOT_DIRECTORY=~/Genealogy/RootsMagic/Files
 LOG_LEVEL=INFO
 ```
 
+## Playwright Browser Automation
+
+When using Playwright for FamilySearch automation, **always connect to the existing Chrome CDP instance** rather than launching a new browser.
+
+### Prerequisites
+
+Start Chrome with remote debugging enabled and log into FamilySearch:
+
+```bash
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=9222 \
+  --no-first-run \
+  --user-data-dir=~/.chrome-debug-profile
+```
+
+### Connection Pattern
+
+```javascript
+// JavaScript (Playwright skill)
+const browser = await chromium.connectOverCDP('http://localhost:9222');
+const context = browser.contexts()[0];
+const pages = context.pages();
+// Find existing FamilySearch page or navigate in existing context
+```
+
+```python
+# Python (familysearch_census_extractor.py)
+browser = await playwright.chromium.connect_over_cdp("http://localhost:9222")
+```
+
+### Key Points
+
+- **Never launch new browser** - always use `connectOverCDP('http://localhost:9222')`
+- **Reuse authenticated session** - the Chrome instance is pre-logged into FamilySearch
+- **Find existing pages** - check `context.pages()` for already-open FamilySearch tabs
+- **Session expiry** - if redirected to login page, re-authenticate in Chrome manually
+
 ## Key Files
 
 | File | Purpose |
@@ -240,4 +277,4 @@ This file loads with every Claude Code conversation. Keep it concise:
 
 ---
 
-*Last updated: 2025-11-26*
+*Last updated: 2025-12-03*

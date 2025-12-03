@@ -1080,92 +1080,136 @@ class CensusTranscriptionTab:
 
         return None
 
-    def _import_from_familysearch(self, ark_url: str) -> None:
-        """Import census data from FamilySearch ARK URL.
+    async def _import_from_familysearch(self, ark_url: str) -> None:
+        """Import census data from FamilySearch and run fuzzy matching.
 
-        Opens a dialog to confirm and perform the import.
+        Uses inline progress UI instead of a dialog. After import, automatically
+        runs fuzzy matching against RootsMagic persons on the citation.
         """
+        from rmcitecraft.services.familysearch_census_extractor import (
+            extract_census_from_citation,
+        )
+        from rmcitecraft.services.census_rmtree_matcher import create_matcher
+
         if not self.selected_image:
             ui.notify("No image selected", type="warning")
             return
 
         img = self.selected_image
+        census_year = img.census_year or 1950
 
-        # Store import context for async handler
-        self._import_ark_url = ark_url
-        self._import_census_year = img.census_year or 1950
+        # Show inline progress in the results column
+        self.results_column.clear()
+        with self.results_column:
+            ui.label("Importing from FamilySearch...").classes("text-lg font-bold text-purple-600")
 
-        with ui.dialog() as self._import_dialog, ui.card().classes("w-[500px]"):
-            ui.label("Import from FamilySearch").classes("text-lg font-bold mb-2")
-
-            ui.label(f"Import transcription data for:").classes("text-sm")
-            ui.label(img.media_file).classes("text-sm font-mono text-gray-600")
-
-            ui.separator().classes("my-2")
-
-            ui.label("FamilySearch URL:").classes("text-xs font-bold")
-            ui.label(ark_url).classes("text-xs text-blue-600 break-all")
-
-            ui.label(f"Census Year: {self._import_census_year}").classes("text-sm mt-2")
-
-            if img.person_names:
-                ui.label(f"Target persons: {', '.join(img.person_names[:3])}").classes(
-                    "text-xs text-gray-500"
-                )
-
-            self._import_status_label = ui.label("").classes("text-sm text-gray-500 mt-2")
-
-            with ui.row().classes("w-full justify-end gap-2 mt-4"):
-                ui.button("Cancel", on_click=self._import_dialog.close).props("flat")
-                # NiceGUI handles async functions directly - don't use asyncio.ensure_future
-                self._import_btn = ui.button(
-                    "Import",
-                    icon="cloud_download",
-                    on_click=self._do_familysearch_import,
-                ).props("color=green")
-
-        self._import_dialog.open()
-
-    async def _do_familysearch_import(self) -> None:
-        """Perform the FamilySearch import using stored context."""
-        from rmcitecraft.services.familysearch_census_extractor import (
-            extract_census_from_citation,
-        )
-
-        ark_url = self._import_ark_url
-        census_year = self._import_census_year
+            with ui.row().classes("items-center gap-2"):
+                progress_spinner = ui.spinner("dots", size="lg", color="purple")
+                status_label = ui.label("Connecting to Chrome...").classes("text-sm text-gray-500")
 
         try:
-            self._import_btn.disable()
-            self._import_status_label.set_text("Connecting to Chrome...")
-
-            # NiceGUI handles async functions properly - just await directly
+            # Step 1: Extract from FamilySearch
             result = await extract_census_from_citation(ark_url, census_year)
 
-            if result.success:
-                name = result.extracted_data.get("primary_name", "Unknown")
-                household_count = len(result.related_persons) if result.related_persons else 0
-                total = 1 + household_count
-
-                logger.info(f"Import successful: {total} persons, closing dialog")
-
-                ui.notify(
-                    f"Successfully imported {total} persons: {name}",
-                    type="positive",
-                )
-                ui.notify("Data saved to census.db - view in Census Extraction Viewer tab", type="info")
-
-                # Close dialog using timer to ensure it runs in proper UI context
-                # Direct close()/submit() don't work reliably from async callbacks
-                ui.timer(0.1, lambda: self._import_dialog.close(), once=True)
-
-            else:
-                self._import_status_label.set_text(f"Error: {result.error_message}")
+            if not result.success:
+                self.results_column.clear()
+                with self.results_column:
+                    ui.label("Import Failed").classes("text-lg font-bold text-red-600")
+                    ui.label(result.error_message).classes("text-sm text-red-500")
                 ui.notify(f"Import failed: {result.error_message}", type="negative")
-                self._import_btn.enable()
+                return
+
+            # Step 2: Show import results
+            name = result.extracted_data.get("primary_name", "Unknown")
+            household_count = len(result.related_persons) if result.related_persons else 0
+            total = 1 + household_count
+
+            status_label.set_text(f"Imported {total} persons. Running fuzzy matching...")
+
+            # Step 3: Run fuzzy matching against RootsMagic
+            # Get the footnote to find the citation ID
+            footnote = img.footnote or ""
+            matcher = None
+            match_result = None
+
+            try:
+                matcher = create_matcher()
+
+                # Try to find matching RootsMagic citation by ARK URL in the footnote
+                # The footnote contains the FamilySearch URL which links to the citation
+                match_result = matcher.match_census_persons_by_ark(
+                    ark_url=ark_url,
+                    census_year=census_year,
+                    threshold=0.5,
+                )
+            except Exception as e:
+                logger.warning(f"Fuzzy matching failed: {e}")
+
+            # Step 4: Display final results
+            self.results_column.clear()
+            with self.results_column:
+                # Import summary
+                ui.label("Import Complete").classes("text-lg font-bold text-green-600")
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("check_circle", size="sm").classes("text-green-500")
+                    ui.label(f"Imported {total} persons from FamilySearch").classes("text-sm")
+
+                ui.separator().classes("my-2")
+
+                # Matching results
+                if match_result and match_result.matches:
+                    ui.label(f"RootsMagic Matches ({len(match_result.matches)})").classes(
+                        "font-bold text-blue-600"
+                    )
+                    ui.label(f"Citation ID: {match_result.citation_id}").classes("text-xs text-gray-500")
+
+                    for match in match_result.matches:
+                        with ui.card().classes("w-full p-2 my-1"):
+                            with ui.row().classes("items-center gap-2"):
+                                # Score badge
+                                score_pct = int(match.score * 100)
+                                color = "green" if score_pct >= 90 else "yellow" if score_pct >= 70 else "orange"
+                                ui.badge(f"{score_pct}%", color=color)
+
+                                # Names
+                                ui.label(match.rm_person.full_name).classes("font-medium")
+                                ui.icon("arrow_forward", size="xs").classes("text-gray-400")
+                                ui.label(match.census_person.full_name).classes("text-gray-600")
+
+                    # Show unmatched
+                    if match_result.unmatched_rm:
+                        ui.label("Unmatched RootsMagic Persons").classes("font-bold text-yellow-600 mt-2")
+                        for rm_person in match_result.unmatched_rm:
+                            with ui.row().classes("items-center gap-1 text-sm"):
+                                ui.icon("warning", size="xs").classes("text-yellow-500")
+                                ui.label(f"{rm_person.full_name} ({rm_person.relationship})").classes("text-yellow-700")
+
+                    # Create links button
+                    if match_result.matches:
+                        async def create_all_links():
+                            created = matcher.create_links_for_matches(match_result)
+                            ui.notify(f"Created {created} RootsMagic links", type="positive")
+                            # Refresh the display
+                            await self._import_from_familysearch(ark_url)
+
+                        ui.button(
+                            f"Create {len(match_result.matches)} Links",
+                            icon="link",
+                            on_click=create_all_links,
+                        ).props("color=green size=sm").classes("mt-2")
+
+                elif match_result:
+                    ui.label("No RootsMagic matches found").classes("text-sm text-gray-500")
+                    ui.label("Use Census Extraction Viewer to manually match").classes("text-xs text-gray-400")
+                else:
+                    ui.label("Matching not available").classes("text-sm text-gray-500")
+
+            ui.notify(f"Successfully imported {total} persons: {name}", type="positive")
 
         except Exception as e:
-            logger.error(f"FamilySearch import failed: {e}")
-            self._import_status_label.set_text(f"Error: {e}")
+            logger.error(f"FamilySearch import failed: {e}", exc_info=True)
+            self.results_column.clear()
+            with self.results_column:
+                ui.label("Import Failed").classes("text-lg font-bold text-red-600")
+                ui.label(str(e)).classes("text-sm text-red-500")
             ui.notify(f"Import failed: {e}", type="negative")
-            self._import_btn.enable()

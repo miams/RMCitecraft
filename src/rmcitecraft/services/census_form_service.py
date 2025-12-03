@@ -38,8 +38,9 @@ from rmcitecraft.models.census_form_data import (
 )
 
 
-# Sample line numbers for 1950 census (lines 1, 6, 11, 16, 21, 26)
-SAMPLE_LINES_1950 = {1, 6, 11, 16, 21, 26}
+# NOTE: Sample lines in the 1950 census vary by form version (5 versions of Form P1).
+# We determine if a person is a sample person by checking if they have sample line
+# field data (columns 21-33), NOT by hardcoded line numbers.
 
 
 class CensusFormDataService:
@@ -287,9 +288,11 @@ class CensusFormDataService:
             if include_quality and person.person_id:
                 self._attach_quality(form_person, person.person_id)
 
-            # Determine if sample person (1950)
-            if person.line_number and person.line_number in SAMPLE_LINES_1950:
-                form_person.is_sample_person = True
+            # Determine if sample person by checking for presence of sample line fields
+            # (Sample lines vary by form version, so we check actual data, not line number)
+            form_person.is_sample_person = any(
+                fv.is_sample_line_field for fv in form_person.fields.values()
+            )
 
             form_persons.append(form_person)
 

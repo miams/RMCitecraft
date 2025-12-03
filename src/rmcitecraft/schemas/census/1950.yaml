@@ -5,10 +5,54 @@ year: 1950
 era: "individual_with_ed_page"
 nara_publication: null  # Digital-only release in 2022
 
+# =============================================================================
+# FORM VARIANTS
+# =============================================================================
+# The 1950 census used multiple form variants. The extraction algorithm must
+# handle these differently.
+#
+# FORM P1 - POPULATION AND HOUSING SCHEDULE (Standard)
+# -----------------------------------------------------------------------------
+# - Used in most of the United States
+# - 30 lines per page, one person per line
+# - Sample lines (columns 21-33) asked additional questions of ~20% of population
+# - KEY INSIGHT: There were 5 versions of Form P1, each with different sample lines:
+#     Version A: Lines 1, 6, 11, 16, 21, 26
+#     Version B: Lines 2, 7, 12, 17, 22, 27
+#     Version C: Lines 3, 8, 13, 18, 23, 28
+#     Version D: Lines 4, 9, 14, 19, 24, 29
+#     Version E: Lines 5, 10, 15, 20, 25, 30
+# - Sample persons should be identified by PRESENCE OF SAMPLE FIELD DATA
+#   (columns 21-33), NOT by line number, since we cannot determine which
+#   form version was used.
+#
+# FORM P3 - HOUSEHOLD FORM (Experimental)
+# -----------------------------------------------------------------------------
+# - Used experimentally in parts of Ohio and Michigan
+# - Structured by HOUSEHOLD rather than by line number
+# - Each head of household has "Line Number 1" (not unique sequential lines)
+# - Multiple households appear on the same page
+# - Family relationships stored explicitly (Spouse, Child fields)
+# - NO sample line questions - everyone answers all questions
+# - FamilySearch structure groups family members under "Spouses and Children"
+# - Each person has their own ARK ID that must be followed for full data
+# - Citation identifies as "household form" (e.g., "citing household form...")
+#
+# IDENTIFYING FORM TYPE:
+# - RootsMagic citations explicitly mention "household form" in the source name
+# - FamilySearch records show "Others on This Record" for other households
+# - Household forms show explicit "Spouse:" and "Child:" relationship fields
+# - Standard P1 forms use "Relationship to Head" column values
+#
+# =============================================================================
+
 form_structure:
   lines_per_side: 30
   sides: null  # No A/B sides - just page numbers
-  supplemental_lines: [6, 11, 16, 21, 26]  # Sample lines (every 5th person)
+  # NOTE: Sample lines varied by form version (5 versions of Form P1).
+  # We determine sample persons by checking for sample field data (cols 21-33), not line number.
+  # Household forms (P3) have no sample lines - everyone answers all questions.
+  supplemental_lines: null
   uses_page: true
   uses_sheet: false
   uses_stamp: true  # Citations use "stamp" instead of "sheet"
@@ -191,7 +235,7 @@ columns:
     valid_values: ["P", "G", "O", "U"]
     required: false
 
-  # Sample line questions (every 5th person: lines 1, 6, 11, 16, 21, 26)
+  # Sample line questions (sample lines vary by form version)
   # Columns 21-28: Residence and education
   - name: is_sample_person
     data_type: boolean
@@ -320,8 +364,15 @@ valid_values:
 instructions: |
   1950 CENSUS FORM STRUCTURE:
 
-  The 1950 census form has 30 lines per page. Unlike 1940, it uses page numbers (not sheets A/B).
-  A small percentage of forms use "stamp" numbers instead of page numbers in citations.
+  The 1950 census used two main form types: P1 (standard) and P3 (household form).
+  Unlike 1940, it uses page numbers (not sheets A/B). Citations often use "stamp"
+  instead of "page" for the page reference.
+
+  =============================================================================
+  FORM P1 - STANDARD POPULATION AND HOUSING SCHEDULE
+  =============================================================================
+
+  30 lines per page, one person per line.
 
   COLUMN LAYOUT - FOR ALL PERSONS (Cols 1-14):
   - Col 1: Street name
@@ -347,8 +398,19 @@ instructions: |
   - Col 19: Hours worked last week
   - Col 20: Occupation (20a), Industry (20b), Class of worker (20c)
 
-  SAMPLE LINE QUESTIONS (Cols 21-33):
-  Every 5th person (lines 6, 11, 16, 21, 26) has additional questions:
+  SAMPLE LINE QUESTIONS (Cols 21-33) - FORM P1 ONLY:
+  Sample persons have additional questions. There were 5 versions of Form P1,
+  each with different sample lines to randomize the ~20% sample:
+    - Version A: Lines 1, 6, 11, 16, 21, 26
+    - Version B: Lines 2, 7, 12, 17, 22, 27
+    - Version C: Lines 3, 8, 13, 18, 23, 28
+    - Version D: Lines 4, 9, 14, 19, 24, 29
+    - Version E: Lines 5, 10, 15, 20, 25, 30
+
+  IMPORTANT: Identify sample persons by checking for presence of columns 21-33
+  data, NOT by line number (since form version cannot be determined from data).
+
+  Sample line columns:
   - Col 21: Same house as April 1, 1949? (Y/N)
   - Col 22: On farm April 1, 1949? (Y/N)
   - Col 23: Same county April 1, 1949? (Y/N)
@@ -359,13 +421,37 @@ instructions: |
   - Col 28: School attendance since February 1? (Y/N)
   - Col 29-33: Employment/income history (ages 14+)
 
-  CITATION FORMAT:
-  "1950 U.S. census, [County], [State], [Township], E.D. [ED], page [page], line [line]"
-  Note: Some forms use "stamp" instead of "page" for the page reference.
+  =============================================================================
+  FORM P3 - HOUSEHOLD FORM (Experimental - Ohio and Michigan)
+  =============================================================================
 
-  IMPORTANT READING TIPS:
+  Used experimentally in parts of Ohio and Michigan. Different structure:
+  - Organized by HOUSEHOLD, not sequential line numbers
+  - Each head of household has "Line Number 1"
+  - Multiple households appear on the same page
+  - Family relationships stored as explicit fields (Spouse, Child)
+  - NO sample lines - everyone answers all questions
+
+  IDENTIFYING HOUSEHOLD FORMS:
+  - RootsMagic citations include "household form" in the source name
+  - FamilySearch shows "Others on This Record" section for other households
+  - Relationships shown as "Spouse: [Name]" and "Child: [Name]" fields
+
+  EXTRACTION DIFFERENCES FOR HOUSEHOLD FORMS:
+  - Cannot use line numbers to identify household boundaries
+  - Must follow individual ARK links to get each person's full data
+  - Family members grouped under target person, not by line sequence
+  - Other households on same page shown in "Others on This Record" section
+
+  CITATION FORMAT:
+  Standard P1: "1950 U.S. census, [County], [State], [Township], E.D. [ED], stamp [N], line [line]"
+  Household form: "1950 U.S. census, [County], [State], [Township], citing household form E.D. [ED], stamp [N]"
+
+  =============================================================================
+  IMPORTANT READING TIPS
+  =============================================================================
   - First census released digitally (2022), image quality varies
   - Names use ditto marks for same surname as previous line
   - Rural areas may have descriptive addresses instead of street numbers
-  - Watch for Sample lines (6, 11, 16, 21, 26) which have extra data on right side
+  - Watch for Sample line persons which have extra data on right side (cols 21-33)
   - Common abbreviations: Wm=William, Jno=John, Jas=James, Jr=Junior, Sr=Senior
