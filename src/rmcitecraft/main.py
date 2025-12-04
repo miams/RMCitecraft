@@ -12,11 +12,11 @@ from rmcitecraft.config import get_config
 from rmcitecraft.services.file_watcher import FileWatcher
 from rmcitecraft.services.image_processing import get_image_processing_service
 from rmcitecraft.ui.components.error_panel import create_error_panel
-from rmcitecraft.ui.tabs.citation_manager import CitationManagerTab
 from rmcitecraft.ui.tabs.batch_processing import BatchProcessingTab
-from rmcitecraft.ui.tabs.findagrave_batch import FindAGraveBatchTab
-from rmcitecraft.ui.tabs.census_transcription import CensusTranscriptionTab
+from rmcitecraft.ui.tabs.census_batch_transcription import CensusBatchTranscriptionTab
 from rmcitecraft.ui.tabs.census_extraction_viewer import CensusExtractionViewerTab
+from rmcitecraft.ui.tabs.citation_manager import CitationManagerTab
+from rmcitecraft.ui.tabs.findagrave_batch import FindAGraveBatchTab
 
 
 def _cleanup_services(file_watcher: FileWatcher | None) -> None:
@@ -141,9 +141,9 @@ def setup_app() -> None:
                             on_click=lambda: (show_citation_manager(), update_view("Citation Manager", "citation_manager")),
                         ).props("icon=format_quote")
                         ui.menu_item(
-                            "Census Transcription",
-                            on_click=lambda: (show_census_transcription(), update_view("Census Transcription", "census_transcription")),
-                        ).props("icon=auto_awesome")
+                            "Census Batch Transcriptions",
+                            on_click=lambda: (show_census_batch_transcription(), update_view("Census Batch Transcriptions", "census_batch_transcription")),
+                        ).props("icon=playlist_add")
                         ui.menu_item(
                             "Census Extractions",
                             on_click=lambda: (show_census_extraction_viewer(), update_view("Census Extractions", "census_extractions")),
@@ -236,6 +236,13 @@ def setup_app() -> None:
                         "Clear Batch State",
                         on_click=lambda: ui.notify("Clear state not implemented", type="info"),
                     ).props("icon=clear_all")
+                    ui.separator()
+
+                elif view_key == "census_batch_transcription":
+                    ui.menu_item(
+                        "Clear Census DB",
+                        on_click=lambda: trigger_clear_census_db(),
+                    ).props("icon=delete_forever").classes("text-red-600")
                     ui.separator()
 
                 # Common utilities always available
@@ -409,18 +416,18 @@ def setup_app() -> None:
                             ui.badge("Validate", color="purple").props("outline").classes("text-xs")
 
                 with ui.row().classes("w-full max-w-6xl gap-3"):
-                    # Card 4: Census Transcription
+                    # Card 4: Census Batch Transcriptions
                     with ui.card().classes(
-                        "flex-1 p-4 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-amber-500"
-                    ).on("click", lambda: (show_census_transcription(), update_view("Census Transcription", "census_transcription"))):
+                        "flex-1 p-4 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-purple-500"
+                    ).on("click", lambda: (show_census_batch_transcription(), update_view("Census Batch Transcriptions", "census_batch_transcription"))):
                         with ui.row().classes("items-center gap-2 mb-2"):
-                            ui.icon("auto_awesome", size="md").classes("text-amber-600")
-                            ui.label("Census Transcription").classes("font-bold text-amber-800")
-                        ui.label("AI-assisted transcription from census images with schema validation").classes("text-xs text-gray-600")
+                            ui.icon("playlist_add", size="md").classes("text-purple-600")
+                            ui.label("Census Batch Transcriptions").classes("font-bold text-purple-800")
+                        ui.label("Batch import census data from FamilySearch for multiple sources").classes("text-xs text-gray-600")
                         with ui.row().classes("mt-2 gap-1 flex-wrap"):
-                            ui.badge("AI OCR", color="amber").props("outline").classes("text-xs")
-                            ui.badge("Schema", color="amber").props("outline").classes("text-xs")
-                            ui.badge("1950", color="amber").props("outline").classes("text-xs")
+                            ui.badge("Batch", color="purple").props("outline").classes("text-xs")
+                            ui.badge("FamilySearch", color="purple").props("outline").classes("text-xs")
+                            ui.badge("1850-1950", color="purple").props("outline").classes("text-xs")
 
                     # Card 5: Census Extractions
                     with ui.card().classes(
@@ -515,12 +522,12 @@ def setup_app() -> None:
                 citation_manager = CitationManagerTab()
                 citation_manager.render()
 
-        def show_census_transcription() -> None:
-            """Show census transcription view."""
+        def show_census_batch_transcription() -> None:
+            """Show census batch transcription view."""
             view_container.clear()
             with view_container:
-                census_transcription = CensusTranscriptionTab()
-                census_transcription.render()
+                census_batch_transcription = CensusBatchTranscriptionTab()
+                census_batch_transcription.render()
 
         def show_census_extraction_viewer() -> None:
             """Show census extraction viewer."""

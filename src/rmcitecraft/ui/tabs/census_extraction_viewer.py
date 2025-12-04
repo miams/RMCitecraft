@@ -9,7 +9,6 @@ Provides UI for:
 - Viewing dynamically generated census form templates
 """
 
-import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -22,6 +21,12 @@ from rmcitecraft.database.census_extraction_db import (
     CensusPerson,
     FieldQuality,
     get_census_repository,
+)
+from rmcitecraft.services.census_transcription_batch import (
+    CensusTranscriptionBatchService,
+    QueueItem,
+    QueueStats,
+    get_batch_service,
 )
 
 # State abbreviations for compact display
@@ -138,6 +143,15 @@ class CensusExtractionViewerTab:
         # Field history cache
         self.field_history: dict[str, list] = {}  # field_name -> list of history entries
 
+        # Batch import state
+        self.batch_service: CensusTranscriptionBatchService | None = None
+        self.batch_queue: list[QueueItem] = []
+        self.batch_stats: QueueStats | None = None
+        self.batch_selected: set[int] = set()  # Set of selected source IDs
+        self.batch_processing: bool = False
+        self.batch_session_id: str | None = None
+        self.batch_sort_by: str = "location"  # "location" or "name"
+
     def render(self) -> None:
         """Render the census extraction viewer tab."""
         with ui.column().classes("w-full p-4 gap-4"):
@@ -250,6 +264,10 @@ class CensusExtractionViewerTab:
             ui.button(
                 "Import from URL", icon="cloud_download", on_click=self._show_import_dialog
             ).props("color=green")
+
+            ui.button(
+                "Batch Import", icon="playlist_add", on_click=self._show_batch_import_dialog
+            ).props("color=purple")
 
             self.status_label = ui.label("").classes("text-sm text-gray-500 ml-auto")
 
@@ -642,9 +660,10 @@ class CensusExtractionViewerTab:
     def _view_census_form(self, page_id: int) -> None:
         """Open census form in a new browser tab."""
         try:
-            from rmcitecraft.services.census_form_renderer import CensusFormRenderer
-            import tempfile
             import subprocess
+            import tempfile
+
+            from rmcitecraft.services.census_form_renderer import CensusFormRenderer
 
             renderer = CensusFormRenderer()
             html = renderer.render_page(page_id, embed_css=True)
@@ -1247,6 +1266,324 @@ class CensusExtractionViewerTab:
 
         # Log the summary
         logger.info("\n".join(log_lines))
+
+    # =========================================================================
+    # Batch Import
+    # =========================================================================
+
+    def _show_batch_import_dialog(self) -> None:
+        """Show dialog to batch import from RootsMagic sources."""
+        with ui.dialog() as self._batch_dialog, ui.card().classes("w-[900px] max-h-[80vh]"):
+            ui.label("Batch Import from RootsMagic").classes("text-xl font-bold mb-2")
+            ui.label(
+                "Import census data from FamilySearch for multiple sources at once."
+            ).classes("text-sm text-gray-500 mb-4")
+
+            # Filter and sort controls
+            with ui.row().classes("w-full items-center gap-4 mb-2"):
+                self._batch_year_select = ui.select(
+                    options={
+                        None: "All Years",
+                        1950: "1950",
+                        1940: "1940",
+                        1930: "1930",
+                        1920: "1920",
+                        1910: "1910",
+                        1900: "1900",
+                    },
+                    value=None,
+                    label="Census Year",
+                ).classes("w-32")
+
+                self._batch_sort_select = ui.select(
+                    options={
+                        "location": "Sort by State, County",
+                        "name": "Sort by Surname",
+                    },
+                    value="location",
+                    label="Sort Order",
+                    on_change=lambda e: self._on_sort_change(e.value),
+                ).classes("w-48")
+
+                ui.button(
+                    "Load Queue", icon="refresh", on_click=self._load_batch_queue
+                ).props("color=primary")
+
+            # Statistics display
+            with ui.row().classes("w-full items-center gap-4 mb-2"):
+                self._batch_stats_label = ui.label("").classes("text-sm")
+
+            # Queue table
+            with ui.scroll_area().classes("h-[350px] w-full border rounded"):
+                self._batch_queue_container = ui.column().classes("w-full gap-1 p-2")
+                with self._batch_queue_container:
+                    ui.label("Click 'Load Queue' to find sources").classes(
+                        "text-gray-400 italic text-sm"
+                    )
+
+            # Selection controls
+            with ui.row().classes("w-full items-center gap-2 mt-4 flex-wrap"):
+                ui.button(
+                    "Select Next 10", icon="add", on_click=lambda: self._batch_select_next(10)
+                ).props("size=sm outline")
+                ui.button(
+                    "Select Next 25", icon="add", on_click=lambda: self._batch_select_next(25)
+                ).props("size=sm outline")
+                ui.button(
+                    "Select All", icon="select_all", on_click=self._batch_select_all
+                ).props("size=sm outline")
+                ui.button(
+                    "Deselect All", icon="deselect", on_click=self._batch_deselect_all
+                ).props("size=sm outline")
+
+                self._batch_selected_label = ui.label("0 selected").classes(
+                    "text-sm font-medium ml-auto"
+                )
+
+            # Progress section (hidden initially)
+            self._batch_progress_container = ui.column().classes("w-full mt-4 hidden")
+            with self._batch_progress_container:
+                self._batch_progress_bar = ui.linear_progress(value=0).classes("w-full")
+                with ui.row().classes("w-full items-center gap-2"):
+                    self._batch_progress_spinner = ui.spinner(size="sm")
+                    self._batch_progress_text = ui.label("").classes("text-sm")
+                self._batch_edge_warnings = ui.column().classes("w-full mt-2")
+
+            # Action buttons
+            with ui.row().classes("w-full justify-end gap-2 mt-4"):
+                ui.button("Cancel", on_click=self._batch_dialog.close).props("flat")
+                self._batch_process_btn = ui.button(
+                    "Process Selected",
+                    icon="play_arrow",
+                    on_click=self._start_batch_processing,
+                ).props("color=purple")
+                self._batch_process_btn.disable()
+
+        self._batch_dialog.open()
+
+    async def _load_batch_queue(self) -> None:
+        """Load the batch queue from RootsMagic."""
+        self._batch_stats_label.set_text("Loading...")
+
+        try:
+            # Initialize batch service if needed
+            if not self.batch_service:
+                self.batch_service = get_batch_service()
+
+            # Build queue with stats
+            year_filter = self._batch_year_select.value
+            sort_by = self._batch_sort_select.value if hasattr(self, '_batch_sort_select') else "location"
+            self.batch_queue, self.batch_stats = await self.batch_service.build_transcription_queue(
+                census_year=year_filter,
+                sort_by=sort_by,
+            )
+            self.batch_selected.clear()
+
+            # Update stats display
+            year_str = str(year_filter) if year_filter else "All Years"
+            self._batch_stats_label.set_text(
+                f"{year_str}: {self.batch_stats.total_sources} total sources | "
+                f"{self.batch_stats.already_processed} already processed | "
+                f"{self.batch_stats.remaining} remaining"
+            )
+            self._refresh_batch_queue_display()
+
+        except Exception as e:
+            logger.error(f"Failed to load batch queue: {e}")
+            self._batch_stats_label.set_text(f"Error: {e}")
+            ui.notify(f"Failed to load queue: {e}", type="negative")
+
+    def _on_sort_change(self, sort_by: str) -> None:
+        """Handle sort order change - re-sort the existing queue."""
+        self.batch_sort_by = sort_by
+        if self.batch_queue:
+            if sort_by == "name":
+                self.batch_queue.sort(key=lambda x: (x.surname.lower(), x.person_name.lower()))
+            else:  # location
+                self.batch_queue.sort(key=lambda x: (x.state.lower(), x.county.lower(), x.surname.lower()))
+            self._refresh_batch_queue_display()
+
+    def _batch_select_next(self, count: int) -> None:
+        """Select the next N unselected items in the queue."""
+        added = 0
+        for item in self.batch_queue:
+            if item.rmtree_citation_id not in self.batch_selected:
+                self.batch_selected.add(item.rmtree_citation_id)
+                added += 1
+                if added >= count:
+                    break
+        self._refresh_batch_queue_display()
+        if added > 0:
+            ui.notify(f"Selected {added} sources", type="info")
+
+    def _refresh_batch_queue_display(self) -> None:
+        """Refresh the batch queue display."""
+        self._batch_queue_container.clear()
+
+        with self._batch_queue_container:
+            if not self.batch_queue:
+                ui.label("No unprocessed sources found matching filters").classes(
+                    "text-gray-400 italic text-sm"
+                )
+                return
+
+            # Group by state if sorting by location, or show flat list
+            sort_by = getattr(self, 'batch_sort_by', 'location')
+            if sort_by == "location":
+                # Group by state
+                by_state: dict[str, list[QueueItem]] = {}
+                for item in self.batch_queue:
+                    state = item.state or "Unknown"
+                    if state not in by_state:
+                        by_state[state] = []
+                    by_state[state].append(item)
+
+                for state in sorted(by_state.keys()):
+                    items = by_state[state]
+                    with ui.expansion(
+                        f"{state} ({len(items)} sources)",
+                        icon="location_on",
+                        value=len(by_state) <= 5,  # Auto-expand if few states
+                    ).classes("w-full"):
+                        for item in items:
+                            self._render_batch_queue_item(item)
+            else:
+                # Flat list sorted by surname
+                for item in self.batch_queue:
+                    self._render_batch_queue_item(item)
+
+        self._update_batch_selection_count()
+
+    def _render_batch_queue_item(self, item: QueueItem) -> None:
+        """Render a single batch queue item with checkbox."""
+        is_selected = item.rmtree_citation_id in self.batch_selected
+
+        with ui.card().classes(
+            f"w-full p-2 {'bg-purple-50 border-purple-200' if is_selected else ''}"
+        ), ui.row().classes("w-full items-center gap-2"):
+            # Checkbox
+            ui.checkbox(
+                value=is_selected,
+                on_change=lambda e, cid=item.rmtree_citation_id: self._toggle_batch_selection(
+                    cid, e.value
+                ),
+            )
+
+            # Person info
+            with ui.column().classes("flex-1"):
+                ui.label(item.person_name).classes("font-medium text-sm")
+                location = f"{item.county} Co., {item.state}" if item.county else item.state
+                ui.label(location).classes("text-xs text-gray-500")
+
+            # Source ID badge
+            ui.badge(f"Source #{item.rmtree_citation_id}", color="gray").classes("text-xs")
+
+            # Already processed indicator
+            if item.already_processed:
+                ui.badge("Already imported", color="green").classes("text-xs")
+
+    def _toggle_batch_selection(self, citation_id: int, selected: bool) -> None:
+        """Toggle selection of a batch item."""
+        if selected:
+            self.batch_selected.add(citation_id)
+        else:
+            self.batch_selected.discard(citation_id)
+        self._update_batch_selection_count()
+
+    def _batch_select_all(self) -> None:
+        """Select all items in the queue."""
+        for item in self.batch_queue:
+            if not item.already_processed:
+                self.batch_selected.add(item.rmtree_citation_id)
+        self._refresh_batch_queue_display()
+
+    def _batch_deselect_all(self) -> None:
+        """Deselect all items."""
+        self.batch_selected.clear()
+        self._refresh_batch_queue_display()
+
+    def _update_batch_selection_count(self) -> None:
+        """Update the selection count label."""
+        count = len(self.batch_selected)
+        self._batch_selected_label.set_text(f"{count} selected")
+        if count > 0:
+            self._batch_process_btn.enable()
+        else:
+            self._batch_process_btn.disable()
+
+    async def _start_batch_processing(self) -> None:
+        """Start processing the selected batch items."""
+        if not self.batch_selected:
+            ui.notify("No items selected", type="warning")
+            return
+
+        if self.batch_processing:
+            ui.notify("Batch processing already in progress", type="warning")
+            return
+
+        self.batch_processing = True
+        self._batch_process_btn.disable()
+        self._batch_progress_container.classes(remove="hidden")
+        self._batch_edge_warnings.clear()
+
+        # Filter queue to selected items
+        selected_items = [
+            item for item in self.batch_queue
+            if item.rmtree_citation_id in self.batch_selected
+        ]
+
+        try:
+            # Create session
+            session_id = self.batch_service.create_session_from_queue(
+                selected_items,
+                census_year=self._batch_year_select.value,
+            )
+            self.batch_session_id = session_id
+
+            # Define progress callback
+            def on_progress(completed: int, total: int, current_name: str) -> None:
+                progress = completed / total if total > 0 else 0
+                self._batch_progress_bar.set_value(progress)
+                self._batch_progress_text.set_text(
+                    f"Processing {completed}/{total}: {current_name}"
+                )
+
+            # Define edge warning callback
+            def on_edge_warning(message: str, item_data: dict) -> None:
+                with self._batch_edge_warnings, ui.row().classes("items-center gap-1 text-xs"):
+                    ui.icon("warning", size="xs").classes("text-yellow-500")
+                    ui.label(message).classes("text-yellow-700")
+
+            # Run batch processing
+            result = await self.batch_service.process_batch(
+                session_id,
+                on_progress=on_progress,
+                on_edge_warning=on_edge_warning,
+            )
+
+            # Show results
+            self._batch_progress_text.set_text(
+                f"Complete! {result.completed} imported, {result.errors} errors, "
+                f"{result.skipped} skipped, {result.edge_warnings} edge warnings"
+            )
+            self._batch_progress_spinner.set_visibility(False)
+
+            ui.notify(
+                f"Batch import complete: {result.completed} imported",
+                type="positive" if result.errors == 0 else "warning",
+            )
+
+            # Refresh the main person list
+            self._search_persons()
+
+        except Exception as e:
+            logger.error(f"Batch processing failed: {e}")
+            self._batch_progress_text.set_text(f"Error: {e}")
+            ui.notify(f"Batch processing failed: {e}", type="negative")
+
+        finally:
+            self.batch_processing = False
+            self._batch_process_btn.enable()
 
     # =========================================================================
     # Clear Database

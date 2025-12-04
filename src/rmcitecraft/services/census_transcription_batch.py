@@ -57,7 +57,7 @@ class BatchResult:
 class QueueItem:
     """Item in the transcription queue (before session creation)."""
 
-    rmtree_citation_id: int
+    rmtree_citation_id: int  # Actually source_id when using source-based queue
     rmtree_person_id: int | None
     person_name: str
     census_year: int
@@ -66,6 +66,16 @@ class QueueItem:
     familysearch_ark: str
     image_ark: str | None = None  # Populated if we can determine it
     already_processed: bool = False
+    surname: str = ""  # For sorting
+
+
+@dataclass
+class QueueStats:
+    """Statistics about the transcription queue."""
+
+    total_sources: int = 0
+    already_processed: int = 0
+    remaining: int = 0
 
 
 class CensusTranscriptionBatchService:
@@ -107,29 +117,28 @@ class CensusTranscriptionBatchService:
         self,
         census_year: int | None = None,
         state_filter: str | None = None,
-        limit: int | None = None,
-    ) -> list[QueueItem]:
+        sort_by: str = "location",  # "location" or "name"
+    ) -> tuple[list[QueueItem], QueueStats]:
         """
-        Build queue of citations to transcribe.
+        Build queue of sources to transcribe.
 
-        1. Query RootsMagic for census citations with FamilySearch ARKs
-        2. Filter out citations for already-processed images
-        3. Return sorted queue
+        Queries from SourceTable (not Citations) to avoid duplicates.
+        Each Source with a FamilySearch ARK represents one census page to process.
 
         Args:
             census_year: Filter to specific census year (1790-1950)
             state_filter: Filter to specific state abbreviation
-            limit: Maximum items to return
+            sort_by: Sort order - "location" (State, County) or "name" (Surname)
 
         Returns:
-            List of QueueItem objects representing citations to process
+            Tuple of (queue items, statistics)
         """
         logger.info(
             f"Building transcription queue (year={census_year}, state={state_filter})"
         )
 
         queue: list[QueueItem] = []
-        skipped_processed = 0
+        stats = QueueStats()
 
         try:
             conn = connect_rmtree(
@@ -138,118 +147,153 @@ class CensusTranscriptionBatchService:
             )
             cursor = conn.cursor()
 
-            # Query for census citations with FamilySearch ARKs
-            # Join through EventTable and WitnessTable to get all persons on census
-            query = """
-                SELECT DISTINCT
-                    c.CitationID,
-                    n.OwnerID as PersonID,
-                    TRIM(COALESCE(n.Given, '') || ' ' || COALESCE(n.Surname, '')) as PersonName,
-                    e.Date as EventDate,
-                    c.Footnote
+            # Build query with year filter in SQL for efficiency
+            # Source name format: "Fed Census: 1950, Arizona, Pima [citing ...]"
+            year_clause = ""
+            if census_year:
+                year_clause = f"AND s.Name LIKE 'Fed Census: {census_year},%'"
+
+            # Query 1: Get all matching sources (fast)
+            source_query = f"""
+                SELECT s.SourceID, s.Name, s.Fields
+                FROM SourceTable s
+                WHERE s.TemplateID = 0
+                  AND s.Name LIKE 'Fed Census:%'
+                  {year_clause}
+            """
+            cursor.execute(source_query)
+            source_rows = cursor.fetchall()
+
+            logger.debug(f"Found {len(source_rows)} census sources in RootsMagic")
+
+            # Query 2: Get person names for all sources in one query
+            # Group by SourceID, take first match
+            person_query = """
+                SELECT
+                    c.SourceID,
+                    TRIM(COALESCE(n.Given, '') || ' ' || COALESCE(n.Surname, '')) as person_name,
+                    n.Surname
                 FROM CitationTable c
                 JOIN CitationLinkTable cl ON c.CitationID = cl.CitationID
                 JOIN EventTable e ON cl.OwnerID = e.EventID AND cl.OwnerType = 2
-                JOIN PersonTable p ON e.OwnerID = p.PersonID
-                JOIN NameTable n ON p.PersonID = n.OwnerID AND n.IsPrimary = 1
-                WHERE e.EventType = 18  -- Census event
-                  AND c.Footnote LIKE '%familysearch.org/ark:%'
+                JOIN NameTable n ON e.OwnerID = n.OwnerID AND n.IsPrimary = 1
+                GROUP BY c.SourceID
             """
-            params = []
+            cursor.execute(person_query)
+            person_rows = cursor.fetchall()
+            conn.close()
 
-            if census_year:
-                # EventDate is stored as integer YYYYMMDD or similar
-                query += " AND CAST(SUBSTR(CAST(e.Date AS TEXT), 1, 4) AS INTEGER) = ?"
-                params.append(census_year)
+            # Build lookup dict for person names
+            person_lookup: dict[int, tuple[str, str]] = {}
+            for prow in person_rows:
+                person_lookup[prow[0]] = (prow[1] or "", prow[2] or "")
 
-            query += " ORDER BY e.Date DESC, n.Surname, n.Given"
+            # Combine into rows format
+            rows = []
+            for srow in source_rows:
+                source_id = srow[0]
+                pname, surname = person_lookup.get(source_id, ("", ""))
+                rows.append((source_id, srow[1], srow[2], pname, surname))
 
-            if limit:
-                query += f" LIMIT {limit}"
+            # Pre-load all processed ARKs from census.db into a set for O(1) lookup
+            from rmcitecraft.database.census_extraction_db import get_census_repository
+            census_repo = get_census_repository()
 
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
-            logger.debug(f"Found {len(rows)} census citations in RootsMagic")
+            processed_arks: set[str] = set()
+            with census_repo._connect() as census_conn:
+                ark_rows = census_conn.execute(
+                    "SELECT familysearch_ark FROM census_person WHERE familysearch_ark IS NOT NULL"
+                ).fetchall()
+                for ark_row in ark_rows:
+                    processed_arks.add(ark_row[0])
 
+            logger.debug(f"Loaded {len(processed_arks)} processed ARKs")
+
+            # Process rows - now just string parsing, no additional queries
             for row in rows:
-                citation_id = row[0]
-                person_id = row[1]
-                person_name = row[2] or "Unknown"
-                event_date = row[3]
-                footnote = row[4] or ""
+                source_id = row[0]
+                source_name = row[1] or ""
+                source_fields = row[2]
+                person_name = row[3] or source_name
+                surname = row[4] or ""
 
-                # Extract census year from event date
-                year = None
-                if event_date:
-                    date_str = str(event_date)
-                    if len(date_str) >= 4 and date_str[:4].isdigit():
-                        year = int(date_str[:4])
-
-                # Extract FamilySearch ARK from footnote
-                ark_match = re.search(
-                    r"familysearch\.org/ark:/61903/(1:1:[A-Z0-9-]+)", footnote
+                # Extract year, state, county from source name
+                name_match = re.match(
+                    r"Fed Census:\s*(\d{4}),\s*([^,]+),\s*([^\s\[]+)",
+                    source_name,
+                    re.IGNORECASE,
                 )
-                if not ark_match:
+                if not name_match:
                     continue
 
-                fs_ark = ark_match.group(1)
-
-                # Extract state/county from footnote if possible
-                state = ""
-                county = ""
-                # Common patterns: "Ohio, Franklin County" or "Franklin, Ohio"
-                loc_match = re.search(
-                    r"(\w+)\s+County,\s+(\w+)|(\w+),\s+(\w+)\s+County",
-                    footnote,
-                )
-                if loc_match:
-                    if loc_match.group(1):
-                        county = loc_match.group(1)
-                        state = loc_match.group(2)
-                    else:
-                        state = loc_match.group(3)
-                        county = loc_match.group(4)
+                year = int(name_match.group(1))
+                state = name_match.group(2).strip()
+                county = name_match.group(3).strip()
 
                 # Apply state filter if provided
                 if state_filter and state.upper() != state_filter.upper():
                     continue
 
-                # Check if this citation's image has already been processed
-                # Note: We can't know the image ARK without visiting the page,
-                # but we can check by person ARK
-                full_ark = f"https://www.familysearch.org/ark:/61903/{fs_ark}"
-
-                # Check if person already extracted in census.db
-                from rmcitecraft.database.census_extraction_db import get_census_repository
-                census_repo = get_census_repository()
-                existing = census_repo.get_person_by_ark(full_ark)
-
-                if existing:
-                    skipped_processed += 1
+                # Extract ARK from Fields blob (simple string search, no XML parsing)
+                if not source_fields:
                     continue
 
-                queue.append(QueueItem(
-                    rmtree_citation_id=citation_id,
-                    rmtree_person_id=person_id,
-                    person_name=person_name,
-                    census_year=year or 0,
-                    state=state,
-                    county=county,
-                    familysearch_ark=fs_ark,
-                    already_processed=False,
-                ))
+                fields_str = (
+                    source_fields.decode("utf-8")
+                    if isinstance(source_fields, bytes)
+                    else source_fields
+                )
 
-            conn.close()
+                ark_match = re.search(
+                    r"familysearch\.org/ark:/61903/(1:1:[A-Z0-9-]+)", fields_str
+                )
+                if not ark_match:
+                    continue
+
+                fs_ark = ark_match.group(1)
+                full_ark = f"https://www.familysearch.org/ark:/61903/{fs_ark}"
+
+                # Count for stats
+                stats.total_sources += 1
+
+                # Check if already processed - O(1) set lookup
+                if full_ark in processed_arks:
+                    stats.already_processed += 1
+                    continue
+
+                queue.append(
+                    QueueItem(
+                        rmtree_citation_id=source_id,
+                        rmtree_person_id=None,
+                        person_name=person_name,
+                        census_year=year,
+                        state=state,
+                        county=county,
+                        familysearch_ark=fs_ark,
+                        already_processed=False,
+                        surname=surname,
+                    )
+                )
+
+            # Calculate remaining
+            stats.remaining = stats.total_sources - stats.already_processed
+
+            # Sort the queue
+            if sort_by == "name":
+                queue.sort(key=lambda x: (x.surname.lower(), x.person_name.lower()))
+            else:  # location
+                queue.sort(key=lambda x: (x.state.lower(), x.county.lower(), x.surname.lower()))
 
         except Exception as e:
             logger.error(f"Error building transcription queue: {e}")
             raise
 
         logger.info(
-            f"Built queue: {len(queue)} items to process, "
-            f"{skipped_processed} skipped (already processed)"
+            f"Built queue: {len(queue)} unprocessed, "
+            f"{stats.already_processed} already processed, "
+            f"{stats.total_sources} total for year filter"
         )
-        return queue
+        return queue, stats
 
     def create_session_from_queue(
         self,
