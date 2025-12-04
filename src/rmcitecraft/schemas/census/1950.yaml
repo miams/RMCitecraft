@@ -83,18 +83,21 @@ columns:
     data_type: string
     description: "Street name"
     required: false
+    genealogical_value: "Provides moderate value for placing families within specific neighborhoods and communities. Combined with city directories or Sanborn maps, street addresses can reveal proximity to churches, schools, workplaces, or relatives living nearby."
 
   - name: household_number
     column_number: 2
     data_type: integer
     description: "Serial number of household"
     required: false
+    genealogical_value: "Offers minimal genealogical insight as an administrative reference number. Primarily useful for distinguishing multiple families at the same address or locating the original census image."
 
   - name: dwelling_number
     column_number: 3
     data_type: integer
     description: "Serial number of dwelling unit"
     required: false
+    genealogical_value: "Provides minimal direct value but can indicate whether families lived in single-family homes versus multi-unit buildings such as apartments, boarding houses, or tenements."
 
   - name: is_dwelling_on_farm
     column_number: 4
@@ -102,6 +105,7 @@ columns:
     description: "Y/yes=Yes lives on farm, blank/no=No"
     valid_values: ["Y", "yes", "no", ""]
     required: false
+    genealogical_value: "Offers limited value in distinguishing rural agricultural families from urban or town dwellers. This context helps explain occupational patterns and family lifestyles."
 
   - name: status_of_dwelling
     column_number: 4
@@ -109,18 +113,21 @@ columns:
     description: "O=Owned, R=Rented, N=No cash rent"
     valid_values: ["O", "R", "N", "no", ""]
     required: false
+    genealogical_value: "Provides moderate insight into economic stability and social standing. Home ownership often indicates established families with community ties, while renting may suggest recent arrivals, transient workers, or economic hardship following the Great Depression."
 
   - name: farm_3_plus_acres
     column_number: 5
     data_type: string
     description: "house on farm of 3+ acres (Y/yes or blank/no)"
     required: false
+    genealogical_value: "Offers limited value in distinguishing subsistence family farms from larger agricultural operations. This can indicate whether farming was a primary livelihood or supplementary activity."
 
-  - name: agricultural_questionnaire 
+  - name: agricultural_questionnaire
     column_number: 6
     data_type: string
     description: "Agricultural Questionnaire Number"
     required: false
+    genealogical_value: "Provides minimal direct value but indicates the existence of a separate agricultural schedule that may contain detailed information about farm size, crops, livestock, and equipment."
 
   # Columns 7-12: Personal information
   - name: name
@@ -128,6 +135,7 @@ columns:
     data_type: string
     description: "Full name as written (last name first for head)"
     required: true
+    genealogical_value: "The name field holds exceptional value as the primary identifier for locating and confirming individuals across records. Spelling variations, nicknames, and middle names can reveal family naming patterns, ethnic heritage, and connections to earlier generations. Comparing names across census years may expose anglicization of immigrant names, adoptions, remarriages, or clerical errors that explain apparent disappearances from records."
 
   - name: relationship
     column_number: 8
@@ -139,6 +147,7 @@ columns:
       "W": "Wife"
       "S": "Son"
       "D": "Daughter"
+    genealogical_value: "Provides exceptional value for reconstructing family structures and identifying biological, step, and in-law relationships. This field reveals household composition including extended family members, boarders, servants, or hired hands. Changes in relationship status across census years can indicate deaths of spouses, remarriages, children leaving home, or elderly parents moving in with adult children."
 
   - name: race
     column_number: 9
@@ -146,6 +155,7 @@ columns:
     description: "W=White, Neg=Negro, Ind=Indian, Jp=Japanese, Ch=Chinese, Fil=Filipino"
     valid_values: ["W", "Neg", "Ind", "Jp", "Ch", "Fil"]
     required: true
+    genealogical_value: "Offers moderate value for understanding social and historical context of ancestors' lives. Race classifications can reveal mixed-heritage families, point toward specialized record sets such as Freedmen's Bureau or tribal rolls, and explain geographic mobility patterns including the Great Migration or wartime relocations of Japanese Americans."
 
   - name: sex
     column_number: 10
@@ -153,12 +163,14 @@ columns:
     description: "M=Male, F=Female"
     valid_values: ["M", "F"]
     required: true
+    genealogical_value: "Provides moderate value primarily for confirming identity and distinguishing between individuals with similar names. This field helps identify gender-ambiguous names like Marion, Leslie, or Pat, and occasional enumeration errors may explain discrepancies when correlating records."
 
   - name: age
     column_number: 11
     data_type: integer
     description: "Age at last birthday"
     required: true
+    genealogical_value: "Holds significant value for calculating approximate birth years and establishing identity across multiple records. Age discrepancies of 2-3 years between census records are common and normal, but larger variations may indicate different individuals, deliberate misreporting for employment or marriage purposes, or uncertainty about actual birth dates among immigrants or formerly enslaved persons."
 
   - name: marital_status
     column_number: 12
@@ -166,6 +178,7 @@ columns:
     description: "M/Mar=Married, Wd=Widowed, D=Divorced, Sep=Separated, S/Nev=Single (never married)"
     valid_values: ["M", "Mar", "Married", "Wd", "Widowed", "D", "Div", "Divorced", "Sep", "Separated", "S", "Nev", "Single", "Never"]
     required: true
+    genealogical_value: "Provides significant insight into life events and family circumstances. Widowed status indicates a death to research, divorced or separated status was relatively rare and may appear in court records, and changes from single to married between censuses narrow the search window for marriage records. Multiple marriages can be traced through status changes across decades."
 
   # Columns 13-14: Birthplace and citizenship
   - name: birthplace
@@ -173,6 +186,7 @@ columns:
     data_type: string
     description: "State if US-born, or country if foreign-born"
     required: true
+    genealogical_value: "Holds exceptional value for tracing geographic origins and migration patterns across generations. For US-born individuals, birthplace reveals family movements between states and can point to earlier census records, vital records, or land records in those locations. For immigrants, birthplace identifies the country of origin for passenger list searches, naturalization records, and potentially foreign church or civil records."
 
   - name: naturalized
     column_number: 14
@@ -180,6 +194,7 @@ columns:
     description: "Is person naturalized? Yes, No, AP for born-abroad to American parents"
     valid_values: ["Yes", "No", "AP", ""]
     required: false
+    genealogical_value: "Provides significant value for immigrant research by indicating whether naturalization papers exist in court records. Naturalization files often contain detailed biographical information including exact birthplace, arrival date, ship name, witnesses, and sometimes photographs. The AP designation for American Parents born abroad points toward overseas military or diplomatic records."
 
   # Columns 15-20: Employment status for persons 14+ years old
   - name: employment_status
@@ -188,6 +203,7 @@ columns:
     description: "What person was doing most of last week: W=Working, H=Keeping house, Ot=Other"
     valid_values: ["W", "H", "Ot", ""]
     required: false
+    genealogical_value: "Offers limited value as a snapshot of daily life at census time. The distinction between working, keeping house, or other activities provides context for understanding family dynamics and economic circumstances in the post-war era."
 
   - name: any_work_last_week
     column_number: 16
@@ -195,6 +211,7 @@ columns:
     description: "Did person do any work at all last week? Y/N"
     valid_values: ["Y", "N", "yes", "no", ""]
     required: false
+    genealogical_value: "Provides minimal genealogical value as a narrow employment snapshot. This may indicate seasonal work patterns or temporary unemployment situations."
 
   - name: looking_for_work
     column_number: 17
@@ -202,6 +219,7 @@ columns:
     description: "Was person looking for work? Y/N"
     valid_values: ["Y", "N", "yes", "no", ""]
     required: false
+    genealogical_value: "Offers minimal direct genealogical value but provides context about economic challenges a family may have faced during this period."
 
   - name: has_job_not_at_work
     column_number: 18
@@ -209,24 +227,28 @@ columns:
     description: "Has job or business but not at work last week? Y/N"
     valid_values: ["Y", "N", "yes", "no", ""]
     required: false
+    genealogical_value: "Provides minimal value but may indicate illness, injury, vacation, or seasonal employment patterns that affected family circumstances."
 
   - name: hours_worked
     column_number: 19
     data_type: integer
     description: "Hours worked last week"
     required: false
+    genealogical_value: "Offers limited value in understanding work intensity and whether employment was full-time or part-time. Exceptionally long hours may indicate multiple jobs or seasonal harvest work, while short hours might suggest health issues or economic underemployment."
 
   - name: occupation
     column_number: 20a
     data_type: string
     description: "What kind of work (specific occupation)"
     required: false
+    genealogical_value: "Holds exceptional value for understanding an ancestor's daily life, skills, and social standing. Occupations can reveal specialized training or education, point to union records or professional licensing documents, suggest health hazards that may have affected lifespan, indicate immigration patterns for particular trades, and connect families through shared occupations passed from parent to child. Comparing occupations across decades illuminates career progression, economic mobility, or hardship."
 
   - name: industry
     column_number: 20b
     data_type: string
     description: "What kind of business or industry"
     required: false
+    genealogical_value: "Provides significant value by adding context to occupation data. Industry information can identify specific employers for personnel records, reveal exposure to workplace hazards relevant to health histories, and explain geographic choices when families moved to industrial centers, mining regions, or agricultural areas."
 
   - name: class_of_worker
     column_number: 20c
@@ -234,6 +256,7 @@ columns:
     description: "P=Private wage/salary, G=Government, O=Own business, U=Unpaid family worker"
     valid_values: ["P", "G", "O", "U"]
     required: false
+    genealogical_value: "Offers moderate insight into economic independence and family business structures. Government workers may appear in civil service records, business owners might be found in tax records or business directories, and unpaid family workers reveal household economic contributions often overlooked in other records."
 
   # Sample line questions (sample lines vary by form version)
   # Columns 21-28: Residence and education
@@ -241,6 +264,7 @@ columns:
     data_type: boolean
     description: "True if this is a sample person with additional questions"
     required: false
+    genealogical_value: "Provides moderate value as an indicator that additional detailed information exists for this individual. Sample persons have parent birthplaces, education, income, and migration data not collected for everyone."
 
   - name: residence_1949_same_house
     column_number: 21
@@ -248,6 +272,7 @@ columns:
     description: "Living in same house as April 1, 1949? Y/N"
     valid_values: ["Y", "N", "yes", "no", ""]
     required: false
+    genealogical_value: "Offers limited value but a 'No' response triggers the more valuable question about previous location. This indicates residential stability or recent mobility."
 
   - name: residence_1949_on_farm
     column_number: 22
@@ -255,6 +280,7 @@ columns:
     description: "Living on farm April 1, 1949? Y/N"
     valid_values: ["Y", "N", "yes", "no", ""]
     required: false
+    genealogical_value: "Provides limited value in tracking rural-to-urban migration patterns that were common in post-war America. A change from farm to non-farm residence reflects broader demographic shifts."
 
   - name: residence_1949_same_county
     column_number: 23
@@ -262,30 +288,35 @@ columns:
     description: "Living in same county April 1, 1949? Y/N"
     valid_values: ["Y", "N", "yes", "no", ""]
     required: false
+    genealogical_value: "Offers limited value but a 'No' response triggers the previous location question, indicating significant geographic mobility in the year before the census."
 
   - name: residence_1949_different_location
     column_number: 24
     data_type: string
     description: "If different location April 1, 1949: county/state or foreign country"
     required: false
+    genealogical_value: "Provides significant value by documenting recent migration with a specific previous location. This field captures post-war relocations for employment, GI Bill education, or family reunification and points to earlier records in another jurisdiction."
 
   - name: father_birthplace
     column_number: 25a
     data_type: string
     description: "Father's birthplace - state or country"
     required: false
+    genealogical_value: "Holds exceptional value for extending family research back one generation without finding another record. Father's birthplace identifies geographic origins for the paternal line, points toward immigration records if foreign-born, and helps confirm family connections when correlating multiple descendants' census records."
 
   - name: mother_birthplace
     column_number: 25b
     data_type: string
     description: "Mother's birthplace - state or country"
     required: false
+    genealogical_value: "Holds exceptional value for extending family research back one generation. Mother's birthplace identifies geographic origins for the maternal line, reveals potential maiden name origins based on ethnic communities in specific locations, and points toward immigration records if foreign-born."
 
   - name: highest_grade_attended
     column_number: 26
     data_type: string
     description: "Highest grade of school attended"
     required: false
+    genealogical_value: "Provides moderate value for understanding social mobility and life opportunities. College attendance may point to alumni records, professional education suggests licensing documents, and education levels explain occupational trajectories and community standing."
 
   - name: completed_grade
     column_number: 27
@@ -293,6 +324,7 @@ columns:
     description: "Did person complete that grade? Y/N"
     valid_values: ["Y", "N", "yes", "no", ""]
     required: false
+    genealogical_value: "Offers minimal additional value beyond the grade attended field. Non-completion may indicate economic hardship, family obligations, or health issues that interrupted schooling."
 
   - name: school_attendance
     column_number: 28
@@ -300,6 +332,7 @@ columns:
     description: "Attended school since February 1? Y/N"
     valid_values: ["Y", "N", "yes", "no", ""]
     required: false
+    genealogical_value: "Provides limited value primarily for children and young adults. Current school attendance helps date educational timelines and may correlate with school records or yearbooks."
 
   # Columns 29-33: Sample line, ages 14+ (employment/income history)
   - name: weeks_looking_for_work
@@ -307,35 +340,41 @@ columns:
     data_type: integer
     description: "Weeks looking for work in past 12 months"
     required: false
+    genealogical_value: "Offers limited value in documenting periods of unemployment or job transition. Extended job searches may correlate with economic conditions, health issues, or career changes."
 
   - name: weeks_worked_1949
     column_number: 30
     data_type: integer
     description: "Weeks worked in 1949"
     required: false
+    genealogical_value: "Provides limited insight into employment stability and work patterns. Full-year employment suggests steady work, while partial years may indicate seasonal occupations, health problems, or economic disruptions."
 
   - name: income_wages_1949
     column_number: 31
     data_type: integer
     description: "Income from wages/salary in 1949"
     required: false
+    genealogical_value: "Holds significant value for understanding economic circumstances and relative social standing. Wage income provides concrete evidence of financial position, can be compared across family members to reveal household dynamics, and contextualizes life choices such as housing, education, and healthcare available to the family."
 
   - name: income_self_employment_1949
     column_number: 32
     data_type: integer
     description: "Income from self-employment in 1949"
     required: false
+    genealogical_value: "Provides significant insight into entrepreneurial activity and business ownership. Self-employment income indicates independent businesses that may appear in tax records, business directories, newspapers, or licensing files, and reveals economic self-sufficiency that shaped family identity."
 
   - name: income_other_1949
     column_number: 33
     data_type: integer
     description: "Income from other sources in 1949"
     required: false
+    genealogical_value: "Offers moderate value by revealing additional income streams such as rental property, investments, pensions, or family support. Significant other income may indicate inherited wealth, military pensions, or retirement circumstances worth exploring in probate or pension records."
 
   - name: veteran_status
     data_type: string
     description: "Veteran status and war served"
     required: false
+    genealogical_value: "Holds significant value for connecting ancestors to military service records. Veteran status opens pathways to service records, pension files, draft registration cards, discharge papers, VA hospital records, and veterans' organization memberships. The specific war served—World War I, World War II, or Korean War—dates the service period and identifies relevant record sets including unit histories and after-action reports."
 
 abbreviations:
   "do": "same as above"
