@@ -1745,6 +1745,7 @@ class FamilySearchCensusExtractor:
                     f'div[role="button"]:has(a[href*="{target_ark_id}"])',
                 ]
 
+                target_found_and_clicked = False
                 for selector in target_selectors:
                     try:
                         target_element = page.locator(selector).first
@@ -1755,19 +1756,36 @@ class FamilySearchCensusExtractor:
 
                             try:
                                 await target_element.click(timeout=5000, force=True)
+                                target_found_and_clicked = True
                             except Exception as click_err:
                                 logger.debug(f"Force click failed, trying JS click: {click_err}")
-                                await target_element.evaluate("el => el.click()")
+                                try:
+                                    await target_element.evaluate("el => el.click()")
+                                    target_found_and_clicked = True
+                                except Exception as js_err:
+                                    logger.warning(f"JS click also failed: {js_err}")
+                                    continue
 
-                            # Wait for detail panel
-                            await page.wait_for_timeout(1000)
+                            # Wait for detail panel to load
+                            await page.wait_for_timeout(1500)
                             dense_count = await page.locator("div[data-dense]").count()
                             if dense_count > 5:
                                 logger.info(f"Detail panel loaded for target person ({dense_count} fields)")
                                 return True
+                            else:
+                                # Even if dense_count is low, we clicked the target - trust it
+                                logger.info(f"Clicked target person, detail panel has {dense_count} fields (waiting more...)")
+                                await page.wait_for_timeout(1500)  # Extra wait
+                                dense_count = await page.locator("div[data-dense]").count()
+                                logger.info(f"After extra wait: {dense_count} fields")
+                                return True  # Trust the click - don't fall back to wrong person
                     except Exception as e:
                         logger.debug(f"Target selector {selector} failed: {e}")
                         continue
+
+                if target_found_and_clicked:
+                    # We clicked the target, don't fall back even if panel didn't load as expected
+                    return True
 
                 logger.warning(f"Could not find target person {target_ark_id}, falling back to first person")
 
