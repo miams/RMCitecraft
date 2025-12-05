@@ -703,6 +703,7 @@ class FamilySearchCensusExtractor:
         extract_household: bool = True,
         rm_persons_filter: list[Any] | None = None,
         is_primary_target: bool = True,
+        line_number: int | None = None,
     ) -> ExtractionResult:
         """
         Extract census data from a FamilySearch ARK URL.
@@ -774,6 +775,10 @@ class FamilySearchCensusExtractor:
             person_data, page_data, extended_fields = self._parse_extracted_data(
                 raw_data, census_year, ark_url
             )
+
+            # Set line number if provided (from SLS API extraction)
+            if line_number is not None:
+                person_data.line_number = line_number
 
             # Ensure batch exists
             if not self._batch_id:
@@ -879,6 +884,8 @@ class FamilySearchCensusExtractor:
                 # Get target person info for matching
                 target_ark_normalized = normalize_ark_url(ark_url)
                 target_name = person_data.full_name or ""
+                # For married women matching - use target person's surname (household head)
+                head_surname = person_data.surname or ""
 
                 # Track extraction stats
                 extracted_count = 0
@@ -900,19 +907,28 @@ class FamilySearchCensusExtractor:
 
                     # If this is the target person, we already extracted them above
                     if is_target:
+                        # Update the target person's line number if available from SLS API
+                        target_line_number = member.get("line_number")
+                        if target_line_number is not None:
+                            self.repository.update_person_line_number(person_id, target_line_number)
+                            logger.info(f"Updated target person line_number to {target_line_number}")
+
                         result.related_persons.append({
                             "name": member_name,
                             "ark": member_ark_normalized,
                             "person_id": person_id,
                             "is_target_person": True,
                             "already_extracted": True,
+                            "line_number": target_line_number,
                         })
                         extracted_count += 1
                         continue
 
                     # If RM filter is active, only extract members who match a RootsMagic person
                     if rm_persons_filter:
-                        matches_rm, matched_rm = self._matches_any_rm_person(member_name, rm_persons_filter)
+                        matches_rm, matched_rm = self._matches_any_rm_person(
+                            member_name, rm_persons_filter, head_surname=head_surname
+                        )
                         if not matches_rm:
                             logger.debug(f"Skipping '{member_name}' - no RootsMagic match")
                             skipped_count += 1
@@ -943,6 +959,7 @@ class FamilySearchCensusExtractor:
                             full_name=member_name,
                             given_name=given_name,
                             surname=surname,
+                            line_number=member.get("line_number"),  # Line number from SLS API
                             # Household members share the same Census event as the primary
                             is_target_person=True,
                             # Include any extra data from the index if available
@@ -955,7 +972,9 @@ class FamilySearchCensusExtractor:
                         # Check if this member matches an RM person (for rmtree_link)
                         matched_rm_person_id = None
                         if rm_persons_filter:
-                            _, matched_rm = self._matches_any_rm_person(member_name, rm_persons_filter)
+                            _, matched_rm = self._matches_any_rm_person(
+                                member_name, rm_persons_filter, head_surname=head_surname
+                            )
                             if matched_rm:
                                 matched_rm_person_id = getattr(matched_rm, 'person_id', None)
 
@@ -1013,7 +1032,9 @@ class FamilySearchCensusExtractor:
                         # Get matched RM person ID if available (for creating rmtree_link)
                         matched_rm_person_id = None
                         if rm_persons_filter:
-                            _, matched_rm = self._matches_any_rm_person(member_name, rm_persons_filter)
+                            _, matched_rm = self._matches_any_rm_person(
+                                member_name, rm_persons_filter, head_surname=head_surname
+                            )
                             if matched_rm:
                                 matched_rm_person_id = getattr(matched_rm, 'person_id', None)
 
@@ -1024,6 +1045,7 @@ class FamilySearchCensusExtractor:
                             rmtree_person_id=matched_rm_person_id,  # Matched RM person
                             extract_household=False,  # Don't recurse
                             is_primary_target=True,  # Household members share the same Census event
+                            line_number=member.get("line_number"),  # Census form line number from SLS API
                         )
                         if member_result.success:
                             result.related_persons.append({
@@ -1190,6 +1212,7 @@ class FamilySearchCensusExtractor:
         self,
         member_name: str,
         rm_persons: list[Any],
+        head_surname: str | None = None,
     ) -> tuple[bool, Any | None]:
         """Check if a household member name matches any RootsMagic person.
 
@@ -1199,12 +1222,19 @@ class FamilySearchCensusExtractor:
         Args:
             member_name: Name from FamilySearch (e.g., "John W Smith")
             rm_persons: List of RMPersonData objects from RootsMagic
+            head_surname: Surname of household head, used for matching married women
+                         who may be recorded with husband's surname on census but
+                         maiden name in RootsMagic
 
         Returns:
             Tuple of (matches: bool, matched_rm_person or None)
         """
         if not rm_persons or not member_name:
             return False, None
+
+        member_tokens = normalize_name(member_name).split()
+        member_given = member_tokens[0] if member_tokens else ""
+        member_surname = member_tokens[-1] if len(member_tokens) > 1 else ""
 
         for rm_person in rm_persons:
             rm_full_name = getattr(rm_person, 'full_name', '')
@@ -1223,6 +1253,22 @@ class FamilySearchCensusExtractor:
                 if names_match_fuzzy(member_name, combined):
                     logger.debug(f"RM match found (combined): '{member_name}' ~ '{combined}'")
                     return True, rm_person
+
+            # Try given name match with head's surname for married women
+            # Handles: FS "Vida Ijams" (married name) vs RM "Vida Ester Ruth" (maiden name)
+            # If FS surname matches head and RM given name matches FS given name
+            if head_surname and member_given and rm_given:
+                head_surname_norm = normalize_name(head_surname)
+                if member_surname == head_surname_norm:
+                    # FS person uses head's surname - check if given names match
+                    rm_given_norm = normalize_name(rm_given)
+                    # Check for exact or initial match on given name
+                    if member_given == rm_given_norm or rm_given_norm.startswith(member_given):
+                        logger.debug(
+                            f"RM match found (married name): '{member_name}' ~ '{rm_full_name}' "
+                            f"(given '{member_given}' matches, uses head surname '{head_surname}')"
+                        )
+                        return True, rm_person
 
         return False, None
 
@@ -2274,21 +2320,21 @@ class FamilySearchCensusExtractor:
 
     async def _extract_person_arks_via_api(
         self, page: Page, image_ark: str
-    ) -> list[str]:
+    ) -> dict[str, int]:
         """
         Extract all person ARKs for a census image by intercepting the SLS API response.
 
         FamilySearch's internal SLS API returns ALL person ARKs when loading a census
-        image page. This is more reliable than trying to click through the UI.
+        image page. The order in the response matches the line number on the census form.
 
         Args:
             page: Playwright page instance
             image_ark: The census image ARK (format: 3:1:XXXX)
 
         Returns:
-            List of person ARK IDs (format: 1:1:XXXX)
+            Dict mapping person ARK ID (format: 1:1:XXXX) to line number (1-indexed)
         """
-        person_arks: list[str] = []
+        ark_to_line: dict[str, int] = {}
         captured_data: dict[str, Any] = {}
 
         async def capture_sls_response(response):
@@ -2318,19 +2364,21 @@ class FamilySearchCensusExtractor:
                     break
                 await page.wait_for_timeout(500)
 
-            # Extract person ARKs from the captured data
+            # Extract person ARKs from the captured data - position = line number
             if "sls" in captured_data:
                 sls_data = captured_data["sls"]
+                line_number = 1
                 if "elements" in sls_data:
                     for elem in sls_data["elements"]:
                         if "subElements" in elem:
                             for sub in elem["subElements"]:
                                 ark_id = sub.get("id", "")
                                 if ark_id.startswith("1:1:"):
-                                    person_arks.append(ark_id)
+                                    ark_to_line[ark_id] = line_number
+                                    line_number += 1
 
                 logger.info(
-                    f"Extracted {len(person_arks)} person ARKs from SLS API"
+                    f"Extracted {len(ark_to_line)} person ARKs with line numbers from SLS API"
                 )
             else:
                 logger.warning("SLS API response was not captured")
@@ -2341,7 +2389,7 @@ class FamilySearchCensusExtractor:
             # Remove the response handler
             page.remove_listener("response", capture_sls_response)
 
-        return person_arks
+        return ark_to_line
 
     async def _extract_household_index(
         self, page: Page, require_names: bool = False
@@ -2373,20 +2421,21 @@ class FamilySearchCensusExtractor:
                 image_ark = image_ark_match.group(1)
                 logger.info(f"Extracted image ARK: {image_ark}")
 
-                # PRIMARY STRATEGY: Use API interception to get all person ARKs
-                person_arks = await self._extract_person_arks_via_api(page, image_ark)
+                # PRIMARY STRATEGY: Use API interception to get all person ARKs with line numbers
+                ark_to_line = await self._extract_person_arks_via_api(page, image_ark)
 
-                if person_arks:
+                if ark_to_line:
                     logger.info(
-                        f"API extraction successful: {len(person_arks)} person ARKs"
+                        f"API extraction successful: {len(ark_to_line)} person ARKs with line numbers"
                     )
-                    # Convert ARK IDs to full URLs and return
+                    # Convert ARK IDs to full URLs and return with line numbers
                     household = []
-                    for ark_id in person_arks:
+                    for ark_id, line_number in ark_to_line.items():
                         full_ark = f"https://www.familysearch.org/ark:/61903/{ark_id}"
                         household.append({
                             "name": "",  # Name will be extracted when visiting the person page
                             "ark": full_ark,
+                            "line_number": line_number,  # Census form line number
                         })
                     return household
 

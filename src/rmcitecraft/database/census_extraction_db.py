@@ -544,6 +544,14 @@ class CensusExtractionRepository:
             ).fetchall()
             return [self._row_to_person(row) for row in rows]
 
+    def update_person_line_number(self, person_id: int, line_number: int) -> None:
+        """Update the line number for an existing person record."""
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE census_person SET line_number = ? WHERE person_id = ?",
+                (line_number, person_id),
+            )
+
     def _row_to_person(self, row: sqlite3.Row) -> CensusPerson:
         """Convert database row to CensusPerson dataclass."""
         return CensusPerson(
