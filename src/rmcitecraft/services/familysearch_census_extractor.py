@@ -1273,15 +1273,34 @@ class FamilySearchCensusExtractor:
             # URL has personArk - wait for panel to load, but NEVER click
             # The panel will load eventually, and we already have person page data
             logger.info("URL contains personArk - waiting for panel to auto-load (no clicking)")
-            for _ in range(5):  # Wait up to 2.5 seconds
+            for i in range(6):  # Wait up to 3 seconds
                 await page.wait_for_timeout(500)
                 dense_count = await dense_check.count()
-                if dense_count > 5:
+
+                # Check for content indicators (more reliable than just element count)
+                # Panel loads between 500-1000ms, content appears with dense elements
+                has_content = await page.evaluate("""
+                    () => {
+                        const text = document.body.textContent || '';
+                        // Look for typical census data fields that indicate panel loaded
+                        return text.includes('Occupation') ||
+                               text.includes('Birthplace') ||
+                               text.includes('Essential Information');
+                    }
+                """)
+
+                if dense_count > 5 and has_content:
+                    logger.info(f"Detail panel loaded with {dense_count} fields (content verified)")
+                    break
+                elif dense_count > 20:
+                    # Enough elements even without content check
                     logger.info(f"Detail panel loaded with {dense_count} data fields")
                     break
+                else:
+                    logger.debug(f"Waiting... {(i+1)*500}ms: {dense_count} fields, content={has_content}")
             else:
                 dense_count = await dense_check.count()
-                logger.info(f"Panel has {dense_count} fields after waiting - proceeding without clicking")
+                logger.info(f"Panel has {dense_count} fields after waiting - proceeding")
         else:
             # No personArk in URL - need to click to open panel
             dense_count = await dense_check.count()
