@@ -481,6 +481,7 @@ class FamilySearchCensusExtractor:
         rmtree_database: str = "",
         extract_household: bool = True,
         rm_persons_filter: list[Any] | None = None,
+        is_primary_target: bool = True,
     ) -> ExtractionResult:
         """
         Extract census data from a FamilySearch ARK URL.
@@ -495,6 +496,8 @@ class FamilySearchCensusExtractor:
             rm_persons_filter: Optional list of RMPersonData. If provided, only extract
                 household members who fuzzy-match one of these RootsMagic persons.
                 This avoids extracting people not in the RootsMagic database.
+            is_primary_target: If True, marks this person as the primary target in census.db.
+                Set to False when extracting household members.
 
         Returns:
             ExtractionResult with success status and extracted data
@@ -558,7 +561,7 @@ class FamilySearchCensusExtractor:
 
             # Insert person
             person_data.page_id = page_id
-            person_data.is_target_person = True
+            person_data.is_target_person = is_primary_target
             person_id = self.repository.insert_person(person_data)
             result.person_id = person_id
 
@@ -726,16 +729,28 @@ class FamilySearchCensusExtractor:
                     else:
                         # Extract full data for this household member
                         logger.info(f"Extracting household member: {member_name} ({member_ark_normalized})")
+
+                        # Get matched RM person ID if available (for creating rmtree_link)
+                        matched_rm_person_id = None
+                        if rm_persons_filter:
+                            _, matched_rm = self._matches_any_rm_person(member_name, rm_persons_filter)
+                            if matched_rm:
+                                matched_rm_person_id = getattr(matched_rm, 'person_id', None)
+
                         member_result = await self.extract_from_ark(
                             member_ark_normalized,  # Use normalized URL
                             census_year,
+                            rmtree_citation_id=rmtree_citation_id,  # Same source
+                            rmtree_person_id=matched_rm_person_id,  # Matched RM person
                             extract_household=False,  # Don't recurse
+                            is_primary_target=True,  # Household members share the same Census event
                         )
                         if member_result.success:
                             result.related_persons.append({
                                 "name": member.get("name"),
                                 "ark": member_ark_normalized,
                                 "person_id": member_result.person_id,
+                                "rmtree_person_id": matched_rm_person_id,
                                 "extracted": True,
                             })
                             extracted_count += 1

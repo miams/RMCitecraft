@@ -14,7 +14,6 @@ Architecture:
 - Optional per-field quality assessment
 """
 
-import json
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -1050,6 +1049,30 @@ class CensusExtractionRepository:
             # Links to RootsMagic
             stats["rmtree_links"] = conn.execute(
                 "SELECT COUNT(*) FROM rmtree_link"
+            ).fetchone()[0]
+
+            # Sample line persons (1950 census with sample data)
+            sample_line_field_names = [
+                "residence_1949_same_house", "residence_1949_on_farm",
+                "residence_1949_same_county", "residence_1949_different_location",
+                "highest_grade_attended", "completed_grade", "school_attendance",
+                "weeks_looking_for_work", "weeks_worked_1949",
+                "income_wages_1949", "income_self_employment_1949", "income_other_1949",
+                "veteran_status", "veteran_ww1", "veteran_ww2",
+            ]
+            placeholders = ",".join("?" * len(sample_line_field_names))
+            stats["sample_line_persons"] = conn.execute(
+                f"""
+                SELECT COUNT(DISTINCT cp.person_id)
+                FROM census_person cp
+                JOIN census_page pg ON cp.page_id = pg.page_id
+                JOIN census_person_field cpf ON cp.person_id = cpf.person_id
+                WHERE pg.census_year = 1950
+                  AND cpf.field_name IN ({placeholders})
+                  AND cpf.field_value IS NOT NULL
+                  AND cpf.field_value != ''
+                """,
+                sample_line_field_names,
             ).fetchone()[0]
 
             return stats

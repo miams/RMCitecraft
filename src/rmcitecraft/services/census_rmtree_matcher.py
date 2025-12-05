@@ -9,22 +9,17 @@ the same census citation are candidates for matching.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
-import sqlite3
-from typing import Any
 
 from loguru import logger
 
 from rmcitecraft.database.census_extraction_db import (
     CensusExtractionRepository,
-    CensusPerson,
     RMTreeLink,
     get_census_repository,
 )
 from rmcitecraft.database.connection import connect_rmtree
 from rmcitecraft.services.familysearch_census_extractor import names_match_fuzzy
-
 
 # Weight configuration for matching algorithm
 # These can be adjusted based on observed success rates
@@ -321,6 +316,141 @@ class CensusRMTreeMatcher:
         finally:
             conn.close()
 
+    def get_rm_persons_for_source(self, source_id: int) -> tuple[list[RMPersonData], int, int]:
+        """Get all RootsMagic persons who share a source (via any of its citations).
+
+        This is the correct method to use when you have a SourceID (from SourceTable)
+        rather than a CitationID. Multiple citations can reference the same source.
+
+        Args:
+            source_id: RootsMagic SourceID
+
+        Returns:
+            Tuple of (list of RMPersonData, EventID of first census event, census_year)
+        """
+        conn = connect_rmtree(self.rmtree_path, self.icu_extension_path)
+        try:
+            cursor = conn.cursor()
+
+            # Find all census events linked via citations from this source
+            cursor.execute("""
+                SELECT DISTINCT cl.OwnerID as EventID, e.Date
+                FROM CitationTable c
+                JOIN CitationLinkTable cl ON c.CitationID = cl.CitationID
+                JOIN EventTable e ON cl.OwnerID = e.EventID
+                WHERE c.SourceID = ?
+                  AND cl.OwnerType = 2  -- Event
+                  AND e.EventType = 18  -- Census
+            """, (source_id,))
+
+            event_rows = cursor.fetchall()
+            if not event_rows:
+                logger.warning(f"No census events found for source {source_id}")
+                return [], 0, 0
+
+            # Use the first event for census year
+            event_id = event_rows[0][0]
+            date_str = event_rows[0][1] or ""
+
+            # Parse census year from date (format: D.+YYYYMMDD...)
+            census_year = 0
+            if len(date_str) >= 7:
+                try:
+                    census_year = int(date_str[3:7])
+                except ValueError:
+                    pass
+
+            # Collect all unique persons from all census events
+            all_event_ids = [row[0] for row in event_rows]
+            persons_dict: dict[int, RMPersonData] = {}  # Dedupe by PersonID
+
+            for evt_id in all_event_ids:
+                # Get the event owner (head of household or person with owned census event)
+                cursor.execute("""
+                    SELECT
+                        p.PersonID,
+                        n.Given,
+                        n.Surname,
+                        CASE p.Sex WHEN 0 THEN 'M' WHEN 1 THEN 'F' ELSE '?' END as sex,
+                        (SELECT substr(Date, 4, 4)
+                         FROM EventTable
+                         WHERE OwnerID = p.PersonID AND EventType = 1
+                         LIMIT 1) as birth_year
+                    FROM EventTable e
+                    JOIN PersonTable p ON e.OwnerID = p.PersonID
+                    JOIN NameTable n ON p.PersonID = n.OwnerID AND n.IsPrimary = 1
+                    WHERE e.EventID = ?
+                """, (evt_id,))
+
+                head_row = cursor.fetchone()
+                if head_row and head_row[0] not in persons_dict:
+                    birth_year = None
+                    if head_row[4]:
+                        try:
+                            birth_year = int(head_row[4])
+                        except ValueError:
+                            pass
+
+                    persons_dict[head_row[0]] = RMPersonData(
+                        person_id=head_row[0],
+                        given_name=head_row[1] or "",
+                        surname=head_row[2] or "",
+                        full_name=f"{head_row[1] or ''} {head_row[2] or ''}".strip(),
+                        sex=head_row[3],
+                        birth_year=birth_year,
+                        relationship="head",
+                        event_id=evt_id,
+                    )
+
+                # Get all witnesses (other family members)
+                cursor.execute("""
+                    SELECT
+                        w.PersonID,
+                        n.Given,
+                        n.Surname,
+                        CASE p.Sex WHEN 0 THEN 'M' WHEN 1 THEN 'F' ELSE '?' END as sex,
+                        (SELECT substr(Date, 4, 4)
+                         FROM EventTable
+                         WHERE OwnerID = w.PersonID AND EventType = 1
+                         LIMIT 1) as birth_year,
+                        r.RoleName
+                    FROM WitnessTable w
+                    JOIN PersonTable p ON w.PersonID = p.PersonID
+                    JOIN NameTable n ON w.PersonID = n.OwnerID AND n.IsPrimary = 1
+                    LEFT JOIN RoleTable r ON w.Role = r.RoleID
+                    WHERE w.EventID = ?
+                    ORDER BY w.WitnessOrder
+                """, (evt_id,))
+
+                for row in cursor.fetchall():
+                    if row[0] in persons_dict:
+                        continue  # Already added
+
+                    birth_year = None
+                    if row[4]:
+                        try:
+                            birth_year = int(row[4])
+                        except ValueError:
+                            pass
+
+                    persons_dict[row[0]] = RMPersonData(
+                        person_id=row[0],
+                        given_name=row[1] or "",
+                        surname=row[2] or "",
+                        full_name=f"{row[1] or ''} {row[2] or ''}".strip(),
+                        sex=row[3],
+                        birth_year=birth_year,
+                        relationship=(row[5] or "unknown").lower(),
+                        event_id=evt_id,
+                    )
+
+            persons = list(persons_dict.values())
+            logger.info(f"Found {len(persons)} RM persons for source {source_id} across {len(all_event_ids)} events")
+            return persons, event_id, census_year
+
+        finally:
+            conn.close()
+
     def get_census_persons_for_page(self, page_id: int) -> list[CensusPersonData]:
         """Get all census persons from a specific page.
 
@@ -404,11 +534,7 @@ class CensusRMTreeMatcher:
 
         if rm_rel == census_rel:
             rel_score = 1.0
-        elif rm_rel in ("son", "daughter") and census_rel == "child":
-            rel_score = 0.8
-        elif rm_rel in ("grandson", "granddaughter") and census_rel == "grandchild":
-            rel_score = 0.8
-        elif rm_rel in ("brother", "sister") and census_rel == "sibling":
+        elif rm_rel in ("son", "daughter") and census_rel == "child" or rm_rel in ("grandson", "granddaughter") and census_rel == "grandchild" or rm_rel in ("brother", "sister") and census_rel == "sibling":
             rel_score = 0.8
 
         breakdown["relationship"] = rel_score * MATCH_WEIGHTS["relationship"]

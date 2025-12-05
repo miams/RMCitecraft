@@ -482,14 +482,16 @@ class CensusTranscriptionBatchService:
             # Build full ARK URL
             ark_url = f"https://www.familysearch.org/ark:/61903/{item.familysearch_ark}"
 
-            # Get RootsMagic persons for this citation (for filtering)
+            # Get RootsMagic persons for this source (for filtering extraction)
+            # Note: rmtree_citation_id is actually a SourceID when using source-based queue
             rm_persons = []
             try:
-                rm_persons, _, _ = self.matcher.get_rm_persons_for_citation(
-                    item.rmtree_citation_id
+                rm_persons, _, _ = self.matcher.get_rm_persons_for_source(
+                    item.rmtree_citation_id  # This is a SourceID
                 )
+                logger.info(f"Found {len(rm_persons)} RM persons for source {item.rmtree_citation_id}")
             except Exception as e:
-                logger.debug(f"Could not get RM persons for citation: {e}")
+                logger.warning(f"Could not get RM persons for source {item.rmtree_citation_id}: {e}")
 
             # Extract census data
             extraction_result = await self.extractor.extract_from_ark(

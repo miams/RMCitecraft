@@ -226,6 +226,12 @@ class CensusExtractionViewerTab:
                 ui.icon("link", size="sm").classes("text-purple-500")
                 ui.label(f"{stats.get('rmtree_links', 0)} RootsMagic Links").classes("text-sm")
 
+            with ui.row().classes("items-center gap-2"):
+                ui.icon("star", size="sm").classes("text-yellow-500")
+                ui.label(f"{stats.get('sample_line_persons', 0)} Sample Line").classes("text-sm").tooltip(
+                    "Persons with 1950 census sample line data (Cols 21-33)"
+                )
+
             # Year breakdown
             by_year = stats.get("by_year", {})
             if by_year:
@@ -332,16 +338,37 @@ class CensusExtractionViewerTab:
             self.selected_person and self.selected_person.person_id == person.person_id
         )
 
+        # Check if person has an rmtree_link
+        has_link = False
+        with self.repository._connect() as conn:
+            link_row = conn.execute(
+                "SELECT 1 FROM rmtree_link WHERE census_person_id = ? LIMIT 1",
+                (person.person_id,),
+            ).fetchone()
+            has_link = link_row is not None
+
+        # Check if person has sample line data
+        has_sample_data = False
+        if page and page.census_year == 1950:
+            fields = self.repository.get_person_fields(person.person_id)
+            has_sample_data = any(fields.get(fn) for fn, _ in SAMPLE_LINE_FIELDS)
+
         with ui.card().classes(
             f"w-full p-2 cursor-pointer hover:bg-blue-50 "
             f"{'bg-blue-100 border-blue-500 border-2' if is_selected else 'border border-gray-200'}"
         ).on("click", lambda p=person: self._select_person(p)):
             # Top row: Line#, Name, Year badge
             with ui.row().classes("w-full items-center gap-2"):
-                # Target indicator - person whose ARK was used to initiate the extraction
-                if person.is_target_person:
+                # RootsMagic link indicator
+                if has_link:
+                    ui.icon("link", size="xs").classes("text-purple-500").tooltip(
+                        "Linked to RootsMagic - this person is connected to a citation in your database"
+                    )
+
+                # Sample line indicator (gold star) - person was on a sample line with extra questions
+                if has_sample_data:
                     ui.icon("star", size="xs").classes("text-yellow-500").tooltip(
-                        "Target person - extraction was initiated from this person's FamilySearch record"
+                        "Sample line person - answered extra census questions (Cols 21-33)"
                     )
 
                 # Line number
