@@ -760,7 +760,9 @@ class FamilySearchCensusExtractor:
             # Extract data from the page (locator waits handle any remaining load)
             # Pass ark_url to ensure we click the correct person in the detail view
             # NOTE: This navigates away from the person page to the census image view
-            raw_data = await self._extract_page_data(page, target_ark=ark_url)
+            raw_data = await self._extract_page_data(
+                page, target_ark=ark_url, rmtree_person_id=rmtree_person_id
+            )
             if not raw_data:
                 result.error_message = "Failed to extract data from page"
                 return result
@@ -1224,7 +1226,9 @@ class FamilySearchCensusExtractor:
 
         return False, None
 
-    async def _extract_page_data(self, page: Page, target_ark: str | None = None) -> dict[str, Any]:
+    async def _extract_page_data(
+        self, page: Page, target_ark: str | None = None, rmtree_person_id: int | None = None
+    ) -> dict[str, Any]:
         """
         Extract all census data from the FamilySearch page using Playwright's native features.
 
@@ -1299,8 +1303,15 @@ class FamilySearchCensusExtractor:
                 else:
                     logger.debug(f"Waiting... {(i+1)*500}ms: {dense_count} fields, content={has_content}")
             else:
+                # Panel failed to load fully - log ERROR with person info
                 dense_count = await dense_check.count()
-                logger.info(f"Panel has {dense_count} fields after waiting - proceeding")
+                person_name = data.get('name', 'Unknown')
+                rin_info = f"RIN: {rmtree_person_id}" if rmtree_person_id else "RIN: unknown"
+                logger.error(
+                    f"INCOMPLETE DATA: Detail panel failed to load after 3s. "
+                    f"Person: {person_name}, {rin_info}, ARK: {target_ark}, "
+                    f"Fields found: {dense_count}. Proceeding with person page data only."
+                )
         else:
             # No personArk in URL - need to click to open panel
             dense_count = await dense_check.count()
