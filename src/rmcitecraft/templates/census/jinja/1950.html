@@ -74,15 +74,26 @@
         <div class="col-header"><div class="col-num">20c</div><div class="col-title">CL</div></div>
     </div>
 
-    <!-- Data Rows -->
+    <!-- Data Rows - 30 lines with persons at their correct line positions -->
+    {# Build lookup of persons by line number #}
+    {% set persons_by_line = {} %}
+    {% for person in page.persons %}
+        {% if person.line_number %}
+            {% set _ = persons_by_line.update({person.line_number: person}) %}
+        {% endif %}
+    {% endfor %}
+
     <div class="data-rows">
-        {% for person in page.persons %}
+        {% for line_num in range(1, 31) %}
+        {% set person = persons_by_line.get(line_num) %}
+        {% if person %}
+        {# Render row with person data #}
         {% set row_classes = ['data-row'] %}
         {% if person.is_sample_person %}{% set _ = row_classes.append('sample-line') %}{% endif %}
         {% if person.is_head_of_household %}{% set _ = row_classes.append('head-row') %}{% endif %}
         {% if person.is_target %}{% set _ = row_classes.append('target-row') %}{% endif %}
         <div class="{{ row_classes | join(' ') }}">
-            <div class="data-cell line-num">{{ person.line_number or '' }}</div>
+            <div class="data-cell line-num">{{ line_num }}</div>
             <div class="data-cell">{{ person.get_field('street_name') }}</div>
             <div class="data-cell center">{{ person.get_field('house_number') }}</div>
             <div class="data-cell center">{{ person.get_field('dwelling_number') }}</div>
@@ -103,8 +114,69 @@
             <div class="data-cell">{{ person.get_field('industry') }}</div>
             <div class="data-cell center">{{ person.get_field('worker_class') }}</div>
         </div>
+        {% else %}
+        {# Render empty row #}
+        <div class="data-row empty-row">
+            <div class="data-cell line-num">{{ line_num }}</div>
+            <div class="data-cell"></div>
+            <div class="data-cell center"></div>
+            <div class="data-cell center"></div>
+            <div class="data-cell center"></div>
+            <div class="data-cell center"></div>
+            <div class="data-cell name-cell"></div>
+            <div class="data-cell"></div>
+            <div class="data-cell center"></div>
+            <div class="data-cell center"></div>
+            <div class="data-cell center"></div>
+            <div class="data-cell center"></div>
+            <div class="data-cell"></div>
+            <div class="data-cell center"></div>
+            <div class="data-cell center"></div>
+            <div class="data-cell center"></div>
+            <div class="data-cell center"></div>
+            <div class="data-cell"></div>
+            <div class="data-cell"></div>
+            <div class="data-cell center"></div>
+        </div>
+        {% endif %}
         {% endfor %}
     </div>
+
+    {# Also render any persons without line numbers at the end #}
+    {% set orphan_persons = page.persons | selectattr('line_number', 'none') | list %}
+    {% if orphan_persons %}
+    <div class="orphan-section">
+        <div class="orphan-title">PERSONS WITHOUT LINE NUMBERS (require manual assignment)</div>
+        <div class="data-rows">
+            {% for person in orphan_persons %}
+            {% set row_classes = ['data-row', 'orphan-row'] %}
+            {% if person.is_target %}{% set _ = row_classes.append('target-row') %}{% endif %}
+            <div class="{{ row_classes | join(' ') }}">
+                <div class="data-cell line-num">?</div>
+                <div class="data-cell">{{ person.get_field('street_name') }}</div>
+                <div class="data-cell center">{{ person.get_field('house_number') }}</div>
+                <div class="data-cell center">{{ person.get_field('dwelling_number') }}</div>
+                <div class="data-cell center">{{ person.get_field('is_dwelling_on_farm') }}</div>
+                <div class="data-cell center">{{ person.get_field('farm_3_plus_acres') }}</div>
+                <div class="data-cell name-cell">{{ person.get_field('full_name') }}</div>
+                <div class="data-cell">{{ person.get_field('relationship_to_head') }}</div>
+                <div class="data-cell center">{{ person.get_field('race') }}</div>
+                <div class="data-cell center">{{ person.get_field('sex') }}</div>
+                <div class="data-cell center">{{ person.get_field('age') }}</div>
+                <div class="data-cell center">{{ person.get_field('marital_status') }}</div>
+                <div class="data-cell">{{ person.get_field('birthplace') }}</div>
+                <div class="data-cell center">{{ person.get_field('employment_status') }}</div>
+                <div class="data-cell center">{{ person.get_field('any_work_last_week') }}</div>
+                <div class="data-cell center">{{ person.get_field('looking_for_work') }}</div>
+                <div class="data-cell center">{{ person.get_field('hours_worked') }}</div>
+                <div class="data-cell">{{ person.get_field('occupation') }}</div>
+                <div class="data-cell">{{ person.get_field('industry') }}</div>
+                <div class="data-cell center">{{ person.get_field('worker_class') }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     {% if ctx.show_sample_columns %}
     <!-- Sample Line Section (Columns 21-33) -->

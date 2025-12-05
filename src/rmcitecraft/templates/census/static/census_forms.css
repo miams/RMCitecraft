@@ -181,6 +181,39 @@ body {
     border-left: 3px solid #ffa500;
 }
 
+/* Empty rows (lines without persons) */
+.data-row.empty-row {
+    background: #fafafa !important;
+    color: #ccc;
+}
+
+.data-row.empty-row .line-num {
+    color: #999;
+}
+
+/* Orphan section (persons without line numbers) */
+.orphan-section {
+    margin-top: 15px;
+    border: 2px dashed #cc6600;
+    padding: 5px;
+    background: #fff8f0;
+}
+
+.orphan-title {
+    font-weight: bold;
+    color: #cc6600;
+    font-size: 11px;
+    text-align: center;
+    margin-bottom: 5px;
+    padding: 3px;
+    background: #ffeecc;
+}
+
+.data-row.orphan-row {
+    background: #fff0e0 !important;
+    border-left: 3px solid #cc6600;
+}
+
 .data-cell {
     border-right: 1px solid #ccc;
     padding: 3px 4px;
