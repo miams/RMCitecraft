@@ -28,6 +28,10 @@ from rmcitecraft.services.census_transcription_batch import (
     QueueStats,
     get_batch_service,
 )
+from rmcitecraft.services.familysearch_census_extractor import (
+    MatchCandidate,
+    find_match_candidates,
+)
 
 # State abbreviations for compact display
 STATE_ABBREVIATIONS = {
@@ -131,11 +135,11 @@ class CensusExtractionViewerTab:
         self.metadata_panel: ui.column | None = None
         self.search_input: ui.input | None = None
         self.year_select: ui.select | None = None
+        self.unlinked_filter: ui.checkbox | None = None
         self.status_label: ui.label | None = None
 
         # Expansion states
         self.sample_expanded: bool = True
-        self.links_expanded: bool = False
 
         # Edit mode inputs
         self.edit_inputs: dict[str, ui.input] = {}
@@ -265,6 +269,13 @@ class CensusExtractionViewerTab:
                 on_change=lambda e: self._search_persons(),
             ).classes("w-32")
 
+            # Filter for unlinked persons (need manual review)
+            self.unlinked_filter = ui.checkbox(
+                "Needs Review",
+                value=False,
+                on_change=lambda e: self._search_persons(),
+            ).tooltip("Show only persons without RootsMagic links")
+
             ui.button("Search", icon="search", on_click=self._search_persons).props("color=primary")
 
             ui.button(
@@ -291,15 +302,29 @@ class CensusExtractionViewerTab:
         """Search for persons based on current filters."""
         surname = self.search_input.value if self.search_input else None
         year = self.year_select.value if self.year_select else None
+        unlinked_only = self.unlinked_filter.value if self.unlinked_filter else False
 
         persons = self.repository.search_persons(
             surname=surname if surname else None,
             census_year=year,
         )
 
+        # Filter to unlinked persons if requested
+        if unlinked_only:
+            linked_ids = set()
+            with self.repository._connect() as conn:
+                rows = conn.execute(
+                    "SELECT DISTINCT census_person_id FROM rmtree_link WHERE rmtree_person_id IS NOT NULL"
+                ).fetchall()
+                linked_ids = {r[0] for r in rows}
+            persons = [p for p in persons if p.person_id not in linked_ids]
+
         self._refresh_person_list(persons)
+        status_text = f"Found {len(persons)} persons"
+        if unlinked_only:
+            status_text += " (needs review)"
         if self.status_label:
-            self.status_label.set_text(f"Found {len(persons)} persons")
+            self.status_label.set_text(status_text)
 
     def _refresh_person_list(self, persons: list[CensusPerson]) -> None:
         """Refresh the person list display."""
@@ -629,30 +654,378 @@ class CensusExtractionViewerTab:
                         self._render_field_row(field_name, label, str(value))
 
     def _render_links_card(self, person: CensusPerson) -> None:
-        """Render RootsMagic links - expandable."""
+        """Render RootsMagic links and match suggestions."""
         with self.repository._connect() as conn:
             link_rows = conn.execute(
                 "SELECT * FROM rmtree_link WHERE census_person_id = ?",
                 (person.person_id,),
             ).fetchall()
 
-        if not link_rows:
+        # Check if person has a confirmed link (rmtree_person_id is set)
+        has_confirmed_link = any(row["rmtree_person_id"] for row in link_rows)
+
+        # Get citation ID for finding match candidates
+        citation_id = None
+        for row in link_rows:
+            if row["rmtree_citation_id"]:
+                citation_id = row["rmtree_citation_id"]
+                break
+
+        # Show existing links (flat display - no collapsible)
+        if link_rows and has_confirmed_link:
+            with ui.row().classes("w-full items-center gap-2 p-2 bg-purple-50 rounded"):
+                ui.icon("link", size="sm").classes("text-purple-500")
+                for row in link_rows:
+                    if row["rmtree_person_id"]:
+                        ui.label(f"RIN #{row['rmtree_person_id']}").classes("text-sm font-medium")
+                    if row["rmtree_citation_id"]:
+                        ui.label(f"(Citation #{row['rmtree_citation_id']})").classes("text-sm text-gray-600")
+                    ui.badge(f"{row['match_confidence']:.0%}", color="purple").classes("text-xs")
+
+        # Show match suggestions for unlinked persons
+        if not has_confirmed_link and citation_id:
+            self._render_match_suggestions_card(person, citation_id)
+        elif not has_confirmed_link and not citation_id:
+            # No link record - try to find citation by ARK
+            found_source_id = self._find_source_by_ark(person.familysearch_ark)
+            if found_source_id:
+                self._render_match_suggestions_card(person, found_source_id)
+            else:
+                # No citation found for this ARK - show warning
+                with ui.card().classes("w-full p-3 bg-yellow-50 border-yellow-200"):
+                    with ui.row().classes("w-full items-center gap-2"):
+                        ui.icon("warning", size="sm").classes("text-yellow-600")
+                        ui.label("No RootsMagic link").classes("font-medium text-yellow-800")
+                    ui.label("This person has no associated citation in RootsMagic.").classes("text-sm text-gray-600")
+
+    def _render_match_suggestions_card(self, person: CensusPerson, citation_id: int) -> None:
+        """Render match suggestions for an unlinked person."""
+        # Get RM persons for this citation's source
+        rm_persons = self._get_rm_persons_for_citation(citation_id)
+
+        if not rm_persons:
+            with ui.card().classes("w-full p-3 bg-orange-50 border-orange-200"):
+                with ui.row().classes("w-full items-center gap-2"):
+                    ui.icon("person_search", size="sm").classes("text-orange-600")
+                    ui.label("No Match Found").classes("font-medium text-orange-800")
+                ui.label(
+                    "No RootsMagic persons found for this citation. "
+                    "The extracted person may not match anyone in your database."
+                ).classes("text-sm text-gray-600 mt-1")
             return
 
-        with ui.expansion(
-            f"RootsMagic Links ({len(link_rows)})",
-            icon="link",
-            value=self.links_expanded,
-            on_value_change=lambda e: setattr(self, 'links_expanded', e.value),
-        ).classes("w-full"):
-            for row in link_rows:
-                with ui.row().classes("w-full items-center gap-2 p-1 text-sm"):
-                    ui.icon("link", size="xs").classes("text-purple-500")
-                    if row["rmtree_citation_id"]:
-                        ui.label(f"Citation #{row['rmtree_citation_id']}")
-                    if row["rmtree_person_id"]:
-                        ui.label(f"Person #{row['rmtree_person_id']}")
-                    ui.badge(f"{row['match_confidence']:.0%}", color="purple").classes("text-xs")
+        # Find match candidates
+        candidates = find_match_candidates(
+            census_name=person.full_name or "",
+            census_age=int(person.age) if person.age and person.age.isdigit() else None,
+            census_sex=person.sex,
+            census_relationship=person.relationship_to_head,
+            rm_persons=rm_persons,
+        )
+
+        if not candidates:
+            with ui.card().classes("w-full p-3 bg-orange-50 border-orange-200"):
+                with ui.row().classes("w-full items-center gap-2"):
+                    ui.icon("person_search", size="sm").classes("text-orange-600")
+                    ui.label("No Match Found").classes("font-medium text-orange-800")
+                with ui.column().classes("gap-2 mt-2 w-full"):
+                    ui.label(f"'{person.full_name}' does not match any expected person:").classes("text-sm text-gray-600")
+
+                    # Show manual linking dropdown
+                    rm_options = {rm.person_id: f"{rm.full_name} (RIN {rm.person_id})" for rm in rm_persons}
+                    with ui.row().classes("w-full items-center gap-2 mt-2"):
+                        manual_select = ui.select(
+                            options=rm_options,
+                            label="Manual link to:",
+                            with_input=True,
+                        ).classes("flex-1")
+
+                        async def confirm_manual(ps=person, sel=manual_select, cid=citation_id):
+                            if sel.value:
+                                await self._confirm_manual_match(ps, sel.value, cid)
+
+                        ui.button(
+                            "Link",
+                            icon="link",
+                            on_click=confirm_manual,
+                        ).props("color=primary size=sm")
+            return
+
+        # Get best match
+        best = candidates[0]
+        is_confident = best.score >= 0.75
+
+        # Card styling based on confidence
+        card_classes = "w-full p-3 "
+        if is_confident:
+            card_classes += "bg-green-50 border-green-200"
+        else:
+            card_classes += "bg-yellow-50 border-yellow-200"
+
+        with ui.card().classes(card_classes):
+            # Header
+            with ui.row().classes("w-full items-center gap-2 mb-2"):
+                icon = "check_circle" if is_confident else "help"
+                icon_class = "text-green-600" if is_confident else "text-yellow-600"
+                ui.icon(icon, size="sm").classes(icon_class)
+                title = "Suggested Match" if is_confident else "Possible Match (Review Required)"
+                title_class = "font-medium " + ("text-green-800" if is_confident else "text-yellow-800")
+                ui.label(title).classes(title_class)
+
+            # Best match details
+            with ui.element("div").classes("grid grid-cols-2 gap-x-4 gap-y-2 text-sm"):
+                # Extracted name
+                ui.label("Census Name:").classes("text-gray-600 font-medium")
+                ui.label(person.full_name or "Unknown").classes("text-gray-900")
+
+                # Suggested match
+                ui.label("Suggested Match:").classes("text-gray-600 font-medium")
+                rm_name = getattr(best.rm_person, 'full_name', 'Unknown')
+                rm_id = getattr(best.rm_person, 'person_id', None)
+                ui.label(f"{rm_name} (RIN {rm_id})").classes("text-gray-900 font-medium")
+
+                # Confidence score
+                ui.label("Confidence:").classes("text-gray-600 font-medium")
+                with ui.row().classes("items-center gap-2"):
+                    score_pct = f"{best.score * 100:.0f}%"
+                    badge_color = "green" if best.score >= 0.8 else "yellow" if best.score >= 0.6 else "red"
+                    ui.badge(score_pct, color=badge_color)
+                    ui.label(f"({best.match_reason})").classes("text-xs text-gray-500")
+
+                # Additional factors
+                if best.factors.get("sex_match") is not None:
+                    ui.label("Sex Match:").classes("text-gray-600")
+                    sex_icon = "check" if best.factors["sex_match"] else "close"
+                    sex_class = "text-green-600" if best.factors["sex_match"] else "text-red-600"
+                    ui.icon(sex_icon, size="xs").classes(sex_class)
+
+            # Alternative matches (if any)
+            if len(candidates) > 1:
+                with ui.expansion("Other Possible Matches", icon="people").classes("w-full mt-2"):
+                    for alt in candidates[1:4]:  # Show top 3 alternatives
+                        alt_name = getattr(alt.rm_person, 'full_name', 'Unknown')
+                        alt_id = getattr(alt.rm_person, 'person_id', None)
+                        with ui.row().classes("w-full items-center gap-2 p-1"):
+                            ui.label(f"{alt_name} (RIN {alt_id})").classes("text-sm flex-1")
+                            ui.badge(f"{alt.score * 100:.0f}%", color="gray").classes("text-xs")
+                            ui.button(
+                                icon="check",
+                                on_click=lambda a=alt, cid=citation_id: self._confirm_match(person, a, cid),
+                            ).props("color=green size=xs flat dense").tooltip("Confirm this match")
+
+            # Action buttons
+            with ui.row().classes("w-full gap-2 mt-3"):
+                ui.button(
+                    "Confirm Match",
+                    icon="check",
+                    on_click=lambda cid=citation_id: self._confirm_match(person, best, cid),
+                ).props("color=green size=sm")
+
+                ui.button(
+                    "Reject All",
+                    icon="close",
+                    on_click=lambda: self._reject_match(person),
+                ).props("color=red size=sm outline")
+
+    def _find_source_by_ark(self, ark_url: str | None) -> int | None:
+        """Find RootsMagic SourceID by searching for a FamilySearch ARK URL.
+
+        Args:
+            ark_url: FamilySearch ARK URL (e.g., https://www.familysearch.org/ark:/61903/1:1:6FSF-WYG8)
+
+        Returns:
+            SourceID if found, None otherwise
+        """
+        if not ark_url:
+            return None
+
+        try:
+            from rmcitecraft.config.settings import settings
+            from rmcitecraft.database.connection import connect_rmtree
+
+            rmtree_path = settings.rm_database_path
+            icu_path = settings.sqlite_icu_extension
+
+            if not rmtree_path or not rmtree_path.exists():
+                return None
+
+            # Extract ARK ID from URL (e.g., "6FSF-WYG8" from full URL)
+            ark_id = ark_url.split("/")[-1].split("?")[0] if ark_url else ""
+            if not ark_id:
+                return None
+
+            conn = connect_rmtree(rmtree_path, icu_path)
+            try:
+                cursor = conn.cursor()
+                # Search for ARK in source Fields blob (free-form citations)
+                cursor.execute(
+                    """SELECT SourceID FROM SourceTable
+                       WHERE TemplateID = 0 AND CAST(Fields AS TEXT) LIKE ?
+                       LIMIT 1""",
+                    (f"%{ark_id}%",),
+                )
+                row = cursor.fetchone()
+                if row:
+                    return row[0]
+                return None
+            finally:
+                conn.close()
+
+        except Exception as e:
+            logger.error(f"Failed to find source for ARK {ark_url}: {e}")
+            return None
+
+    def _get_rm_persons_for_citation(self, citation_id: int) -> list[Any]:
+        """Get RM persons that share the same census source as this citation."""
+        try:
+            from rmcitecraft.config.settings import settings
+            from rmcitecraft.services.census_rmtree_matcher import CensusRMTreeMatcher
+
+            rmtree_path = settings.rm_database_path
+            icu_path = settings.sqlite_icu_extension
+
+            if not rmtree_path or not rmtree_path.exists():
+                return []
+
+            matcher = CensusRMTreeMatcher(rmtree_path, icu_path)
+
+            # Get SourceID for this citation
+            # The rmtree_citation_id in census.db is actually a SourceID
+            rm_persons, _, _ = matcher.get_rm_persons_for_source(citation_id)
+            return rm_persons
+
+        except Exception as e:
+            logger.error(f"Failed to get RM persons for citation {citation_id}: {e}")
+            return []
+
+    def _confirm_match(
+        self, person: CensusPerson, candidate: MatchCandidate, source_id: int | None = None
+    ) -> None:
+        """Confirm a match and create/update the rmtree_link."""
+        try:
+            rm_person_id = getattr(candidate.rm_person, 'person_id', None)
+            if not rm_person_id:
+                ui.notify("Cannot confirm: No RM person ID", type="negative")
+                return
+
+            # Update existing link or create new one
+            with self.repository._connect() as conn:
+                # Check for existing link
+                existing = conn.execute(
+                    "SELECT link_id FROM rmtree_link WHERE census_person_id = ?",
+                    (person.person_id,),
+                ).fetchone()
+
+                if existing:
+                    # Update existing link
+                    conn.execute(
+                        """UPDATE rmtree_link
+                           SET rmtree_person_id = ?, match_confidence = ?, match_method = ?,
+                               rmtree_citation_id = COALESCE(?, rmtree_citation_id)
+                           WHERE link_id = ?""",
+                        (rm_person_id, candidate.score, "user_confirmed", source_id, existing["link_id"]),
+                    )
+                else:
+                    # Create new link
+                    conn.execute(
+                        """INSERT INTO rmtree_link
+                           (census_person_id, rmtree_person_id, rmtree_citation_id, match_confidence, match_method)
+                           VALUES (?, ?, ?, ?, ?)""",
+                        (person.person_id, rm_person_id, source_id, candidate.score, "user_confirmed"),
+                    )
+                conn.commit()
+
+            rm_name = getattr(candidate.rm_person, 'full_name', 'Unknown')
+            ui.notify(f"Linked to {rm_name} (RIN {rm_person_id})", type="positive")
+
+            # Refresh the detail panel
+            self._load_person_data(person.person_id)
+            if self.detail_column:
+                self.detail_column.clear()
+                with self.detail_column:
+                    self._render_detail_panel()
+
+        except Exception as e:
+            logger.error(f"Failed to confirm match: {e}")
+            ui.notify(f"Failed to confirm match: {e}", type="negative")
+
+    def _reject_match(self, person: CensusPerson) -> None:
+        """Mark that user reviewed and rejected all matches."""
+        try:
+            # Update the existing link to mark as user-rejected
+            with self.repository._connect() as conn:
+                conn.execute(
+                    """UPDATE rmtree_link
+                       SET match_method = 'user_rejected', match_confidence = 0
+                       WHERE census_person_id = ? AND rmtree_person_id IS NULL""",
+                    (person.person_id,),
+                )
+                conn.commit()
+
+            ui.notify("Matches rejected - this person will not be linked", type="warning")
+
+            # Refresh the detail panel
+            if self.detail_column:
+                self.detail_column.clear()
+                with self.detail_column:
+                    self._render_detail_panel()
+
+        except Exception as e:
+            logger.error(f"Failed to reject match: {e}")
+            ui.notify(f"Failed to reject match: {e}", type="negative")
+
+    async def _confirm_manual_match(
+        self, person: CensusPerson, rm_person_id: int, citation_id: int
+    ) -> None:
+        """Manually link a census person to a RootsMagic person."""
+        try:
+            # Get RM person name for notification
+            rm_persons = self._get_rm_persons_for_citation(citation_id)
+            rm_name = "Unknown"
+            for rm in rm_persons:
+                if rm.person_id == rm_person_id:
+                    rm_name = rm.full_name
+                    break
+
+            # Update existing link or create new one
+            with self.repository._connect() as conn:
+                # Check for existing link
+                existing = conn.execute(
+                    "SELECT link_id FROM rmtree_link WHERE census_person_id = ?",
+                    (person.person_id,),
+                ).fetchone()
+
+                if existing:
+                    # Update existing link
+                    conn.execute(
+                        """UPDATE rmtree_link
+                           SET rmtree_person_id = ?, match_confidence = ?, match_method = ?,
+                               rmtree_citation_id = COALESCE(?, rmtree_citation_id)
+                           WHERE link_id = ?""",
+                        (rm_person_id, 1.0, "manual_link", citation_id, existing["link_id"]),
+                    )
+                else:
+                    # Create new link
+                    conn.execute(
+                        """INSERT INTO rmtree_link
+                           (census_person_id, rmtree_person_id, rmtree_citation_id, match_confidence, match_method)
+                           VALUES (?, ?, ?, ?, ?)""",
+                        (person.person_id, rm_person_id, citation_id, 1.0, "manual_link"),
+                    )
+                conn.commit()
+
+            ui.notify(f"Manually linked to {rm_name} (RIN {rm_person_id})", type="positive")
+
+            # Refresh the detail panel
+            self._load_person_data(person.person_id)
+            if self.detail_column:
+                self.detail_column.clear()
+                with self.detail_column:
+                    self._render_detail_panel()
+
+        except Exception as e:
+            logger.error(f"Failed to confirm manual match: {e}")
+            ui.notify(f"Failed to link: {e}", type="negative")
 
     def _render_field_row(self, field_name: str, label: str, value: str) -> None:
         """Render a single field row (view or edit mode)."""
