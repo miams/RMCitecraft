@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, census, citation, batch, testing]
+---
+
 # RootsMagic Database Patterns
 
 Common SQL patterns and code examples for working with the RootsMagic database.

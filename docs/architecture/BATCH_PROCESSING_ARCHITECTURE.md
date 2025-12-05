@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, census, citation, batch, findagrave]
+---
+
 # Find a Grave Batch Processing Architecture
 
 ## Overview

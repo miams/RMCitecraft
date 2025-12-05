@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, testing, ui]
+---
+
 # 1950 Census Format Fix
 
 **Date:** October 20, 2025

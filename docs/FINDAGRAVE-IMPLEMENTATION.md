@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, findagrave]
+---
+
 # Find a Grave Batch Processing - Implementation Summary
 
 ## ✅ Completed Components

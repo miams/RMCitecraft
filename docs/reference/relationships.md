@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, ui]
+---
+
 # RootsMagic 11 Relationship Encoding
 
 This document describes how RootsMagic 11 encodes genealogical relationships using three fields: `Relate1`, `Relate2`, and `Flags`.

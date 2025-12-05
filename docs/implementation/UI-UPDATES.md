@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # UI Updates - Week 3 Improvements
 
 **Date:** October 20, 2025

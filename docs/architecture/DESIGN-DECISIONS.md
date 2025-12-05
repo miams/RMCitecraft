@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # Design Decisions
 
 This document captures key design decisions made during development.

@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, census, citation, batch, findagrave]
+---
+
 # Census Batch Processing Architecture
 
 ## Overview

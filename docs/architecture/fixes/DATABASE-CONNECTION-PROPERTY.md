@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # Database Connection Property Fix
 
 **Date**: 2025-10-25

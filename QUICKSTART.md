@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, census, citation, testing, ui]
+---
+
 # RMCitecraft - Quick Start Guide
 
 ## Prerequisites

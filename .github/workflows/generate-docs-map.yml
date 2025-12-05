@@ -37,6 +37,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install dependencies
+        run: pip install pyyaml
+
       - name: Make script executable
         run: chmod +x .github/scripts/generate_docs_map.py
 
@@ -46,12 +49,12 @@ jobs:
       - name: Check for changes
         id: check_changes
         run: |
-          if git diff --quiet claude_code_docs_map.md; then
+          if git diff --quiet claude_code_docs_map.md docs/FULL_INDEX.md 2>/dev/null; then
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "No changes to documentation map"
+            echo "No changes to documentation maps"
           else
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Documentation map has been updated"
+            echo "Documentation maps have been updated"
           fi
 
       - name: Commit and push changes (main branch only)
@@ -59,7 +62,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add claude_code_docs_map.md
+          git add claude_code_docs_map.md docs/FULL_INDEX.md
           git commit -m "docs: auto-update documentation map [skip ci]"
           git push
 

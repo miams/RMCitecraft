@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, testing, ui]
+---
+
 # Citation Preview Fixes
 
 **Date**: 2025-10-25

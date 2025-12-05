@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, testing, ui]
+---
+
 # Complete US Federal Census Analysis (1790-1950)
 
 **Date**: 2025-10-20

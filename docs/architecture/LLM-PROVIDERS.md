@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [census, batch, findagrave, testing, ui]
+---
+
 # LLM Providers Architecture
 
 RMCitecraft now supports multiple LLM providers for photo classification and census transcription tasks, with a clean abstraction layer that allows easy switching between providers.

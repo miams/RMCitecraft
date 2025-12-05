@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # RMCitecraft Batch Processing UI - Comprehensive Design
 
 **Version:** 1.0

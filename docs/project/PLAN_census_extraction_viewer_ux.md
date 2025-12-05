@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, ui]
+---
+
 # Census Extraction Viewer UX Redesign Plan
 
 ## Current State Analysis

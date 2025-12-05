@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, census, citation, batch, testing]
+---
+
 # Product Requirements Document
 ## RMCitecraft
 ### RootsMagic Census Citation Assistant

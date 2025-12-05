@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, citation, findagrave, ui]
+---
+
 # RootsMagic 11: CitationTable.Fields BLOB Structure
 
 **Document Version:** 1.0

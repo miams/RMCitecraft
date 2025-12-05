@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # Census Image Management Architecture
 
 **Version:** 1.0

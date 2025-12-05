@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, census, citation, batch, testing]
+---
+
 # Week 2 Summary - LLM Integration Complete ✓
 
 **Date:** October 20, 2025

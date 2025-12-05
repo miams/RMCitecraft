@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, ui]
+---
+
 # RootsMagic 11 Date Format Specification
 
 This document describes the date field format used in RootsMagic 11 (RM11) database.

@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, findagrave]
+---
+
 # RootsMagic 11: Data Quality Validation Rules
 
 **Document Version:** 1.0

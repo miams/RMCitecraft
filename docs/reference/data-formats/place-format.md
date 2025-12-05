@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, citation, ui, automation]
+---
+
 # RootsMagic 11: Place Name Format and Structure
 
 **Document Version:** 1.0

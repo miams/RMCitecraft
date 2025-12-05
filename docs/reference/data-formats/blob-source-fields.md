@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, citation, ui, automation]
+---
+
 # RootsMagic 11 SourceTable.Fields BLOB Structure
 
 This document describes the XML structure stored in the `SourceTable.Fields` BLOB column.

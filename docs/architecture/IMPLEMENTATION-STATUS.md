@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # Implementation Status - 1930 Census Citations
 
 **Date**: 2025-10-25

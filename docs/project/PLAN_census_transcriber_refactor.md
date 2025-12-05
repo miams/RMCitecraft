@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, findagrave]
+---
+
 # Census Transcription Batch Processing Enhancement Plan
 
 ## Overview

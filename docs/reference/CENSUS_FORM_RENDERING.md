@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, census, batch, automation]
+---
+
 # Census Form Rendering Architecture
 
 This document describes the architecture for dynamically rendering census forms from data stored in `census.db`.

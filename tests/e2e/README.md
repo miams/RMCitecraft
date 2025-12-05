@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [census, citation, batch, testing, ui]
+---
+
 # End-to-End (E2E) Tests for FamilySearch Automation
 
 ## Overview

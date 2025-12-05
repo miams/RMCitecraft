@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # Census Image Viewer Integration - Complete
 
 **Date**: 2025-10-25

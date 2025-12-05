@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, citation, batch, findagrave, testing]
+---
+
 # Dashboard Implementation Plan
 
 **Technical implementation guide for Find a Grave batch operations dashboard**

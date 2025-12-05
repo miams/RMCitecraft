@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, census, citation, batch, testing]
+---
+
 # Week 3 Summary - Citation Manager UI Complete ✓
 
 **Date:** October 20, 2025

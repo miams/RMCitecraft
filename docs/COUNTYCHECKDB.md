@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, findagrave]
+---
+
 # CountyCheckDB.dat - Historical Place Validation
 
 **RootsMagic's historical jurisdictional database for temporal place validation**

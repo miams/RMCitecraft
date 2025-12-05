@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, citation, ui]
+---
+
 # RootsMagic 11: Name Display Logic
 
 **Document Version:** 1.0

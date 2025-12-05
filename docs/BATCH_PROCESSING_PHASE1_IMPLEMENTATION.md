@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # Batch Processing UI - Phase 1 Implementation Summary
 
 **Date**: November 6, 2025

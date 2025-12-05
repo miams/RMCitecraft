@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # Message Log Implementation
 
 **Date**: November 6, 2025

@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, testing, ui]
+---
+
 # Pre-1900 Census Data Analysis (1860-1880)
 
 **Date**: 2025-10-20

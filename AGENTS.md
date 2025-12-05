@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, census, citation, batch, findagrave]
+---
+
 # AGENTS.md
 
 **Machine-readable instructions for AI coding agents working on RMCitecraft**
@@ -45,6 +50,9 @@ LLM coding agents should:
 - **Handle FamilySearch citation format variations** (1790-1950 census years)
 - **Test with sample database** at `data/Iiams.rmtree`
 - **Document breaking changes** in commit messages and relevant docs
+- **Use `census.db`** for AI-extracted census data (separate from RootsMagic database)
+- **Check `census_transcription_items`** table for batch transcription state (not old `census_batch_items`)
+- **Handle name matching edge cases**: abbreviations (L vs Lyndon), married vs maiden names, spelling variations (Katherine/Catherine)
 
 ### Don't
 
@@ -64,6 +72,9 @@ LLM coding agents should:
 - **Never use deprecated datetime.utcnow()** (use `datetime.now(timezone.utc)`)
 - **Never write citations to CitationTable TEXT fields for free-form sources** (TemplateID=0 uses SourceTable.Fields BLOB)
 - **Never assume census events are owned by the person** (check WitnessTable for shared facts)
+- **Never confuse `rmtree_citation_id` column** in batch_state.db - it actually contains Source IDs, not Citation IDs
+- **Never extract "Vacant" entries** from FamilySearch census as persons (these are empty dwelling markers)
+- **Never rely on exact name match only** - FamilySearch often has initials while RootsMagic has full names
 
 ---
 
@@ -240,10 +251,15 @@ src/rmcitecraft/
 ├── database/        # Database access (connection, repositories)
 ├── models/          # Pydantic models (citation, image)
 ├── services/        # Business logic
-│   ├── batch_processing.py           # Batch workflow controller
+│   ├── batch_processing.py           # Find a Grave batch workflow
 │   ├── familysearch_automation.py    # FamilySearch browser automation
-│   ├── findagrave_automation.py      # Find a Grave automation
-│   └── citation_formatter.py         # Evidence Explained formatting
+│   ├── familysearch_census_extractor.py  # Census page extraction
+│   ├── census_transcription_batch.py     # Census batch transcription
+│   ├── census_form_service.py            # Census form data service
+│   ├── census_form_renderer.py           # Jinja2 census form rendering
+│   ├── census_rmtree_matcher.py          # RM person name matching
+│   ├── findagrave_automation.py          # Find a Grave automation
+│   └── citation_formatter.py             # Evidence Explained formatting
 ├── ui/
 │   ├── tabs/        # Main UI tabs (dashboard, batch_processing)
 │   └── components/  # Reusable UI components
@@ -467,7 +483,9 @@ def get_person_census_citations(person_id):
 - **`docs/reference/schema-reference.md`**: Complete RootsMagic database schema
 - **`docs/reference/DATABASE_PATTERNS.md`**: SQL patterns and code examples
 - **`docs/reference/DATABASE_TESTING.md`**: Integrity testing methodology
+- **`docs/reference/CENSUS_EXTRACTION_DATABASE_SCHEMA.md`**: Census extraction database (census.db) schema
 - **`docs/architecture/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md`**: Census workflow details
+- **`docs/architecture/CENSUS_FORM_RENDERING.md`**: Census form rendering with Jinja2
 - **`sqlite-extension/python_example.py`**: Database connection examples
 
 ---
@@ -564,6 +582,6 @@ rmcitecraft status
 
 ---
 
-**Last Updated**: 2025-11-26
+**Last Updated**: 2025-12-05
 **For Human Developers**: See `CLAUDE.md` for development guidance
 **Documentation Index**: See `CLAUDE.md` for complete documentation reference

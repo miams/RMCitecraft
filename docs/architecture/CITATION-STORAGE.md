@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, ui]
+---
+
 # RootsMagic Citation Storage Architecture
 
 **Critical Reference for RMCitecraft Development**

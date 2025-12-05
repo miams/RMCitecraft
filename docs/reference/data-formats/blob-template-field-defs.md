@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, ui, automation]
+---
+
 # RootsMagic 11: SourceTemplateTable.FieldDefs BLOB Structure
 
 **Document Version:** 1.0

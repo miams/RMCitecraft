@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, batch, findagrave, testing, ui]
+---
+
 # Claude Code Session Context
 
 This file helps preserve context between Claude Code sessions.

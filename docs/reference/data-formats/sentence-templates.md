@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, findagrave]
+---
+
 # RootsMagic 11: Sentence Template Language
 
 **Document Version:** 1.0

@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, testing, ui]
+---
+
 # 1930 Census Citation Errors - Analysis
 
 **Test Case**: George B Iams, 1930 U.S. Census, Greene County, Pennsylvania, Jefferson Township

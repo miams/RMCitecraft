@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # LLM Architecture for Citation Parsing
 
 ## Overview

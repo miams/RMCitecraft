@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, ui]
+---
+
 # Census Image Workflow Guide
 
 **For**: RMCitecraft Users

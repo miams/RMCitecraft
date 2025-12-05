@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [census, citation, ui, automation]
+---
+
 # Early Census Data Analysis (1790-1850)
 
 **Date**: 2025-10-20

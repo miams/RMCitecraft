@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, findagrave, testing, ui]
+---
+
 # PlaceDB.dat Format Analysis
 
 **Reverse Engineering Documentation for RootsMagic Gazetteer Database**

@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [census, citation, testing, ui, automation]
+---
+
 # Extension Debugging Guide
 
 ## Step-by-Step Debugging Process

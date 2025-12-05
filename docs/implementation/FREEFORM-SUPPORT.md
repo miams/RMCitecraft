@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, testing, ui]
+---
+
 # Free Form Citation Support
 
 **Date:** October 20, 2025

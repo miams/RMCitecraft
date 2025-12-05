@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, census, citation, batch, findagrave]
+---
+
 # GEMINI.md
 
 This document provides a comprehensive overview of the RMCitecraft project, its architecture, and development conventions to be used as a guide for future interactions.

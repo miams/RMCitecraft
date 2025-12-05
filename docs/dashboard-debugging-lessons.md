@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, citation, batch, findagrave, testing]
+---
+
 # Dashboard Debugging Lessons Learned
 
 ## Problem Summary

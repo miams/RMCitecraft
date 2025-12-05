@@ -1,0 +1,3151 @@
+# RMCitecraft Full Documentation Index
+
+> Complete documentation index for developers.
+> For LLM-optimized compact map, see `claude_code_docs_map.md` in repo root.
+> Last generated: 2025-12-05 12:04:29 UTC
+
+## Summary
+
+| Priority | Count | Included |
+|----------|-------|----------|
+| Essential | 17 | Yes |
+| Reference | 81 | Yes |
+| Archive | 35 | No |
+
+## Getting Started (2 docs)
+
+### [RMCitecraft - Quick Start Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/QUICKSTART.md) [essential]
+
+- Prerequisites
+- Installation
+  - 1. Install UV (if not already installed)
+  - 2. Clone or Navigate to Project
+  - 3. Install Dependencies
+  - 4. Configure Environment
+- Running Tests
+  - Run All Unit Tests
+  - Run Database Connection Test
+  - Run with Coverage
+- Running the Application
+  - Start the Web UI (Week 1 - Basic)
+  - Run Parser/Formatter Test
+- Development Commands
+  - Code Formatting
+  - Linting
+  - Type Checking
+  - Add New Dependency
+- Project Structure
+- Common Tasks
+  - Query Citations from Database
+  - Parse and Format a Citation
+- Troubleshooting
+  - Database Connection Errors
+  - Import Errors
+  - Test Failures
+- Getting Help
+- Week 1 Status
+
+### [RMCitecraft](https://github.com/mikeiacovacci/RMCitecraft/blob/main/README.md) [essential]
+
+- Value Proposition
+- Key Features
+  - Census Records (1790-1950)
+  - Find a Grave Records
+  - Dashboard & Analytics
+- Use Cases
+- Requirements
+  - System
+  - Optional
+- Technology Stack
+- Installation
+- Quick Start
+- Documentation
+- Caveats and Known Issues
+- License
+
+## Project Overview (3 docs)
+
+### [AGENTS.md](https://github.com/mikeiacovacci/RMCitecraft/blob/main/AGENTS.md) [essential]
+
+- Project Overview
+- Communication Style
+- Do's and Don'ts
+  - Do
+  - Don't
+- Setup & Build Steps
+  - Initial Setup
+  - Development Environment
+- Test Commands & CI
+  - Running Tests
+  - Code Quality Checks
+  - Database Connection Test
+  - Database Integrity Tests (CRITICAL)
+- Code Style & Formatting Rules
+  - Python Style
+  - Architecture Patterns
+  - File Organization
+  - Naming Conventions
+- Commit & PR Guidelines
+  - Commit Messages
+  - Pull Request Process
+  - Git Workflow
+- Security & Dependency Policies
+  - Secrets Management
+  - Database Safety
+  - Critical Database Architecture
+  - Dependencies
+  - Browser Automation
+- Project-Specific Context
+  - Citation Formatting Complexity
+  - Database Schema Constraints
+  - Key Files for Reference
+- Common Tasks
+  - Query Citations from Database
+  - Validate Citation Format
+  - Run Application
+- Troubleshooting
+  - Common Issues
+- Additional Resources
+
+### [CLAUDE.md](https://github.com/mikeiacovacci/RMCitecraft/blob/main/CLAUDE.md) [essential]
+
+- Quick Reference
+- Project Overview
+  - Core Features
+- Before Modifying Code
+- Project Structure
+- Critical: Database Safety
+  - Working Copy Architecture
+  - RMNOCASE Collation (Required)
+  - Free-Form Citations (TemplateID=0)
+  - Census Events are Shared Facts
+- Citation Formatting
+  - Evidence Explained Format
+  - Template Variations by Census Year
+  - Validation Logic
+- Testing
+  - Test Organization
+  - Database Integrity Testing
+- Configuration
+- Playwright Browser Automation
+  - Prerequisites
+  - Connection Pattern
+  - Key Points
+- Key Files
+- Documentation Index
+- Common Tasks
+  - Adding a New Database Record Type
+  - Modifying Batch Processing
+  - Updating Citation Validation
+- Notes
+- Evolving This File
+
+### [Product Requirements Document](https://github.com/mikeiacovacci/RMCitecraft/blob/main/PRD.md) [essential]
+
+- RMCitecraft
+  - RootsMagic Census Citation Assistant
+- 1. Executive Summary
+  - 1.1 Project Overview
+  - 1.2 Problem Statement
+  - 1.3 Solution
+  - 1.4 Target Platform
+  - 1.5 Success Metrics
+- 2. User Personas
+  - Primary User: Genealogy Researcher
+- 3. User Stories & Use Cases
+  - 3.1 Citation Formatting
+    - US-1.1: Process Citations in Small Batches
+    - US-1.2: Batch Process Census Year
+    - US-1.3: Handle Missing Citation Data
+  - 3.2 Image Management
+    - US-2.1: Monitor Downloads Folder
+    - US-2.2: Download Census Image from Active Citation
+    - US-2.3: Handle Multiple Downloads
+- 4. Functional Requirements
+  - 4.1 Citation Formatting Engine
+    - FR-1.1: Parse FamilySearch Citations
+    - FR-1.2: Citation Templates by Census Year
+    - FR-1.3: Data Validation
+    - FR-1.4: Missing Data Prompts
+  - 4.2 Image Management Engine
+    - FR-2.1: File System Monitoring
+    - FR-2.2: Citation Context Tracking
+    - FR-2.3: File Naming Schema
+    - FR-2.4: File Organization
+    - FR-2.5: RootsMagic Database Integration
+  - 4.3 Database Access
+    - FR-3.1: Database Connection
+    - FR-3.2: Database Schema (Read)
+    - FR-3.3: Query Patterns
+  - 4.4 User Interface
+    - FR-4.1: Main Window Layout
+    - FR-4.2: Citation Manager Tab
+    - FR-4.3: Image Monitor Tab
+    - FR-4.4: Settings Tab
+    - FR-4.5: Side-by-Side Browser Integration
+- 5. Non-Functional Requirements
+  - 5.1 Performance
+  - 5.2 Reliability
+  - 5.3 Usability
+  - 5.4 Security
+  - 5.5 Compatibility
+  - 5.6 Maintainability
+- 6. Technical Architecture
+  - 6.1 Recommended Technology Stack
+    - Core Framework
+    - Programming Language
+    - Key Libraries
+  - 6.2 Application Architecture
+    - Layered Architecture
+    - Module Structure
+  - 6.3 Data Models
+    - Citation Model
+    - Census Metadata Model
+    - Media Model
+    - Download Context Model
+  - 6.4 Key Algorithms
+    - Citation Parser Algorithm
+    - Citation Formatter Algorithm
+    - Filename Generator Algorithm
+    - Folder Mapper Algorithm
+  - 6.5 Database Operations
+    - Safe Database Writing
+    - Query Optimization
+- 7. Development Phases
+  - Phase 1: Foundation (Weeks 1-2)
+  - Phase 2: Citation UI (Weeks 3-4)
+  - Phase 3: Image Monitoring (Weeks 5-6)
+  - Phase 4: Image-Database Integration (Week 7)
+  - Phase 5: Polish & Extended Support (Week 8)
+  - Phase 6: Testing & Release (Week 9-10)
+- 8. Testing Strategy
+  - 8.1 Unit Tests
+  - 8.2 Integration Tests
+  - 8.3 Manual Testing
+  - 8.4 Performance Testing
+- 9. Deployment & Distribution
+  - 9.1 Packaging
+  - 9.2 Installation
+  - 9.3 Updates
+- 10. Risks & Mitigations
+  - Risk 1: Database Schema Changes
+  - Risk 2: Citation Parsing Ambiguity
+  - Risk 3: File System Permissions
+  - Risk 4: RootsMagic Database Corruption
+  - Risk 5: Browser Automation Limitations
+- 11. Future Enhancements
+  - Phase 7: State Census Support
+  - Phase 8: Other Record Types
+  - Phase 9: Advanced Features
+  - Phase 10: AI Enhancement
+- 12. Appendix
+  - A. Glossary
+  - B. Reference Citations
+  - C. Technology Stack Summary
+  - D. Contact & Support
+
+## Reference (20 docs)
+
+### [Batch State Database Schema Reference](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/BATCH_STATE_DATABASE_SCHEMA.md) [essential]
+
+- Overview
+- Database Location
+- Schema Version
+- Tables
+  - Find a Grave Tables
+    - `batch_sessions`
+    - `batch_items`
+    - `batch_checkpoints`
+  - Census Tables
+    - `census_batch_sessions`
+    - `census_batch_items`
+    - `census_batch_checkpoints`
+  - Shared Tables
+    - `performance_metrics`
+    - `schema_version`
+- Extracted Data JSON Formats
+  - Find a Grave `extracted_data`
+  - Census `extracted_data`
+- Indexes
+  - Find a Grave Indexes
+  - Census Indexes
+  - Shared Indexes
+- Status State Machine
+  - Item Status Transitions
+  - Session Status Transitions
+- Relationship to RootsMagic Database
+  - ID References
+  - Important Notes
+- Maintenance
+  - Clear All Data
+  - Query Examples
+- Related Documentation
+
+### [Census Extraction Database Schema Reference](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/CENSUS_EXTRACTION_DATABASE_SCHEMA.md) [essential]
+
+- Overview
+  - Key Differences from Batch State Database
+- Database Location
+- Schema Version
+- Architecture
+- Tables
+  - `extraction_batch`
+  - `census_page`
+  - `census_person`
+  - `census_person_field`
+  - `census_relationship`
+  - `rmtree_link`
+  - `field_quality`
+  - `field_history`
+  - `schema_version`
+- Features and Capabilities
+  - 1. Multi-Source Extraction
+  - 2. Household Extraction
+  - 3. Flexible Field Storage (EAV)
+  - 4. RootsMagic Integration
+  - 5. Deduplication
+  - 6. Quality Tracking
+- Sample Queries
+  - Basic Queries
+  - EAV Field Queries
+- Cross-Database Queries with RootsMagic
+  - Setup: Attach Both Databases
+  - Find Census Extractions for RootsMagic Person
+  - Compare Census Data with RootsMagic Events
+  - Find Unlinked Census Extractions
+  - Verify Citation ARK URLs Match
+- Recommended Use Cases
+  - 1. Census Citation Enhancement
+  - 2. Household Research
+  - 3. Data Quality Verification
+  - 4. Migration Analysis
+- Maintenance
+  - Clear All Data
+  - Backup
+  - Vacuum (Reclaim Space)
+- Python API Reference
+- Related Documentation
+
+### [Census Form Rendering Architecture](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/CENSUS_FORM_RENDERING.md) [essential]
+
+- Overview
+- Architecture Diagram
+- Data Models
+  - CensusFormContext
+  - FormPageData
+  - FormPersonRow
+  - FieldValue
+- Usage Examples
+  - Basic Page Rendering
+  - Render for Specific Person
+  - Multi-Page Rendering
+  - Custom Template Context
+- Template Structure
+  - Directory Layout
+  - Template Inheritance
+  - Accessing Data in Templates
+- Quality Indicators
+- CSS Classes
+  - Row Classes
+  - Quality Classes
+- Adding New Census Years
+- File Locations
+- Related Documentation
+
+### [RootsMagic Database Patterns](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/DATABASE_PATTERNS.md) [essential]
+
+- Database Connection
+- Free-Form Citation Architecture
+  - Citation Storage Locations
+  - Reading Free-Form Citation Fields
+  - Writing Generated Citations (Free-Form Sources)
+- Census Events: Shared Facts
+  - Finding a Person's Census Citations
+- Key Database Conventions
+- OwnerType Values
+- MediaType Values
+
+### [Database Integrity Testing Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/DATABASE_TESTING.md) [essential]
+
+- Why Comparison-Based Testing is Essential
+- Critical Bugs Caught by Comparison Testing
+- Methodology: Field-by-Field Comparison
+  - 1. Find Similar Existing Records
+  - 2. Create Test Record
+  - 3. Compare Field-by-Field
+  - 4. Validate Foreign Keys
+  - 5. Test Full Workflow
+- Required Tests for Each New Record Type
+- Test Organization Pattern
+- When to Run These Tests
+- Reference Implementation
+- Testing Philosophy
+
+### [RootsMagic Database Reference Documentation](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/README.md) [essential]
+
+- Quick Navigation
+  - 📊 Database Schema
+  - 🔗 Relationships & Linking
+  - 📋 Data Formats
+  - 🔍 Query Patterns
+  - 📝 Specialized Topics
+  - 🗄️ RMCitecraft State Databases
+- Documentation Purpose
+  - For Developers
+  - For AI Agents
+- Critical Learnings from Database Analysis
+  - Schema Documentation vs Reality
+    - CitationLinkTable (from citation-link-best-practices.md)
+    - PlaceTable (from database integrity tests)
+    - Integer Columns (PlaceTable, EventTable)
+- Testing Philosophy
+- Document Organization
+- How to Use This Documentation
+  - Starting a New Feature
+  - Debugging Database Issues
+  - Understanding BLOB Fields
+- Key Reference Patterns
+  - OwnerType Values (Common in Link Tables)
+  - EventType (FactTypeID) Common Values
+  - Date Format (SortDate)
+  - Place Hierarchy
+- Contribution Guidelines
+- Related Documentation
+
+### [CitationLinkTable Best Practices](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/citation-link-best-practices.md) 
+
+- Critical Findings
+  - Field Population Rates (Event Links, OwnerType=2)
+  - Schema Documentation vs Reality
+- Required Fields for Citation Links
+  - Minimum Required (Will fail if missing)
+  - Critical for Integrity (99.8% populated)
+  - Recommended for Consistency
+- Standard Values by Use Case
+  - Find a Grave Citation Links
+- Quality Field Values
+- OwnerType Values
+- Common Mistakes
+  - ❌ Missing Quality, IsPrivate, Flags
+  - ❌ Incorrect Field Order
+  - ❌ Using NULL for Integer Fields
+- Testing Citation Links
+  - Comparison-Based Testing Pattern
+  - Field Population Test
+- Reference Implementation
+- Migration Guide
+  - Before
+  - After
+  - Fixing Existing Records
+- Summary
+
+### [RootsMagic 11: CitationTable.Fields BLOB Structure](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/data-formats/blob-citation-fields.md) 
+
+- Overview
+  - Key Facts
+- XML Schema Structure
+  - Root Structure
+  - Field Element Structure
+- Field Count Distribution
+- Common Field Names
+  - Most Frequent Fields
+  - Other Notable Fields
+- Citation Patterns by Template Type
+  - Pattern 1: Book Citations (Most Common)
+  - Pattern 2: Online Database Citations
+  - Pattern 3: Find-a-Grave Citations (Richest Metadata)
+  - Pattern 4: Free-Form Source Citations
+  - Pattern 5: Empty Citations
+- Relationship to SourceTemplateTable.FieldDefs
+  - Source-Level vs Citation-Level Fields
+- Parsing Code Examples
+  - Python: Extract Citation Fields
+  - Python: Get Complete Citation with Source
+  - SQL: Find Citations Missing Page Numbers
+  - Python: Extract Page Numbers
+- Field Name Variations
+- Special Characters and Encoding
+  - HTML Entity Encoding
+  - Quote Escaping
+- Data Quality Indicators
+  - Empty Field Values
+  - Missing Expected Fields
+- Statistical Summary
+  - Database-Wide Analysis (Iiams.rmtree)
+  - Template-Specific Patterns
+- Relationship to CitationName Field
+- Notes for AI Agents
+- Data Quality Checks
+  - Recommended Validation Queries
+- Related Documentation
+- Summary
+
+### [RootsMagic 11 SourceTable.Fields BLOB Structure](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/data-formats/blob-source-fields.md) 
+
+- Overview
+- XML Schema
+  - Root Structure
+  - Elements
+    - Root Element: `<Root>`
+    - Fields Container: `<Fields>`
+    - Field Element: `<Field>`
+    - Field Name: `<Name>`
+    - Field Value: `<Value>`
+- Field Types by TemplateID
+  - Free-Form Sources (TemplateID = 0)
+  - Template-Based Sources (TemplateID > 0)
+    - Common Database Template Fields (TemplateID 10001-10005)
+    - Book Template Fields (TemplateID 10006-10007)
+    - Online Forum Template Fields (TemplateID 78)
+- Parsing Guidelines
+  - Python Example
+  - SQL Example (Extract as JSON)
+- HTML Entity Handling
+- Field Relationship to SourceTemplateTable
+- Data Quality Checks
+  - Validation Queries
+- Common Issues
+- Usage in Biography/Timeline Generation
+- Related Documentation
+- Metadata
+
+### [RootsMagic 11: SourceTemplateTable.FieldDefs BLOB Structure](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/data-formats/blob-template-field-defs.md) 
+
+- Overview
+  - Key Facts
+- XML Schema Structure
+  - Root Structure
+  - Field Element Structure
+- Field Types
+  - Type-Specific Behavior
+- CitationField Flag
+- Hint and LongHint Usage
+  - Hint Pattern
+  - LongHint Pattern
+- Complete Template Example
+- Statistical Summary
+  - Template Usage in Iiams.rmtree Database
+  - Field Type Distribution
+  - CitationField Distribution
+  - Unique Field Names
+- Parsing Code Examples
+  - Python: Extract Field Definitions
+  - SQL: Extract Field Count Per Template
+  - Python: Categorize Fields by Citation Level
+- Relationship to Other Tables
+  - SourceTable.Fields BLOB
+  - CitationTable.Fields BLOB
+- Template Categories
+  - Books and Publications
+  - Online Resources
+  - Records
+  - Research Materials
+  - Other
+- Double-Bar (||) Notation
+- Notes for AI Agents
+- Related Documentation
+- Validation and Quality Checks
+  - Template Integrity
+  - Field Naming Conventions
+
+### [RootsMagic 11 Date Format Specification](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/data-formats/date-format.md) 
+
+- Overview
+- Format Structure
+- Position Definitions
+  - Position 1: Date Type
+  - Position 2: Date Modifier
+  - Position 3: First Date Era
+  - Positions 4-7: First Date Year
+  - Positions 8-9: First Date Month
+  - Positions 10-11: First Date Day
+  - Position 12: First Date Double Date Indicator
+  - Position 13: First Date Qualifier
+  - Position 14: Second Date Era
+  - Positions 15-18: Second Date Year
+  - Positions 19-20: Second Date Month
+  - Positions 21-22: Second Date Day
+  - Position 23: Second Date Double Date Indicator
+  - Position 24: Second Date Qualifier
+- Complete Examples
+  - Simple Dates
+  - BC Dates
+  - Double Dates
+  - Quaker Dates
+  - Directional Modifiers (Single Date)
+  - Date Ranges
+  - Date Qualifiers
+  - Qualitative Modifiers
+  - Special Cases
+- Parsing Logic
+  - Pseudocode for Date Parser
+- Notes
+- References
+
+### [RootsMagic 11: FactType Reference](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/data-formats/fact-types.md) 
+
+- Overview
+  - Key Statistics
+- Fact Type Properties
+- Complete Fact Type Enumeration
+  - Vital Events (6 types)
+  - Religious Events (9 types)
+  - Migration (3 types)
+  - Life Events (3 types)
+  - Education & Career (5 types)
+  - Military (1 type)
+  - Legal & Property (5 types)
+  - Identifiers (4 types)
+  - LDS Ordinances (6 types)
+  - Family Events (10 types)
+  - Other (13 types)
+- Usage Frequency (Sample Database)
+- Person vs Family Facts
+  - Person Facts (OwnerType = 0)
+  - Family Facts (OwnerType = 1)
+- Field Usage Patterns
+  - V/D/P Notation
+  - Common Patterns
+- GEDCOM Mappings
+  - Standard GEDCOM Tags
+  - Generic GEDCOM Tag (EVEN)
+  - Non-Standard Tags
+- Custom Fact Types
+  - FactTypeID >= 1000
+- Querying Fact Types
+  - Get All Events for a Person
+  - Get All Family Events
+  - Get Vital Events Only
+  - Count Events by Type
+- Notes for AI Agents
+- Related Documentation
+- Summary
+
+### [RootsMagic 11: Place Name Format and Structure](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/data-formats/place-format.md) 
+
+- Overview
+  - Key Concepts
+- Place Name Format Specification
+  - Standard Format
+  - Format Rules
+- Place Hierarchy Levels
+  - 4-Level Hierarchy (Most Common)
+  - Level Definitions
+  - Common Patterns
+- Hierarchy Level Examples
+  - 1 Level
+  - 2 Levels
+  - 3 Levels
+  - 4+ Levels
+- PlaceTable Fields
+  - Core Fields
+  - Geographic Coordinates
+  - External References
+  - Other Fields
+- Name vs Normalized vs Reverse
+  - Name Field
+  - Normalized Field
+  - Reverse Field
+- PlaceType Values
+  - Type 0: Standard Place (4,514 places, 88.8%)
+  - Type 1: Other/Unknown (219 places, 4.3%)
+  - Type 2: Detail Place (349 places, 6.9%)
+- Master/Detail Relationships
+  - Concept
+  - MasterID Field
+  - Statistics
+  - Examples
+  - Query Master/Detail
+- Parsing Place Names
+  - Python: Split Hierarchy Levels
+  - Python: Get Short Form
+  - Python: Get Place Level
+- Coordinate Conversion
+  - Python: Convert Integer Coordinates to Degrees
+  - SQL: Get Places with Coordinates
+- Validation Rules
+  - Rule 1: Consistent Hierarchy Levels
+  - Rule 2: No Trailing/Leading Spaces
+  - Rule 3: Normalized Should Exist
+  - Rule 4: Coordinates Should Match Geographic Level
+- Common Query Patterns
+  - Get All Places in a State
+  - Get All Places in a County
+  - Get Country-Level Places Only
+  - Get Places by Coordinate Proximity
+- Formatting for Display
+  - Short Form (City, State)
+  - Medium Form (City, County, State)
+- Notes for AI Agents
+- Related Documentation
+- Summary
+
+### [RootsMagic 11: Sentence Template Language](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/data-formats/sentence-templates.md) 
+
+- Overview
+  - Key Concepts
+- Basic Syntax
+  - Static Text
+  - Variables
+  - Optional Sections
+- Variable Reference
+  - Core Variables
+  - Variable Modifiers
+    - Person Modifiers
+    - Date Modifiers
+    - Place Modifiers
+    - Description Modifiers
+- Conditional Logic
+  - Basic Conditional: `<?...>`
+  - Conditional with Embedded Variables
+  - Comparison Conditional
+  - Multi-Value Conditional
+  - Block Conditional
+- Choice Expressions
+  - Gender-Based Choices
+  - Singular/Plural Choices
+- Complete Template Examples
+  - Simple Template (Birth)
+  - Complex Template (Death)
+  - Conditional Template (Occupation)
+  - Multi-Line Template (Obituary)
+  - Family Event Template (Marriage)
+  - Military Registration Template
+- HTML/Markup in Templates
+- Special Patterns
+  - Empty Templates
+  - Property Transfer Template
+- Template Processing Rules
+  - Order of Evaluation
+  - Whitespace Handling
+  - Empty Variable Behavior
+- Parsing Algorithm (Pseudocode)
+- Modifier Implementation Examples
+  - Python: Apply Person Modifiers
+  - Python: Process Optional Sections
+  - Python: Process Conditionals
+- Common Template Patterns
+  - Pattern 1: Basic Event
+  - Pattern 2: Event with Cause
+  - Pattern 3: Event with Age
+  - Pattern 4: Couple Event
+  - Pattern 5: Conditional Description
+  - Pattern 6: Document Citation
+- Notes for AI Agents
+- Related Documentation
+- Summary
+
+### [RootsMagic 11: EventTable.Details Field](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/event-table-details.md) 
+
+- Overview
+  - Key Facts
+- Usage by Event Type
+  - High Usage Event Types (>70%)
+  - Medium Usage Event Types (10-70%)
+  - Low Usage Event Types (<10%)
+- Content Patterns
+  - Pattern 1: Identifiers
+  - Pattern 2: Names/Titles
+  - Pattern 3: Descriptions
+  - Pattern 4: Awards/Honors
+- Relationship to FactTypeTable.UseValue
+- Querying Details
+  - Get Events with Details
+  - Search Details Content
+- Using Details in Narratives
+  - Death Event
+  - Occupation Event
+  - Military Service
+- Python: Extract Details
+  - Incorporate Details in Event Description
+- Data Quality Considerations
+  - Empty vs NULL
+  - Leading/Trailing Whitespace
+  - Validation
+- Common Patterns by Event Type
+- Notes for AI Agents
+- Related Documentation
+- Summary
+
+### [RootsMagic 11: Name Display Logic](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/name-display-logic.md) 
+
+- Overview
+  - Key Statistics
+- IsPrimary Flag
+  - Rules
+  - Query Primary Name
+- NameType Values
+- Name Selection Rules
+  - Rule 1: Default Display (Most Contexts)
+  - Rule 2: Context-Specific Display
+  - Rule 3: Show All Names (Comprehensive View)
+- Name Component Fields
+  - Standard Components
+  - Full Name Construction
+- Display Field (Future Use)
+- Multiple Name Scenarios
+  - Scenario 1: Spelling Variations
+  - Scenario 2: Married Name
+  - Scenario 3: Immigrant Name Change
+- Python: Name Selection Functions
+  - Get Primary Name
+  - Get All Names
+  - Get Name at Specific Date
+- Biography Display Recommendations
+  - First Mention
+  - Subsequent Mentions
+  - Alternate Names
+- Validation Rules
+  - Rule 1: Exactly One Primary Name
+  - Rule 2: Surname or Given Required
+- Notes for AI Agents
+- Related Documentation
+- Summary
+
+### [RootsMagic 11: Data Quality Validation Rules](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/query-patterns/data-quality-rules.md) 
+
+- Overview
+- Validation Categories
+  - 1. Required Field Combinations
+  - 2. Logical Consistency Rules
+  - 3. Referential Integrity
+  - 4. Source Documentation Quality
+  - 5. Date Validity
+  - 6. Value Range Constraints
+- 1. Required Field Combinations
+  - Rule 1.1: Every Person Must Have a Primary Name
+  - Rule 1.2: Primary Names Should Have Surname OR Given Name
+  - Rule 1.3: Birth Events Should Have a Date or Place
+  - Rule 1.4: Death Events Should Have a Date
+  - Rule 1.5: Citations Should Have Page or Detail Information
+- 2. Logical Consistency Rules
+  - Rule 2.1: Death Must Occur After Birth
+  - Rule 2.2: Child Must Be Born After Parent
+  - Rule 2.3: Parent Should Be 12-65 Years Old at Child's Birth
+  - Rule 2.4: Marriage Should Occur After Birth
+  - Rule 2.5: Events Should Not Occur After Death
+  - Rule 2.6: Couple Should Not Have Children Before Marriage
+- 3. Referential Integrity
+  - Rule 3.1: Citations Must Reference Valid Sources
+  - Rule 3.2: Events Must Reference Valid Persons or Families
+  - Rule 3.3: ChildTable Must Reference Valid Families and Persons
+  - Rule 3.4: Events Should Reference Valid PlaceIDs
+- 4. Source Documentation Quality
+  - Rule 4.1: Vital Events Should Be Sourced
+  - Rule 4.2: Sources Should Have Citations
+  - Rule 4.3: Template-Based Sources Should Have Complete Metadata
+- 5. Date Validity
+  - Rule 5.1: SortDate Should Match Encoded Date
+  - Rule 5.2: Dates Should Be Within Historical Range
+  - Rule 5.3: Birth and Death Dates Should Imply Reasonable Lifespan
+- 6. Value Range Constraints
+  - Rule 6.1: PersonTable.Sex Should Be 0, 1, or 2
+  - Rule 6.2: Proof Field Should Be 0-3
+  - Rule 6.3: IsPrimary Should Be 0 or 1
+  - Rule 6.4: Each Person Should Have Exactly One Primary Name
+- Data Quality Severity Levels
+- Summary Report Template
+  - Python: Generate Data Quality Report
+- Notes for AI Agents
+- Related Documentation
+
+### [RootsMagic 11: Query Performance Patterns](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/query-patterns/query-patterns.md) 
+
+- Overview
+  - Database Requirements
+- Person Queries
+  - Pattern 1: Get Person with Primary Name
+  - Pattern 2: Search by Name
+  - Pattern 3: Get Person's Parents
+  - Pattern 4: Get Person's Children
+- Event Queries
+  - Pattern 5: Get All Events for Person (Timeline)
+  - Pattern 6: Get Vital Events Only
+- Family Queries
+  - Pattern 7: Get Person's Spouses
+- Ancestor Queries
+  - Pattern 8: Get Direct Ancestors (Recursive, 10 Generations)
+  - Pattern 9: Get Ancestors with Spouses
+- Descendant Queries
+  - Pattern 10: Get All Descendants (Recursive)
+- Source and Citation Queries
+  - Pattern 11: Get Citations for Event
+  - Pattern 12: Get Unsourced Events
+- Place Queries
+  - Pattern 13: Find Places by State/County
+- Data Quality Queries
+  - Pattern 14: Find People with Missing Vital Events
+  - Pattern 15: Find Logical Inconsistencies
+- Performance Tips
+  - Tip 1: Use Indexes
+  - Tip 2: Avoid SELECT *
+  - Tip 3: Use LEFT JOIN for Optional Data
+  - Tip 4: Limit Large Result Sets
+  - Tip 5: Use EXPLAIN QUERY PLAN
+- Python Helper Functions
+  - Connection Helper
+  - Query Wrapper
+- Related Documentation
+- Summary
+
+### [RootsMagic 11 Relationship Encoding](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/relationships.md) 
+
+- Overview
+- Field Definitions
+  - Relate1 Field
+  - Relate2 Field
+  - Flags Field
+- Relationship Calculation Logic
+  - Direct Line Relationships
+  - Collateral Relationships (Siblings, Aunts/Uncles, Cousins)
+    - Siblings (Relate1 = 1, Relate2 = 1)
+    - Aunt/Uncle - Nephew/Niece Relationships
+    - Cousin Relationships
+  - In-Law Relationships
+- Complete Relationship Table
+- Understanding the System
+  - Example 1: Aunt Relationship
+  - Example 2: First Cousin
+  - Example 3: First Cousin Once Removed
+  - Example 4: Half Sibling
+  - Example 5: Spouse of Uncle
+- Special Cases
+  - No Blood Relation (Relate1 = 0, Relate2 = 0)
+  - Complex Relationships
+- Usage in Database
+  - PersonTable Fields
+  - Calculating Relationships
+- Reference
+  - Common Relationship Patterns
+- Metadata
+
+### [RootsMagic 11 Schema Reference](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/schema-reference.md) [essential]
+
+- Overview
+- Database Characteristics
+- Key Concepts
+  - OwnerType/OwnerID Pattern
+  - BLOB Fields
+  - Date Fields
+  - Modification Tracking
+- Tables by Category
+- Core Entities
+  - PersonTable
+  - FamilyTable
+  - ChildTable
+  - NameTable
+- Events and Facts
+  - EventTable
+  - FactTypeTable
+  - WitnessTable
+  - RoleTable
+- Sources and Citations
+  - SourceTable
+  - SourceTemplateTable
+  - CitationTable
+  - CitationLinkTable
+- Places
+  - PlaceTable
+  - AddressTable
+  - AddressLinkTable
+- Multimedia
+  - MultimediaTable
+  - MediaLinkTable
+- Research Management
+  - TaskTable
+  - TaskLinkTable
+  - GroupTable
+  - TagTable
+- External Services
+  - AncestryTable
+  - FamilySearchTable
+- DNA and Health
+  - DNATable
+  - HealthTable
+- Relationships
+  - FANTable
+  - FANTypeTable
+- System
+  - ConfigTable
+  - ExclusionTable
+  - PayloadTable
+  - URLTable
+- Indexes
+  - AddressTable
+  - AncestryTable
+  - ChildTable
+  - CitationLinkTable
+  - CitationTable
+  - ConfigTable
+  - DNATable
+  - EventTable
+  - ExclusionTable
+  - FANTable
+  - FANTypeTable
+  - FactTypeTable
+  - FamilySearchTable
+  - FamilyTable
+  - HealthTable
+  - MediaLinkTable
+  - MultimediaTable
+  - NameTable
+  - PayloadTable
+  - PlaceTable
+  - RoleTable
+  - SourceTable
+  - SourceTemplateTable
+  - TagTable
+  - TaskLinkTable
+  - TaskTable
+  - WitnessTable
+- Common Query Patterns
+  - Finding a Person by Name
+  - Getting Person's Events
+  - Finding Person's Family
+  - Retrieving Citations for an Event
+  - Finding Media for a Person
+- Related Documentation
+  - Core Schema References
+  - BLOB Structure Documentation
+  - Event and Fact Documentation
+  - Place and Name Documentation
+  - Data Quality and Queries
+  - Output Generation
+- Metadata
+
+## Architecture (17 docs)
+
+### [Architecture Assessment: Presentation vs Application Logic Separation](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/ARCHITECTURE-ASSESSMENT.md) 
+
+- Executive Summary
+- Architectural Analysis
+  - What Good Architecture Looks Like
+  - Current Architecture (Reality)
+- Critical Architectural Violations
+  - Violation 1: UI Layer Directly Imports Database Layer
+  - Violation 2: Business Logic in Database Layer
+  - Violation 3: Business Logic in UI Layer
+  - Violation 4: No Domain Models
+- Layer Responsibility Analysis
+  - Current State (Violates SRP)
+  - Example: Place Approval Workflow
+- Testing Impact
+  - Current Architecture
+  - Clean Architecture
+- Maintainability Impact
+  - Current Architecture
+  - Clean Architecture
+- Code Quality Comparison
+  - Current Architecture
+  - Clean Architecture
+- Recommendations
+  - Immediate Actions (Critical)
+  - Short-Term (1-2 weeks)
+  - Medium-Term (3-4 weeks)
+  - Long-Term (Ongoing)
+- Conclusion
+  - Does the code employ strong application architecture?
+  - Impact on Project
+  - Recommendation
+
+### [RMCitecraft Architecture Diagram](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/ARCHITECTURE_DIAGRAM.md) 
+
+### [Find a Grave Batch Processing Architecture](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/BATCH_PROCESSING_ARCHITECTURE.md) [essential]
+
+- Overview
+- Architecture Components
+  - 1. State Database (`BatchStateRepository`)
+  - 2. Page Health Monitor
+  - 3. Adaptive Timeout Manager
+  - 4. Retry Strategy
+  - 5. Atomic Transactions
+- Batch Processing Workflow
+  - Six-Phase Processing Loop
+- Configuration
+  - Environment Variables
+  - Settings Access
+- Using Resume Functionality
+  - User Workflow
+  - Resume Dialog Information
+  - Session Management
+  - Behind the Scenes
+- Performance Metrics
+  - Session Completion Summary
+  - Metrics Tracked
+- Error Handling
+  - Error Classification
+  - Error Recording
+  - Duplicate Detection Layers
+- Troubleshooting
+  - Browser Crashes Frequently
+  - Timeouts Still Occurring
+  - Resume Not Working
+  - Duplicate Citations Created
+- Architecture Decisions
+  - Why Separate State Database?
+  - Why Atomic Transactions?
+  - Why Adaptive Timeout?
+  - Why Exponential Backoff?
+- Testing
+  - Unit Tests
+  - Integration Tests
+- Future Enhancements
+  - Planned Improvements
+  - Configuration Enhancements
+- References
+  - Key Files
+  - Related Documentation
+- Maintenance
+  - Database Cleanup
+  - Monitoring Health
+- Support
+
+### [RMCitecraft Batch Processing UI - Comprehensive Design](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/BATCH_PROCESSING_UI_DESIGN.md) 
+
+- Executive Summary
+- Table of Contents
+- 1. Current State Analysis
+  - 1.1 What Exists (Built & Working)
+  - 1.2 What's Missing (Critical Gaps)
+  - 1.3 Integration Opportunities
+- 2. Problem Definition
+  - 2.1 The Core Challenge
+  - 2.2 User Stories
+- 3. Design Goals & Principles
+  - 3.1 Primary Goals
+  - 3.2 Design Principles
+- 4. Proposed Architecture
+  - 4.1 Three-Panel Layout (Split View)
+  - 4.2 Component Architecture
+  - 4.3 State Machine for Batch Processing
+  - 4.4 Data Flow
+- 5. UI/UX Design
+  - 5.1 Citation Queue (Left Panel)
+  - 5.2 Data Entry Form (Center Panel)
+  - 5.3 Census Image Viewer (Right Panel)
+  - 5.4 Progress & Status
+- 6. Keyboard Navigation
+  - 6.1 Global Shortcuts
+  - 6.2 Queue Navigation
+  - 6.3 Form Navigation
+  - 6.4 Image Viewer
+  - 6.5 Keystroke Optimization Examples
+- 7. Data Flow & State Management
+  - 7.1 Application State
+  - 7.2 State Transitions
+  - 7.3 Reactive UI Updates
+- 8. Implementation Phases
+  - Phase 1: Core Batch UI (Week 1-2)
+  - Phase 2: Batch Operations (Week 3)
+  - Phase 3: Data Entry Optimization (Week 4)
+  - Phase 4: Error Handling & Recovery (Week 5)
+  - Phase 5: Polish & Optimization (Week 6)
+- 9. Technical Specifications
+  - 9.1 Technology Stack
+  - 9.2 Performance Requirements
+  - 9.3 Data Persistence
+  - 9.4 API Endpoints (Internal)
+- 10. Success Criteria
+  - 10.1 Quantitative Metrics
+  - 10.2 Qualitative Goals
+  - 10.3 User Acceptance Criteria
+- Appendix A: Keyboard Shortcuts Reference Card
+- Appendix B: Wireframe Mockups
+  - B.1 Full Screen Layout
+  - B.2 Batch Validation Summary Dialog
+- Appendix C: Sample Data Flow Diagram
+- Conclusion
+
+### [Census Batch Processing Architecture](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md) [essential]
+
+- Overview
+- Key Differences from Find a Grave Processing
+- Architecture Components
+  - 1. State Repository (`CensusBatchStateRepository`)
+  - 2. Citation Filtering (`find_census_citations`)
+  - 3. Batch Processing Controller
+  - 4. FamilySearch Automation
+  - 5. Citation Formatter
+- Batch Processing Workflow
+  - Six-Phase Processing Loop
+  - Phase Details
+    - Phase 1: Page Health Check
+    - Phase 2: Already Extracted Check
+    - Phase 3: Extraction with Retry
+    - Phase 4: Image Download
+    - Phase 5: Status Update
+    - Phase 6: Checkpoint
+- Configuration
+  - Environment Variables
+  - Settings Access
+- Validation Rules
+  - Required Fields by Census Year
+  - Validation Functions
+- Resume Functionality
+  - Starting a New Session
+  - Resuming Interrupted Session
+  - Session Management
+- Export to RootsMagic
+  - Export Process
+  - Source Name Update
+- Error Handling
+  - Retryable Errors
+  - Non-Retryable Errors
+  - Error Recording
+- Performance Metrics
+  - Tracked Operations
+  - Metrics Query
+- Testing
+  - Unit Tests
+  - Integration Tests
+  - Running Tests
+- Troubleshooting
+  - No Citations Found
+  - Extraction Failures
+  - Resume Not Working
+- File References
+  - Implementation
+  - Tests
+  - Schema
+- Related Documentation
+
+### [1930 Census Citation Errors - Analysis](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/CITATION-ERRORS-1930.md) 
+
+- Source Data
+- Generated Footnote (Incorrect)
+- Correct Evidence Explained Footnote
+- 14 Errors Identified
+  - Error 1: Missing Census Year
+  - Error 2: Wrong Geographic Order
+  - Error 3: Missing "County" Designation
+  - Error 4: Missing Place Type Designation
+  - Error 5: Missing Enumeration District (ED)
+  - Error 6: Incomplete Sheet Number
+  - Error 7: Missing Line Number
+  - Error 8: Wrong Citation Element Order
+  - Error 9: Missing Collection Title
+  - Error 10: Missing Italics on FamilySearch
+  - Error 11: Missing Comma Before URL Parenthesis
+  - Error 12: URL Includes Query Parameter
+  - Error 13: Missing Access Date with Colon Separator
+  - Error 14: Removed "United States" from Location
+- Additional Notes from User
+- Data Extraction Requirements
+  - From FamilySearch Citation (CitationTable.Fields "Page")
+  - From PlaceTable.Name (via EventTable)
+  - From RM Source Name
+- LLM Extraction Model (Pydantic)
+- Template Rendering Logic (1930 Census)
+  - Footnote Template
+  - Missing Data Handling
+
+### [RootsMagic Citation Storage Architecture](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/CITATION-STORAGE.md) 
+
+- Overview
+- Free-Form Citation Architecture
+  - Storage Locations
+    - 1. SourceTable.Fields BLOB (Output)
+    - 2. CitationTable.Fields BLOB (Input)
+    - 3. CitationTable TEXT Fields (Not Used for TemplateID=0)
+- XML Structure
+  - SourceTable.Fields BLOB (Generated Citations)
+  - CitationTable.Fields BLOB (Input from FamilySearch)
+- Code Examples
+  - Reading Citations from Database
+  - Writing Generated Citations to Database
+  - Complete Workflow Example
+- Census Events and Shared Facts
+  - Census as Shared Events
+  - Finding All Census Citations for a Person
+  - Example: George B Iams (PersonID 3447)
+- Database Tables Reference
+  - SourceTable
+  - CitationTable
+  - EventTable
+  - WitnessTable
+  - CitationLinkTable
+- Common Mistakes to Avoid
+  - ❌ WRONG: Writing to CitationTable TEXT fields
+  - ✅ CORRECT: Writing to SourceTable.Fields BLOB
+  - ❌ WRONG: Only checking EventTable for census events
+  - ✅ CORRECT: Checking both EventTable and WitnessTable
+- References
+
+### [Find a Grave Batch Operations Dashboard - Design Specification](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/DASHBOARD_DESIGN.md) 
+
+- Executive Summary
+  - Key Objectives
+- Architecture Overview
+  - Data Sources
+  - Dashboard Structure
+- Component Specifications
+- SECTION 1: Global Overview
+  - 1.1 Master Progress Card
+  - 1.2 Active Sessions Summary
+  - 1.3 Health Indicators
+- SECTION 2: Session Analytics
+  - 2.1 Session Selector & Comparison
+  - 2.2 Session Performance Dashboard
+    - 2.2A Status Distribution (Pie Chart)
+    - 2.2B Processing Timeline (Line Chart)
+    - 2.2C Retry Analysis (Horizontal Bar Chart)
+    - 2.2D Hourly Throughput (Bar Chart)
+  - 2.3 Error Analysis
+    - 2.3A Error Type Breakdown (Tree Map)
+    - 2.3B Error Timeline (Scatter Plot)
+  - 2.4 Performance Heatmap
+- SECTION 3: Item-Level Details
+  - 3.1 Searchable Items Table
+  - 3.2 Item Detail Panel (Slide-Out Drawer)
+    - Section A: Person Info
+    - Section B: Processing History Timeline
+    - Section C: Citation Details
+    - Section D: Family Linkage Analysis
+    - Section E: Downloaded Images
+    - Section F: Error Details (if status = 'failed')
+- SECTION 4: Cumulative Analytics
+  - 4.1 Progress Over Time (Area Chart)
+  - 4.2 Quality Metrics Dashboard
+    - 4.2A Citation Completeness Gauge
+    - 4.2B Data Quality Alerts
+  - 4.3 Session Comparison Matrix
+- SECTION 5: Outlier & Anomaly Detection
+  - 5.1 Automated Outlier Detection Panel
+    - Algorithm A: Statistical Outliers (Performance)
+    - Algorithm B: Error Patterns
+    - Algorithm C: Data Quality Issues
+    - Algorithm D: Retry Candidates
+  - 5.2 Manual Investigation Tools
+    - 5.2A Custom Filter Builder
+    - 5.2B Saved Filter Presets
+    - 5.2C Export Filtered Results
+- SECTION 6: Administrative Tools
+  - 6.1 Batch Management
+  - 6.2 Export & Reporting
+    - 6.2A CSV Export
+    - 6.2B JSON Export
+    - 6.2C PDF Report (Future Enhancement)
+    - 6.2D Scheduled Exports (Future Enhancement)
+  - 6.3 Settings & Preferences
+    - 6.3A Dashboard Settings
+    - 6.3B Chart Settings
+    - 6.3C Notification Settings
+    - 6.3D Layout Preferences
+- Configurable Layout System
+  - Grid-Based Drag-and-Drop
+  - Component Library (Add/Remove)
+  - Layout Presets
+- Technical Requirements
+  - Performance Targets
+  - Browser Compatibility
+  - Data Volume Handling
+  - Accessibility
+- Implementation Phases
+  - Phase 1: Core Dashboard (MVP)
+  - Phase 2: Advanced Visualizations
+  - Phase 3: Drill-Down & Details
+  - Phase 4: Outlier Detection
+  - Phase 5: Configurability
+  - Phase 6: Export & Advanced Features
+- Appendix
+  - Data Query Reference
+  - UX Patterns
+  - Future Enhancements
+
+### [Design Decisions](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/DESIGN-DECISIONS.md) 
+
+- Citation Formatting
+  - Output Format (Decision: 2025-10-20)
+- LLM Extraction Behavior
+  - Missing Field Handling (Decision: 2025-10-20)
+  - Confidence Thresholds (Decision: 2025-10-20)
+  - Validation Rules (Decision: 2025-10-20)
+- State and Location Handling
+  - State Abbreviations (Decision: 2025-10-20)
+- Person Name Handling
+  - Name Formatting (Decision: 2025-10-20)
+- Census Year Handling
+  - 1890 Census (Decision: 2025-10-20)
+- Performance and Concurrency
+  - Batch Processing Concurrency (Decision: 2025-10-20)
+- Change Log
+- Future Decisions Needed
+  - Phase 2 (Citation UI)
+  - Phase 3 (Image Monitoring)
+  - Phase 4 (Image-DB Integration)
+  - Phase 5 (Polish)
+- Notes
+
+### [Citation Formatter Corrections for 1930 Census](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/FORMATTER-CORRECTIONS-1930.md) 
+
+- Issues Found in UI-Generated Citation
+- Corrections Applied
+  - 1. Removed "population schedule" for 1910-1940
+  - 2. Changed Collection Title Format
+  - 3. Added Line Number Support
+  - 4. Removed Family Number from Citation
+- Expected Output (1930 Census)
+  - Footnote
+  - Short Footnote
+  - Bibliography
+- Bibliography Format Differences
+- Files Modified
+- Testing
+- Additional Census Years
+
+### [Census Image Management Architecture](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/IMAGE-MANAGEMENT-ARCHITECTURE.md) 
+
+- Executive Summary
+  - Design Goals
+- System Overview
+  - Three-Tier Architecture
+- Core Components
+  - 1. File Watcher Service
+  - 2. Filename Generator
+  - 3. Directory Mapper
+  - 4. Database Integration
+    - MultimediaTable Record
+    - Event Linking
+    - Citation Linking
+    - Finding Census Event
+  - 5. Extension Integration
+    - Extension → RMCitecraft API Endpoints
+    - RMCitecraft → Extension Commands
+  - 6. Status Tracking System
+- Workflow States
+  - State 1: Citation Import with Auto-Download
+  - State 2: Citation Processing with Image Available
+  - State 3: Existing Citation, Missing Image
+  - State 4: Bulk Missing Images
+- Error Handling
+  - Download Failures
+  - Processing Failures
+  - Duplicate Detection
+- Performance Considerations
+  - File Watcher Efficiency
+  - Database Transactions
+  - Bulk Download Queue
+- Security & Privacy
+  - File System Access
+  - FamilySearch Integration
+  - Database Safety
+- Testing Strategy
+  - Unit Tests
+  - Integration Tests
+  - Manual Test Scenarios
+- Future Enhancements
+  - Phase 2 Features
+  - Phase 3 Features
+- Appendix A: RootsMagic Database Schema
+  - MultimediaTable
+  - MediaLinkTable
+  - EventTable
+- Appendix B: File Naming Conventions
+  - Standard Format
+  - Examples
+  - Special Cases
+- Document History
+
+### [Census Image Viewer Integration - Complete](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/IMAGE-VIEWER-INTEGRATION.md) 
+
+- Summary
+- Implementation Complete
+  - Components Created
+  - Files Modified
+- How It Works
+  - Automatic Image Detection
+  - Database Lookup Process
+- User Experience
+  - Before Integration
+  - After Integration
+- Configuration
+  - Environment Variables
+  - Default Behavior
+- Database Integration
+  - Person Lookup
+  - Census Image Lookup
+- Example: Processing Upton Imes 1930 Census
+- Error Handling
+  - Person Not Found
+  - Image File Missing
+  - Invalid Census Year
+- Testing Checklist
+- Future Enhancements
+  - Potential Features
+- Documentation
+
+### [Census Image Viewer Component](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/IMAGE-VIEWER.md) 
+
+- Overview
+- Components
+  - 1. MediaPathResolver
+  - 2. CensusImageViewer
+- Integration with Citation Process Dialog
+  - Side-by-Side Layout
+  - Automatic Image Detection
+- Database Schema
+- File Organization
+- User Experience
+  - Before Image Viewer
+  - After Image Viewer
+- Configuration
+- Future Enhancements
+- Testing
+
+### [Implementation Status - 1930 Census Citations](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/IMPLEMENTATION-STATUS.md) 
+
+- ✅ Completed Components
+  - 1. Citation Data Models (`src/rmcitecraft/models/census_citation.py`)
+  - 2. Citation Formatters (`src/rmcitecraft/services/citation_formatter.py`)
+  - 3. LLM Extraction Service (`src/rmcitecraft/services/llm_extractor.py`)
+  - 4. Citation Generation Service (`src/rmcitecraft/services/citation_service.py`)
+  - 5. Database Layer (`src/rmcitecraft/database/`)
+  - 6. Tests
+- 🔄 Ready for Testing (Requires API Key)
+  - End-to-End Workflow Test
+- 📋 Next Steps
+  - 1. Configure API Key
+  - 2. Run End-to-End Test
+  - 3. Test Other 1930 Census Entries
+  - 4. Implement Other Census Years
+- 📁 File Summary
+- 🎯 Known Issues / Future Work
+  - Missing Field Detection
+  - BLOB Writing
+  - Performance
+  - Cost (with Anthropic Claude)
+- ✅ Acceptance Criteria
+
+### [LLM Architecture for Citation Parsing](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/LLM-ARCHITECTURE.md) 
+
+- Overview
+- Architecture Decision: Why LLM?
+  - Traditional Parsing Challenges
+- Two-Phase Architecture
+- Data Models
+  - CitationExtraction (Pydantic)
+- LLM Provider Configuration
+  - Multi-Cloud Strategy
+- Prompt Engineering
+  - Cached Prompt Structure
+  - Langchain Implementation
+- Prompt Caching Implementation
+  - Anthropic Prompt Caching
+  - Langchain Caching (Provider-Agnostic)
+- Cost Tracking and Optimization
+- Testing Strategy
+  - Unit Tests for LLM Integration
+  - Integration Tests
+- Error Handling and Validation
+  - Handling LLM Errors
+- Performance Monitoring
+- Summary
+
+### [LLM Providers Architecture](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/LLM-PROVIDERS.md) 
+
+- Supported Providers
+  - 1. LLM (Datasette)
+  - 2. OpenRouter
+- Installation
+- Configuration
+- Usage Examples
+  - Photo Classification
+  - Census Transcription
+  - Direct Provider Usage
+- Provider Capabilities
+- Available Models
+  - OpenRouter Models
+  - LLM Datasette Models
+- Cost Optimization
+  - OpenRouter Cost Management
+  - Batch Processing
+- Error Handling
+- Testing
+- Extending the System
+  - Adding New Providers
+  - Adding New Tasks
+- Troubleshooting
+  - LLM Datasette Issues
+  - OpenRouter Issues
+  - Vision Not Working
+- Future Enhancements
+
+### [Database Connection Property Fix](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/architecture/fixes/DATABASE-CONNECTION-PROPERTY.md) 
+
+- Problem
+- Solution
+- Behavior
+- Impact
+- Testing
+
+## Implementation (16 docs)
+
+### [1950 Census Format Fix](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/1950-FORMAT-FIX.md) 
+
+- Issue
+- Root Cause
+- Solution
+- Test Results
+  - Citation ID 5108 (1940 format)
+  - Citation ID 11137 (1950 format)
+- Files Modified
+- Impact
+  - Database Statistics:
+- Format Variants Supported
+
+### [Batch Processing - Async Context Fix](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/BATCH_PROCESSING_ASYNC_FIX.md) 
+
+- Error
+- Root Cause
+- Solution
+- Why This Works
+- Code Changes
+  - Before (Broken)
+  - After (Fixed)
+- Testing
+- Rule for NiceGUI Async
+
+### [Batch Processing UI - Bug Fixes](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/BATCH_PROCESSING_BUGFIXES.md) 
+
+- Issues Fixed
+  - 1. ❌ Citation Queue Not Rendering
+  - 2. ❌ Incorrect Citation Count (0/7 instead of 0/10)
+  - 3. ❌ No Way to Load "Next 10" Citations (Missing Pagination)
+  - 4. ❌ Async Loading Not Awaited Properly
+- Testing Results
+- Code Changes Summary
+  - `citation_queue.py`
+  - `data_entry_form.py`
+  - `batch_processing.py`
+- How to Test
+- Known Remaining Issues
+  - Non-Critical Issues:
+- Next Steps
+
+### [Batch Processing UI - Final Fixes & Implementation](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/BATCH_PROCESSING_FINAL_FIXES.md) 
+
+- Issues Addressed
+  - 1. ❌ Citation Queue Empty After Loading
+  - 2. ❌ "Process Selected" Button Did Nothing
+  - 3. ❌ No Explanation for 7/10 Citations Loaded
+  - 4. ⏳ Message Log Request (Deferred)
+- Files Modified
+  - `src/rmcitecraft/ui/components/citation_queue.py`
+  - `src/rmcitecraft/ui/tabs/batch_processing.py`
+- Testing Results
+- What Happens During Processing
+- Known Behaviors
+  - Citation Count Variability
+  - Process Selected Only Processes Queued/Manual Review
+  - UI Updates During Processing
+- Phase 1 Completion Status
+- Next Session: Phase 2 Priorities
+
+### [Citation Parsing Fix - October 20, 2025](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/CITATION-PARSING-FIX.md) 
+
+- Problem Report
+- Root Causes
+  - Issue 1: Year Pattern Not Matching "United States, Census" Format
+  - Issue 2: Wrong Parameter Used for Full Text in Detailed Format Parser
+  - Issue 3: Access Date Format
+- Test Results
+- Files Modified
+- Impact
+- Additional Notes
+- Documentation Status
+
+### [Citation Preview Fixes](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/CITATION-PREVIEW-FIXES.md) 
+
+- Issue 1: ED Abbreviation in Short Footnote
+- Issue 2: Access Date Using Extraction Timestamp
+  - Date Formatting Method
+  - Format Examples
+  - Implementation Details
+  - Updated Methods
+- Issue 3: Census Image Not Displaying
+  - Logging Output
+  - Debugging Features
+- Testing
+  - Test Case: Upton Imes 1930 Census
+- Summary
+
+### [FamilySearch Extraction Fix - Completed](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/EXTRACTION_FIX_COMPLETE.md) 
+
+- Root Cause
+  - Data Mismatch
+- Solution Implemented
+  - 1. Added Data Transformation Layer ✅
+  - 2. Enhanced Page Extraction ✅
+  - 3. Added Location Parser ✅
+  - 4. Added Census Detail Extractor ✅
+- Test Results
+  - Before Fix
+  - After Fix
+- Sample Output
+  - Entry: Lillian Blanch Andrews
+- Files Modified
+  - 1. `src/rmcitecraft/services/familysearch_automation.py`
+- Benefits
+  - 1. Complete Data Extraction ✅
+  - 2. Quality Control Working ✅
+  - 3. Professional Citations ✅
+  - 4. Robust Extraction ✅
+- Success Metrics
+- Next Steps
+  - Ready for Production
+- Testing Commands
+- Log Files
+- Conclusion
+
+### [Free Form Citation Support](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/FREEFORM-SUPPORT.md) 
+
+- Overview
+- Problem
+- Solution
+  - 1. Fields BLOB Structure
+  - 2. Code Changes
+  - 3. UI Display
+- Testing
+  - Test with Sample Data
+  - Test in UI
+- Database Schema
+  - CitationTable
+  - SourceTable
+- Free Form vs. Structured Citations
+  - Free Form (TemplateID = 0)
+  - Structured (TemplateID > 0)
+- Known Limitations
+- Future Enhancements
+- Files Modified
+- Summary
+
+### [Parser Optimization - Dual Format Support](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/PARSER-OPTIMIZATION.md) 
+
+- Overview
+- Problem
+- Solution
+  - 1. Dual-Format Detection
+  - 2. FamilySearch Format Patterns
+  - 3. FamilySearch Parser Implementation
+  - 4. Enhanced ED Pattern
+  - 5. HTML Tag Handling
+- Testing Results
+  - FamilySearch Format Test
+  - SourceName Format Test
+- Files Modified
+  - `src/rmcitecraft/parsers/familysearch_parser.py`
+- Format Differences
+- Benefits
+- Edge Cases Handled
+- Known Limitations
+- Next Steps
+- Summary
+
+### [Person Name Extraction Fix - October 20, 2025](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/PERSON-NAME-EXTRACTION-FIX.md) 
+
+- Problem Report
+- Root Causes
+  - Issue 1: Minimal Format Not Recognized
+  - Issue 2: Entry For Pattern Didn't Match Full Date Format
+- Format Variations Now Supported
+  - 1. Entry For Format (1950 style)
+  - 2. Minimal Format (older years)
+  - 3. Simplified Format (already supported)
+- Test Results
+- Files Modified
+- Impact
+- Known Limitations
+  - Potential Future Issues:
+- Documentation Status
+
+### [Punctuation and Abbreviation Corrections](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/PUNCTUATION-FIXES.md) 
+
+- Issues Identified
+  - 1. State Abbreviations Using Postal Codes
+  - 2. Punctuation Outside Quotation Marks in Bibliography
+- Corrections Applied
+  - Fix 1: Traditional State Abbreviations
+  - Fix 2: Punctuation Inside Quotation Marks
+- Corrected Output Examples
+  - Short Footnote (State Abbreviation)
+  - Bibliography (Punctuation)
+- State Abbreviation Reference Table
+- Files Modified
+- Testing
+
+### [Real-Time Preview Updates and URL Parameter Fix](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/REALTIME-UPDATES-FIX.md) 
+
+- Issues Fixed
+  - Issue 1: Query Parameters in URLs ✅
+  - Issue 2: Real-Time Preview Updates ✅
+- Code Reuse Confirmation ✅
+- Files Modified
+- User Experience
+  - Before:
+  - After:
+- Testing
+
+### [Simplified FamilySearch Format Support](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/SIMPLIFIED-FORMAT-SUPPORT.md) 
+
+- Overview
+- Problem
+  - What's Missing from Simplified Format:
+  - What's Available:
+- Solution
+  - 1. Format Detection
+  - 2. New Pattern
+  - 3. Enhanced Access Date Pattern
+  - 4. Simplified Parser Method
+  - 5. UI Integration
+- Test Results
+  - Input:
+  - Output:
+- Format Comparison
+- Files Modified
+  - `src/rmcitecraft/parsers/familysearch_parser.py`
+  - `src/rmcitecraft/ui/tabs/citation_manager.py`
+- Known Limitations
+  - 1. Incomplete Citations
+  - 2. Multiple Person Names
+  - 3. No Citation Details
+  - 4. State/County Dependency
+- Future Enhancements
+  - Option 1: User Data Entry Form (Week 4 Task 2)
+  - Option 2: Browser Extension (Future)
+  - Option 3: LLM Enhancement (Future)
+- User Impact
+  - What Works:
+  - What's Needed:
+- Summary
+
+### [Spouse Name Matching Enhancement](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/SPOUSE-NAME-MATCHING-FIX.md) 
+
+- Problem Description
+  - The Bug
+  - Why It Failed
+- Solution: Comprehensive Name Matching
+  - Enhanced Strategy
+  - Code Changes
+- Results
+  - PersonID 1245 Test Case
+  - Supported Variations
+  - Date Format Handling
+- Testing
+- Performance Impact
+- Migration Notes
+- Related Issues
+- References
+
+### [UI Updates - Week 3 Improvements](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/UI-UPDATES.md) 
+
+- Changes Made
+  - 1. Layout Change: Side-by-Side → Top/Bottom ✅
+  - 2. Citation Database Fields Displayed ✅
+  - 3. Parse from Footnote Field ✅
+  - 4. Mark town_ward as Optional ✅
+- Files Modified
+  - 1. `src/rmcitecraft/ui/tabs/citation_manager.py`
+  - 2. `src/rmcitecraft/parsers/familysearch_parser.py`
+- Testing
+  - Manual Testing Steps
+  - Automated Tests
+- Database Query Verification
+- Visual Changes
+  - Before (Side-by-Side):
+  - After (Top/Bottom):
+- Known Issues
+  - 1. Early Census Citations (1790-1840)
+  - 2. No Footnotes in Test Database
+- Acceptance Criteria - Met
+- Next Steps (Week 4)
+
+### [FamilySearch URL Extraction Fix - October 20, 2025](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/implementation/URL-EXTRACTION-FIX.md) 
+
+- Problem Report
+- Investigation
+  - Initial Statistics (Before Fix)
+  - Root Cause - PAL URL Format Not Recognized
+- The Fix
+- Test Results
+  - Verification - 1930 Census
+  - Expected Overall Impact
+  - Remaining Missing URLs
+- PAL vs ARK Format Analysis
+  - PAL Format (Persistent Access Link)
+  - ARK Format (Archival Resource Key)
+- Files Modified
+  - Change: Updated URL_PATTERN (Lines 51-57)
+- Impact
+  - Before Fix:
+  - After Fix:
+  - User Benefits:
+- Known Limitations
+  - 1890 Census
+  - Citations with `[missing]` Tags
+  - Future Considerations
+- Documentation Status
+
+## Analysis (5 docs)
+
+### [Early Census Data Analysis (1790-1850)](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/analysis/CENSUS-1790-1850-ANALYSIS.md) 
+
+- Overview
+- Critical Historical Context
+  - 1790-1840: Head of Household Only
+  - 1850: First Modern Census
+- Data Analysis by Census Year
+  - 1850 Census (John Imes) - **First "Modern" Census**
+  - 1840 Census (Richard Jiams) - **Head of Household Only**
+  - 1830 Census (Richard Iiams) - **Head of Household Only**
+  - 1820 Census (John Jonas) - **Head of Household Only**
+  - 1810 Census (P Ijames) - **Head of Household Only**
+  - 1800 Census (John Jeanes) - **Head of Household Only**
+  - 1790 Census (Plummer Iiams) - **First US Census**
+- Field Comparison: 1790-1850
+- NARA Microfilm Publication Numbers (1790-1850)
+- Citation Format Implications
+  - 1790-1840: Household Head Citations
+  - 1850-1870: Individual Person Citations (Pre-ED)
+- Critical Issues Found
+  - 1. Page Number Not Extracted for 1850
+  - 2. Line Number Semantics Change
+  - 3. No Individual Data Before 1850
+- Complete Census Evolution Timeline
+  - Phase 1: Statistical Era (1790-1840)
+  - Phase 2: Individual Era Begins (1850-1870)
+  - Phase 3: Enumeration District Era (1880-1940)
+  - Phase 4: Modern Era (1950)
+- Template Requirements by Era
+  - Era 1: 1790-1840 (Head of Household Only)
+  - Era 2: 1850-1870 (Individual, No ED)
+  - Era 3: 1880-1940 (Individual, With ED, Sheet Numbers)
+  - Era 4: 1950 (Individual, With ED, Page Numbers)
+- Recommendations
+  - Immediate Actions
+  - User Communication
+  - Template Layer Updates
+- Summary
+
+### [Complete US Federal Census Analysis (1790-1950)](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/analysis/CENSUS-COMPLETE-ANALYSIS-1790-1950.md) 
+
+- Executive Summary
+  - Four Census Eras
+- Complete Field Matrix (1790-1950)
+- Era 1: Household Only (1790-1840)
+  - Characteristics
+  - NARA Microfilm Publications
+- Era 2: Individual, No ED (1850-1870)
+  - Characteristics
+  - NARA Microfilm Publications
+- Era 3: Individual, With ED (1880-1940)
+  - Characteristics
+  - NARA Microfilm Publications
+- Era 4: Modern (1950)
+  - Characteristics
+- Critical Data Extraction Issues
+  - Issues Found During Analysis
+  - Browser Extension Fixes Implemented
+- Citation Template Requirements by Era
+  - Era 1: 1790-1840 (Household Only)
+  - Era 2: 1850-1870 (Individual, No ED)
+  - Era 3: 1880-1940 (Individual, With ED, Sheet)
+  - Era 4: 1950 (Individual, With ED, Page)
+- Implementation Guide
+  - 1. Census Era Detection
+  - 2. Field Validation by Era
+  - 3. Citation Generation Logic
+- Key Insights for LLM Layer
+  - Extraction Guidance by Era
+- Summary Statistics
+  - Census Evolution by the Numbers
+  - Data Availability Score (0-10 scale)
+- Conclusion
+- Files Reference
+
+### [Census Data Structure Analysis](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/analysis/CENSUS-DATA-ANALYSIS.md) 
+
+- Overview
+- Data by Census Year
+  - 1950 Census (Eldon Iams)
+  - 1940 Census (Glen H James)
+  - 1930 Census (George B Iams)
+  - 1920 Census (James Iams)
+  - 1910 Census (Levi W Iams)
+  - 1900 Census (Dennis Iams)
+- Field Comparison Matrix
+- Critical Issues
+  - 1. Census Year Not Being Extracted
+  - 2. Enumeration District Inconsistent
+  - 3. Line Number Missing for 1910
+  - 4. Age Format Variations
+  - 5. Race Format Variations
+  - 6. Sheet vs Page Number
+- Data Normalization Strategy
+  - Phase 1: Browser Extension Improvements
+  - Phase 2: LLM Extraction Layer
+  - Phase 3: Citation Template Layer
+- NARA Microfilm Publication Numbers
+- Recommendations
+  - Immediate Actions (Browser Extension)
+  - Medium-Term (LLM Layer)
+  - Long-Term (Template Layer)
+- Next Steps
+
+### [Pre-1900 Census Data Analysis (1860-1880)](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/analysis/CENSUS-PRE-1900-ANALYSIS.md) 
+
+- Overview
+- 1880 Census (John W. Yams)
+  - Key Observations
+- 1870 Census (T H Ojams)
+  - Key Observations
+- 1860 Census (Hugh Imes)
+  - Key Observations
+- Field Comparison: 1860-1880
+- Critical Differences: Pre-1880 vs 1880+
+  - Page Number vs Sheet Number
+  - Enumeration Districts
+  - NARA Microfilm Publication Numbers
+- Issues Found
+  - 1. Line Number Inconsistently Extracted
+  - 2. Enumeration District Not Extracted for 1880
+  - 3. Occupation Not Extracted
+  - 4. Relationship to Head of Household
+- Citation Template Requirements by Era
+  - 1850-1870 Format
+  - 1880-1940 Format
+  - 1950 Format
+- Recommendations
+  - Immediate Actions
+  - Template Layer Updates Needed
+- Next Steps
+- Summary
+
+### [Census Extraction 100-Entry Test Run Analysis](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/analysis/CENSUS_EXTRACTION_100_TEST_ANALYSIS.md) 
+
+- Overview
+- Analysis Methodology
+  - 1. Database Comparison Approach
+  - 2. Key Queries Used
+    - Finding expected RM persons from processed sources:
+    - Finding extracted persons in census.db:
+    - Cross-referencing log for skipped persons:
+  - 3. Temporary Files Created During Analysis
+- Key Findings
+  - Extraction Statistics
+  - Critical Discovery: Name Matching Failures
+    - Category Breakdown of 149 Missing Persons
+  - Root Cause Analysis: Name Matching Failures
+    - 1. Middle Name/Initial Abbreviation Mismatch (~60+ cases)
+    - 2. Married vs Maiden Name (~40+ cases)
+    - 3. Spelling Variations (~20+ cases)
+    - 4. Combined Issues (~15 cases)
+  - Data Quality in census.db
+  - Issues Found
+- Specific Missing Persons (Sample)
+- Suggested Next Steps
+  - Investigation
+  - Program Improvements (Proposed, Not Agreed)
+- Commands to Reproduce Analysis
+- Files Referenced
+- Status
+
+## Project Planning (6 docs)
+
+### [Dashboard Implementation Plan](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/project/DASHBOARD_IMPLEMENTATION_PLAN.md) 
+
+- Table of Contents
+- File Structure
+  - New Files
+  - Modified Files
+- NiceGUI Component Mapping
+  - Component Usage Patterns
+  - 1. Master Progress Card
+  - 2. Status Distribution (Pie Chart)
+  - 3. Processing Timeline (Line Chart)
+  - 4. Items Table (Searchable)
+  - 5. Error Analysis (Tree Map)
+  - 6. Performance Heatmap
+- State Database Enhancements
+  - New Query Methods
+- RootsMagic Drill-Down Queries
+  - New Query File
+- Auto-Refresh Strategy
+  - Reactive Updates with NiceGUI
+  - Manual Refresh Button
+- Layout Persistence
+  - Drag-and-Drop Layout System
+  - Layout Presets
+- Implementation Phases
+  - Phase 1: Foundation (Week 1)
+  - Phase 2: Status & Timeline (Week 2)
+  - Phase 3: Items Table & Detail (Week 3)
+  - Phase 4: Error Analysis (Week 4)
+  - Phase 5: Performance & Outliers (Week 5)
+  - Phase 6: Advanced Features (Week 6)
+- Testing Strategy
+  - Unit Tests
+  - Integration Tests
+- Performance Considerations
+  - Data Volume
+  - Chart Performance
+- Next Steps
+
+### [Census Image Management - Implementation Plan](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/project/IMAGE-IMPLEMENTATION-PLAN.md) 
+
+- Overview
+- Implementation Phases
+  - Phase 1: Core Infrastructure (Week 1)
+    - Task 1.1: File Watcher Service
+    - Task 1.2: Filename Generator
+    - Task 1.3: Directory Mapper
+    - Task 1.4: Database Media Integration
+    - Task 1.5: Image Processing Service
+  - Phase 2: Extension Integration (Week 2)
+    - Task 2.1: Image Tracking System
+    - Task 2.2: Enhanced API Endpoints
+    - Task 2.3: Command Queue Enhancement
+  - Phase 3: UI Enhancement (Week 3)
+    - Task 3.1: Image Status in Pending Citations
+    - Task 3.2: Download Buttons
+    - Task 3.3: Image Manager Tab
+  - Phase 4: Smart Features (Week 4)
+    - Task 4.1: Duplicate Detection
+    - Task 4.2: Retry Failed Downloads
+    - Task 4.3: Bulk Download Queue
+- Testing Strategy
+  - Unit Tests
+  - Integration Tests
+  - Manual Testing Checklist
+- Code Review Checklist
+- Deployment Checklist
+- Monitoring & Observability
+  - Logging
+  - Metrics to Track
+- Performance Targets
+- Security Considerations
+  - File System
+  - Database
+  - Extension Communication
+- Documentation Requirements
+  - Code Documentation
+  - API Documentation
+- Document Version
+
+### [Census Extraction Viewer UX Redesign Plan](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/project/PLAN_census_extraction_viewer_ux.md) 
+
+- Current State Analysis
+  - Problems Identified
+- Proposed Redesign
+  - Layout: 3-Column with Prioritized Information
+  - Detailed Changes
+    - 1. Person List (Left Column) - Enhanced
+    - 2. Person Details (Center Column) - Reorganized Cards
+    - 3. Secondary Panel (Right Column) - Tabbed
+  - Implementation Steps
+  - Key UX Principles Applied
+
+### [Census Transcription Batch Processing Enhancement Plan](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/project/PLAN_census_transcriber_refactor.md) 
+
+- Overview
+- Phase 1: Extract Family Member ARKs from Person Page Table
+  - Current State
+  - Enhancement Required
+  - Implementation Notes
+- Phase 2: Census Transcription Batch State Schema
+  - New Tables (in `batch_state.db`)
+- Phase 3: Duplicate Prevention System
+  - Image-Level Duplicate Prevention
+  - Person-Level Duplicate Prevention
+  - Queue Filtering
+- Phase 4: Edge Detection for Page Boundaries
+  - Problem
+  - Detection Logic
+  - UI Notifications
+- Phase 5: Batch Processing Service
+  - CensusTranscriptionBatchService
+- Phase 6: Updated UI for Batch Operations
+  - New Tab: "Census Transcription"
+  - UI Components
+- Implementation Order
+  - Week 1: Foundation
+  - Week 2: Duplicate Prevention & Edge Detection
+  - Week 3: Batch Service
+  - Week 4: UI
+- Files to Create/Modify
+  - New Files
+  - Modified Files
+- Success Criteria
+- Risk Mitigation
+- Implementation Status
+  - Completed (2025-12-03)
+  - Remaining
+
+### [RMCitecraft Project Plan](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/project/PROJECT-PLAN.md) 
+
+- Overview
+- Project Goals
+- Development Phases
+  - Phase 0: Planning & Setup (Complete)
+    - Deliverables:
+  - Phase 1: Foundation (Weeks 1-2)
+    - Week 1: Project Setup & Database Access ✅ COMPLETE
+    - Week 2: LLM Integration & Citation Parsing ✅ COMPLETE
+  - Phase 2: Citation UI (Weeks 3-4)
+    - Week 3: Basic UI & Citation List ✅ COMPLETE
+    - Week 4: Browser Extension & Citation Processing
+  - Phase 3: Image Monitoring (Weeks 5-6)
+    - Week 5: File System Monitoring
+    - Week 6: Image Processing Integration
+  - Phase 4: Image-Database Integration (Week 7)
+    - Tasks:
+  - Phase 5: Polish & Extended Support (Week 8)
+    - Tasks:
+  - Phase 6: Testing & Release (Weeks 9-10)
+    - Week 9: Testing & Quality Assurance
+    - Week 10: Packaging & Documentation
+- Future Enhancements (Post-v1.0)
+  - Phase 7: State Census Support
+  - Phase 8: Other Record Types
+  - Phase 9: Advanced Features
+  - Phase 10: AI Enhancement
+- Risk Management
+  - Critical Risks
+- Success Metrics
+  - Performance Targets
+  - Quality Targets
+  - User Experience Targets
+- Dependencies
+  - External Dependencies
+  - System Requirements
+- Resource Estimates
+  - Development Time
+  - LLM Costs (Development)
+  - Tools/Services
+- Current Status
+- Getting Started with Development
+
+### [Refactoring Plan: Find a Grave Batch Processing](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/project/REFACTORING-PLAN.md) 
+
+- Executive Summary
+- Current State Analysis
+  - Architectural Violations
+  - Current Import Graph
+  - Target Architecture
+- Phased Refactoring Plan
+  - Phase 0: Preparation (3 days)
+    - Tasks
+  - Phase 1: Extract Domain Models (Week 1)
+    - 1.1 Create Core Domain Models
+    - 1.2 Migrate Existing Code to Use Models
+  - Phase 2: Extract Services (Week 2)
+    - 2.1 Create PlaceMatcher Service
+    - 2.2 Create BurialEventService
+    - 2.3 Create Repository Interfaces
+  - Phase 3: Update UI to Use Services (Week 3)
+    - 3.1 Refactor _start_batch_processing
+    - 3.2 Create Approval Callback Adapter
+  - Phase 4: Clean Up and Optimize (Week 4)
+    - 4.1 Remove Old Implementations
+    - 4.2 Optimize Performance
+    - 4.3 Update Documentation
+- Testing Strategy
+  - Unit Tests (New)
+  - Integration Tests (Enhanced)
+  - Parity Tests (Critical)
+- Risk Mitigation
+  - Risk 1: Breaking Existing Functionality
+  - Risk 2: Performance Regression
+  - Risk 3: Timeline Overrun
+- Success Metrics
+  - Code Quality Metrics
+  - Architecture Metrics
+  - Performance Metrics
+- Resource Requirements
+  - Development Time
+  - Code Review
+- Approval and Sign-Off
+  - Phase Approval
+  - Final Sign-Off
+- Next Steps
+
+## Database (22 docs)
+
+### [1930 Census Enumeration District (ED) Extraction Issue](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/1930_CENSUS_ED_EXTRACTION_ISSUE.md) 
+
+- Problem Summary
+- Root Cause Analysis
+  - 1. Citation Data Status
+  - 2. FamilySearch Page Extraction
+  - 3. Data Flow Comparison
+- Tested Entries
+- Proposed Solutions
+  - Option 1: Manual Entry via Batch Processing UI (Recommended)
+  - Option 2: Enhanced FamilySearch Page Scraping
+  - Option 3: Relaxed Validation for Existing Citations
+  - Option 4: Hybrid Approach
+- Recommendation
+- Next Steps
+- Related Documentation
+
+### [1930 Census ED Extraction - Investigation Summary](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/1930_CENSUS_INVESTIGATION_SUMMARY.md) 
+
+- Key Findings
+  - 1. Current Extraction Architecture ✅
+  - 2. Root Cause: Missing Source Data ❌
+  - 3. Where Does the ED Actually Exist? 📄
+- Comparison: 1940 vs 1930 Census
+  - Why the Difference?
+- Attempted Solutions & Results
+  - ❌ Enhanced Table Scraping
+  - ❌ Citation Text Fallback
+  - ❌ Web Page Inspection
+  - ⚠️ Manual FamilySearch Visit (Not Yet Done)
+- Definitive Solution: Manual Entry via Batch UI
+  - Why This Is The Right Solution
+  - Workflow
+  - Efficiency Metrics
+- Next Steps
+  - Immediate (This Session)
+  - Short Term (Next Development Phase)
+  - Optional Investigation
+- Conclusion
+
+### [1930 Census Issue - Quick Summary](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/1930_CENSUS_QUICK_SUMMARY.md) 
+
+### [Batch Processing UI - Phase 1 Implementation Summary](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/BATCH_PROCESSING_PHASE1_IMPLEMENTATION.md) 
+
+- Overview
+- What Was Built
+  - 1. State Management (`src/rmcitecraft/services/batch_processing.py`)
+  - 2. Citation Queue Component (`src/rmcitecraft/ui/components/citation_queue.py`)
+  - 3. Data Entry Form Component (`src/rmcitecraft/ui/components/data_entry_form.py`)
+  - 4. Batch Processing Tab (`src/rmcitecraft/ui/tabs/batch_processing.py`)
+  - 5. Integration into Main Application (`src/rmcitecraft/main.py`)
+- Architecture Highlights
+  - State Machine Implementation
+  - Data Flow
+  - Component Communication
+- File Structure
+- Phase 1 Success Criteria
+- Testing Status
+- Known Limitations / Next Steps
+  - Deferred to Phase 2:
+- How to Test Phase 1
+  - 1. Start the Application
+  - 2. Navigate to Batch Processing Tab
+  - 3. Load Citations
+  - 4. Test Workflow
+  - 5. Test Filtering/Sorting
+  - 6. Test Multi-Select
+- Integration with Existing System
+- Metrics
+- Next Session Tasks
+- Conclusion
+
+### [Citation Matching Report Implementation](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/CITATION-MATCHING-REPORT.md) 
+
+- Overview
+- Report Format
+  - Spouse Matching Table
+  - Parent Matching Summary
+- Implementation Details
+  - Enhanced `link_citation_to_families()` Function
+  - Batch Processing Data Collection
+  - Report Display Component
+- Example Report
+  - Spouse Matching
+  - Parent Matching
+- User Experience Flow
+- Benefits
+  - For Users
+  - For Data Quality
+- Technical Notes
+  - Match Score Calculation
+  - Database Name Variations
+  - Performance Impact
+- Future Enhancements
+  - Potential Improvements
+  - Code Organization
+- Testing
+- References
+
+### [Code Maintainability Assessment](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/CODE-MAINTAINABILITY-ASSESSMENT.md) 
+
+- Executive Summary
+- Detailed Analysis
+  - File Size Analysis
+  - Function Size Analysis
+    - findagrave_batch.py (UI)
+    - findagrave_queries.py (Database)
+    - findagrave_automation.py (Scraping)
+  - Complexity Analysis
+- Specific Problems
+  - 1. God Functions
+  - 2. Excessive Nesting
+  - 3. Mixed Concerns
+  - 4. Poor Testability
+  - 5. Tight Coupling
+- Refactoring Recommendations
+  - Priority 1: Critical (Do Now)
+    - 1.1 Break Up God Functions
+    - 1.2 Extract Place Matching Logic
+    - 1.3 Create Service Layer
+  - Priority 2: Important (Do Soon)
+    - 2.1 Reduce Nesting with Early Returns
+    - 2.2 Extract Constants and Configuration
+    - 2.3 Add Type Hints Everywhere
+  - Priority 3: Nice to Have (Do Later)
+    - 3.1 Add Result Types Instead of Dictionaries
+    - 3.2 Use Domain Models
+- Comparison: Current vs. Proposed Architecture
+  - Current Architecture (Problematic)
+  - Proposed Architecture (Clean)
+- Testing Impact
+  - Current State
+  - After Refactoring
+- Migration Strategy
+  - Phase 1: Extract and Test (Week 1)
+  - Phase 2: Create Service Layer (Week 2)
+  - Phase 3: Refactor UI (Week 3)
+  - Phase 4: Clean Up (Week 4)
+- Metrics to Track
+- Conclusion
+
+### [CountyCheckDB.dat - Historical Place Validation](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/COUNTYCHECKDB.md) 
+
+- Overview
+- Purpose
+- Contents
+- Examples of Historical Transitions
+  - Statehood Transitions
+  - County Changes
+- Importance for Census Citations
+- File Structure
+- Current Status in RMCitecraft
+  - Future Enhancement Opportunities
+- Integration Approach
+- ROI Assessment
+- References
+
+### [Dashboard Components Reference](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/DASHBOARD_COMPONENTS_REFERENCE.md) 
+
+- Component Catalog
+  - 1. Master Progress Card
+  - 2. Session Selector Card
+  - 3. Status Distribution (Pie Chart)
+  - 4. Processing Timeline (Line Chart)
+  - 5. Error Analysis (Tree Map)
+  - 6. Error Scatter Plot
+  - 7. Performance Heatmap
+  - 8. Items Table
+  - 9. Item Detail Panel
+  - 10. Outlier Detection Card
+  - 11. Cumulative Analytics Card
+  - 12. Session Comparison View
+  - 13. Export Tools
+- Data Requirements Matrix
+- Interactivity Quick Reference
+  - Click Actions
+  - Hover Actions
+  - Filter/Search Actions
+- Layout Presets
+  - Preset 1: Overview (Default)
+  - Preset 2: Detailed Analysis
+  - Preset 3: Monitoring
+  - Preset 4: Cumulative View
+- Auto-Refresh Behavior
+  - Refresh Intervals
+  - Refresh Controls
+- Responsive Design
+  - Breakpoints
+  - Mobile Optimization
+- Color Scheme
+  - Status Colors
+  - Error Colors
+  - Performance Colors (Heatmap)
+- Accessibility
+  - Keyboard Navigation
+  - Screen Reader Support
+  - High Contrast Mode
+- Performance Optimization
+  - Data Volume Handling
+  - Chart Optimization
+- Future Enhancements
+  - Phase 7+
+
+### [Error Handling & Display System](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/ERROR-HANDLING-UI.md) 
+
+- Overview
+- Features
+  - 1. Persistent Error Log
+  - 2. Error Panel
+  - 3. Notification + Logging
+- How It Works
+  - For Users
+  - For Developers
+- Error Levels
+  - Error (Red)
+  - Warning (Orange)
+  - Info (Blue)
+- Implementation Details
+  - Error Log Service
+  - Error Panel Component
+  - Integration
+  - Updated Components
+- Testing
+  - Test Error Display
+  - Test Persistence
+- Benefits
+  - For Users
+  - For Developers
+- Future Enhancements
+
+### [Find a Grave Batch Processing - Implementation Summary](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/FINDAGRAVE-IMPLEMENTATION.md) 
+
+- ✅ Completed Components
+  - 1. Core Services
+  - 2. Database Integration
+  - 3. User Interface
+  - 4. Database Export (✅ Implemented)
+  - 5. Test Suite (27 tests - all passing ✅)
+- 📁 Directory Structure for Images
+- 🔄 Workflow (Current Implementation)
+- 🚧 Needs Iteration (Complex Citation Linking)
+  - Issue #1: Burial Event Creation
+  - Issue #2: Birth/Death Event Citations
+  - Issue #3: Family Member Citations
+- 📋 Recommended Iteration Plan
+  - Phase 1: Basic Burial Event Creation (Next Step)
+  - Phase 2: Birth/Death Event Decision Logic
+  - Phase 3: Family Member Processing
+  - Phase 4: Advanced Features
+- 🧪 Testing Status
+- 🎯 Next Steps
+- 📝 User Decisions Needed
+
+### [RootsMagic Gazetteer Integration](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/GAZETTEER.md) 
+
+- Overview
+- File Format
+- RootsMagic Gazetteer Functionality (Confirmed)
+  - Three-Tier System
+  - Search Behavior
+  - What PlaceDB.dat Actually Contains
+- Usage in RMCitecraft
+  - Gazetteer Search Utility
+  - Integration with Place Approval Dialog
+  - Known Places in Gazetteer
+- Search Limitations
+- Recommendations
+  - For Place Validation
+  - For Place Approval Dialog
+- CountyCheckDB.dat
+- Future Enhancements
+- Alternative Approaches
+- Code Location
+- Testing
+- Summary
+
+### [Census Image Download Workflow](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/IMAGE-DOWNLOAD-WORKFLOW.md) 
+
+- Overview
+- FamilySearch URL Structure
+  - Census Record Pages
+  - Image Viewer Pages
+- Automated Download Strategy
+  - Strategy 1: Navigation (Record Page → Image Viewer)
+  - Strategy 2: Click Download Button (Image Viewer Page)
+  - Strategy 3: Direct Image URL (Last Resort)
+- Testing the Workflow
+  - From Census Record Page
+  - From Image Viewer Page
+- Key Extension Updates (content.js)
+  - New Download Logic
+  - Debug Output
+- Configuration Requirements
+  - Environment Variables (.env)
+  - Census Folder Structure
+- Troubleshooting
+  - Image Not Downloading
+  - Image Not Processing
+  - Extension Errors
+- Expected Behavior
+  - Success Indicators
+  - Timing
+- Future Enhancements
+
+### [Message Log Implementation](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/MESSAGE_LOG_IMPLEMENTATION.md) 
+
+- Overview
+- Components Created
+  - 1. Message Log Service (`src/rmcitecraft/services/message_log.py`)
+  - 2. Message Log Panel (`src/rmcitecraft/ui/components/message_log_panel.py`)
+  - 3. Integration in Batch Processing Tab
+- User-Facing Features
+  - 1. All Notifications Logged
+  - 2. Info Dialog Messages Logged
+  - 3. Message Review
+  - 4. Real-Time Updates
+- Example Usage
+- Benefits
+  - For Users
+  - For Developers
+- Future Enhancements
+  - Phase 2 Possibilities
+- Testing
+- Files Modified/Created
+- Related Issues Fixed
+- Status
+
+### [PlaceDB.dat Format Analysis](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/PLACEDB-FORMAT-ANALYSIS.md) 
+
+- Executive Summary
+- File Structure Overview
+  - Overall Layout
+- Header Structure
+  - Known Header Fields (Bytes 0-40)
+  - Offset Table (Bytes 40-128+)
+- Record Structure
+  - Variable-Length Record Format
+  - Example Records
+    - Example 1: "AGBBA" (6 characters)
+    - Example 2: "NEW JERSEY" (10 characters)
+  - Metadata Length Distribution
+- Metadata Structure
+  - Known/Suspected Metadata Fields
+    - Metadata Byte Interpretation
+    - Common Patterns Observed
+  - Metadata Purpose (Confirmed via RootsMagic Testing)
+- Data Block Organization
+  - Alphabetical Grouping
+  - Geographic Hierarchy Format
+- What We Know (High Confidence)
+  - ✓ Confirmed
+- What We Suspect (Medium Confidence)
+  - ⚠️ Likely but Unconfirmed
+- What We Don't Know (Unknown)
+  - ✗ Unresolved Questions
+- Parsing Limitations
+  - Why We Can't Fully Parse It
+  - What Works
+- Practical Usage
+  - Current Implementation
+  - Recommended Use Cases
+- Future Research Directions
+  - If Full Parsing is Needed
+  - Recommended Path
+- Appendix: Test Cases
+  - Verified Place Names
+  - Test Script
+- Summary
+  - Confirmed Capabilities
+  - Confirmed Limitations (via RootsMagic Testing)
+  - Recommendation
+- RootsMagic's Complete Gazetteer System
+  - Three-Tier Architecture
+  - Search Algorithm Behavior
+- Changelog
+  - Version 1.2 - 2025-11-17
+  - Version 1.1 - 2025-11-16
+  - Version 1.0 - 2025-11-16
+
+### [Playwright Migration - Complete Implementation](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/PLAYWRIGHT-MIGRATION.md) 
+
+- Overview
+- Why Playwright?
+  - Previous Architecture (Extension-based)
+  - New Architecture (Playwright-based)
+- What Was Implemented
+  - 1. Playwright Integration (`playwright` package)
+  - 2. FamilySearch Automation Service
+  - 3. Chrome Launcher Utility
+  - 4. UI Integration (Citation Manager Tab)
+  - 5. Chrome Extension (No Longer Needed)
+- How to Test
+  - Step 1: Launch Chrome with Remote Debugging
+  - Step 2: Log into FamilySearch
+  - Step 3: Connect RMCitecraft to Chrome
+  - Step 4: Test Citation Import
+  - Step 5: Verify Success
+- Expected Behavior
+  - Successful Flow:
+  - Troubleshooting:
+- Configuration
+- Files Modified
+- Next Steps
+- Benefits Achieved
+- Architecture Comparison
+  - Before (Extension):
+  - After (Playwright):
+- Notes
+
+### [RMCitecraft Documentation](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/README.md) [essential]
+
+- 📚 Documentation Categories
+  - 🔧 Database Reference (Start Here)
+  - 🧪 Testing & Validation
+  - 📋 Implementation Guides
+    - Find a Grave Batch Processing
+    - Census Data Processing
+    - Place & Gazetteer
+    - UI & Logging
+    - Image Processing
+    - Testing Infrastructure
+- 🚀 Quick Start Guides
+  - For New Developers
+  - For AI Agents
+  - Implementing Database Operations
+- 🎯 Key Learnings from Database Analysis
+  - Critical Bugs Caught by Comparison Testing
+    - 1. Missing Citation Link Fields (99.8% population rate)
+    - 2. Missing Reverse Field (99.9% population rate)
+    - 3. NULL vs 0 for Integer Columns
+    - 4. SortDate Data Type
+  - Testing Philosophy
+- 📊 Documentation Map by Feature
+  - Find a Grave Automation
+  - Census Processing
+  - Place Management
+  - Image Processing
+- 🔍 Finding Documentation
+  - By Topic
+  - By Development Phase
+- 📝 Documentation Standards
+  - Creating New Documentation
+  - Database Documentation
+  - Implementation Documentation
+- 🔗 Related Documentation
+  - Root Level Docs
+  - Test Suite
+  - Configuration
+- 📞 Getting Help
+
+### [Test Gap Analysis](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/TEST-GAP-ANALYSIS.md) 
+
+- Executive Summary
+- 1. CRITICAL: Fix Broken Tests
+  - Test Collection Error
+- 2. Find a Grave Image Download (Recently Added)
+  - Current Coverage
+  - Missing Unit Tests
+    - 2.1 `create_findagrave_image_record()` - Database Operations
+    - 2.2 `convert_path_to_rootsmagic_format()` - Path Conversion
+    - 2.3 UI Download Integration
+  - Missing Integration Tests
+    - 2.4 End-to-End Image Download Workflow
+- 3. LLM Provider System (Recently Added)
+  - Current Coverage
+  - Missing Integration Tests
+    - 3.1 Real Provider Testing (Optional but Valuable)
+    - 3.2 Provider Configuration and Error Handling
+    - 3.3 Photo Classifier Edge Cases
+- 4. Find a Grave Automation Improvements (Recent Changes)
+  - Current Coverage
+  - Missing Unit Tests
+    - 4.1 Veteran Symbol Cleanup
+    - 4.2 Family Data Extraction
+- 5. Database Integrity Testing
+  - Current Coverage
+  - Missing Tests
+    - 5.1 MultimediaTable Integrity
+    - 5.2 MediaLinkTable Integrity
+- 6. Browser Automation (Playwright)
+  - Current Coverage
+  - Missing Tests
+    - 6.1 Find a Grave Page Scraping
+- 7. Error Handling and Edge Cases
+  - Missing Tests Across Modules
+    - 7.1 Database Connection Errors
+    - 7.2 File System Errors
+- 8. Configuration and Environment
+  - Missing Tests
+    - 8.1 Environment Variable Handling
+- 9. Performance and Concurrency
+  - Missing Tests
+    - 9.1 Batch Processing Performance
+- Test Priority Summary
+  - P0 - Critical (Must Fix Now)
+  - P1 - High Priority (Add Soon)
+  - P2 - Medium Priority (Add as Time Permits)
+  - P3 - Low Priority (Nice to Have)
+- Recommended Next Steps
+- Test Infrastructure Improvements
+  - Fixtures Needed
+  - Test Data Needed
+
+### [Testing Image Download - Step by Step](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/TEST-IMAGE-DOWNLOAD.md) 
+
+- What Was Fixed
+- How to Test
+  - Step 1: Setup
+  - Step 2: Open FamilySearch Page
+  - Step 3: Process Citation in RMCitecraft
+  - Step 4: Image Download (Automatic)
+  - Step 5: Check for Errors
+- Expected Results
+  - Success Indicators
+  - Common Issues
+- Troubleshooting Commands
+- What the Logs Should Show
+  - RMCitecraft Logs (Success)
+  - Extension Console (Success)
+- Notes
+- Report Issues
+
+### [UI Logging Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/UI-LOGGING.md) 
+
+- IMPORTANT: Use Only error_log_service
+- Do NOT Use
+- How to Log UI Messages
+  - Option 1: Direct (Current Method)
+  - Option 2: Simplified Helper (Recommended for Future)
+- Rule: If it flashes on screen, it must be in the error log
+- Context Names
+- Migration Plan
+
+### [RMCitecraft User Journey Map](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/USER_JOURNEY_MAP.md) 
+
+- Table of Contents
+- Application Overview
+  - Core Workflows
+  - Navigation Structure
+- Entry Point: Home Page
+  - Purpose
+  - UI Elements
+  - User Actions
+  - Screenshot
+- Journey 1: Census Batch Processing
+  - Overview
+  - User Persona
+  - User Goals
+  - Workflow Steps
+    - Step 1: Navigate to Census Batch Tab
+    - Step 2: Load Citation Batch
+    - Step 3: Citation Queue Displays
+    - Step 4: Select Citation
+    - Step 5: Fill Missing Data
+    - Step 6: Process Batch
+    - Step 7: Review Results
+  - Key UI Components
+  - Edge Cases
+- Journey 2: Find a Grave Batch Processing
+  - Overview
+  - User Persona
+  - User Goals
+  - Workflow Steps
+    - Step 1: Navigate to Find a Grave Tab
+    - Step 2: Load Memorial Batch
+    - Step 3: Memorial Queue Displays
+    - Step 4: Select Memorial
+    - Step 5: Extract Memorial Data
+    - Step 6: Validate Cemetery Location
+    - Step 7: Download Photos
+    - Step 8: Process Batch
+    - Step 9: Review Results
+  - Key UI Components
+  - Edge Cases
+- Journey 3: Citation Management
+  - Overview
+  - User Persona
+  - User Goals
+  - Workflow Steps
+    - Step 1: Navigate to Citation Manager
+    - Step 2: Connect to Chrome
+    - Step 3: Load Pending Citations
+    - Step 4: Review Citation
+    - Step 5: Edit If Needed
+    - Step 6: Apply to Database
+  - Key UI Components
+- Journey 4: Batch Operations Monitoring
+  - Overview
+  - User Persona
+  - User Goals
+  - Workflow Steps
+    - Step 1: Navigate to Dashboard
+    - Step 2: View Master Progress
+    - Step 3: Select Session
+    - Step 4: Analyze Status Distribution
+    - Step 5: Review Processing Timeline
+    - Step 6: Drill Down to Items
+    - Step 7: View Item Details
+  - Dashboard Phases
+  - Auto-Refresh
+- Less-Used Interfaces
+  - Place Validation Interface
+    - Dialog Structure
+    - Validation Logic
+    - User Decision Workflow
+    - Database Operations
+    - Screenshot
+  - Settings Dialog
+    - Dialog Sections
+  - Resume Session Dialog
+    - Dialog Structure
+  - Reset State Database Dialog
+- Error States and Recovery
+  - Common Error States
+    - 1. Database Connection Error
+    - 2. Chrome Connection Error
+    - 3. LLM Extraction Timeout
+    - 4. Browser Page Crash
+    - 5. Duplicate Citation Detected
+    - 6. Validation Error
+- Accessibility Considerations
+  - Keyboard Navigation
+  - Screen Reader Support
+  - Visual Indicators
+- Performance Considerations
+  - Batch Size Recommendations
+  - Memory Usage
+  - Browser Automation
+- Appendix: UI Component Catalog
+  - Buttons
+  - Status Icons
+  - Cards
+  - Tables
+
+### [Dashboard Debugging Lessons Learned](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/dashboard-debugging-lessons.md) 
+
+- Problem Summary
+- Timeline of Investigation
+  - Initial Symptoms
+  - First Fix Attempt: JSON Serialization of Callbacks
+  - Root Cause Discovery: Lambda Functions in ECharts
+- The Fix
+  - Solution 1: Pre-formatted Tooltip Data
+  - Solution 2: Simple Template Strings
+- Why This Was Hard to Debug
+- Prevention Rules
+  - ✅ DO: Safe Lambda Usage
+  - ❌ DON'T: Serialization Failures
+- Testing Strategy
+  - Incremental Component Testing
+  - Example Test Script
+- Key Takeaways
+- Files Modified
+- Commit Message
+- Date
+- Related Issues
+
+### [Using RMNOCASE Collation with RootsMagic Databases](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/database/how-to-use-extension.md) 
+
+- Method 1: SQLite Command Line
+- Method 2: Python Scripts
+- Building icu.dylib for MacOS
+
+## Testing (5 docs)
+
+### [E2E Testing Quick Start Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/E2E-TESTING-QUICKSTART.md) [essential]
+
+- What We Built
+- Quick Start (3 Steps)
+  - Step 1: Launch Chrome with Debugging
+  - Step 2: Log into FamilySearch
+  - Step 3: Run Tests
+- Test Suites
+- Before First Run
+  - Update Test URLs
+- What Tests Do
+  - Chrome Connection Tests (Fast)
+  - Citation Extraction Tests
+  - Image Download Tests
+  - Complete Workflow Tests
+- Test Output Example
+- Troubleshooting
+  - Tests Skip with "Chrome not running"
+  - Tests Fail with "Authentication required"
+  - Tests Fail with "Element not found"
+- Advanced Usage
+  - Run with Coverage Report
+  - Run Specific Test
+  - Run with Extra Logging
+  - Run Tests Matching Pattern
+- Files Created
+- Performance
+- Best Practices
+- CI/CD Note
+- Next Steps
+- Support
+
+### [Extension Debugging Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/extension/DEBUGGING.md) 
+
+- Step-by-Step Debugging Process
+  - 1. Reload Extension (MANDATORY after any code changes)
+  - 2. Check Content Script Is Loading
+  - 3. Check Content Script on Census Page
+  - 4. Check Popup Console
+  - 5. Test Manual Send Button
+  - 6. Check Background Service Worker
+  - 7. Verify FamilySearch URL Pattern
+  - 8. Test Message Passing Manually
+- Common Issues & Solutions
+  - Issue: "Could not establish connection"
+  - Issue: No console messages at all
+  - Issue: Content script loads but doesn't detect census page
+  - Issue: Data sends but doesn't appear in RMCitecraft
+- Quick Diagnostic Checklist
+- Testing URLs
+  - Working Census Record URLs:
+- Log Output Reference
+  - Successful Flow:
+
+### [Census Image Management - Testing Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/testing/IMAGE-TESTING-GUIDE.md) 
+
+- Overview
+- Current Implementation Status
+  - ✅ Implemented (Ready to Test)
+  - ❌ Not Yet Implemented
+- Manual Testing (Without Extension)
+  - Test Scenario 1: Manual Image Download and Processing
+  - Test Scenario 2: Duplicate Detection
+  - Test Scenario 3: Multiple Images in Sequence
+- API Testing (Without UI)
+  - 1. Register a Pending Image
+  - 2. Download Image Manually
+  - 3. Check Image Status
+  - 4. Get Active Images
+  - 5. Get Failed Images
+- Expected File Organization
+- Database Verification
+  - Check MultimediaTable
+  - Check MediaLinkTable (Links to Citations)
+  - Check MediaLinkTable (Links to Events)
+- Troubleshooting
+  - Issue: File watcher not detecting images
+  - Issue: Image not processing
+  - Issue: Duplicate not detected
+  - Issue: Wrong directory or filename
+- Next Steps: Building the Browser Extension
+- Performance Expectations
+- Known Limitations
+- Success Criteria
+
+### [Test Status Summary](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/testing/TEST_STATUS.md) 
+
+- Quick Command
+- Current Test Results
+- Remaining xfailed Tests (6 total)
+  - Input Validation Not Implemented (4 tests)
+  - Legacy Database Issues (2 tests)
+- Recent Fixes (44 tests total)
+  - Session 1: Database Integrity Fixes
+  - Session 2: LLM and Find a Grave Fixes
+- Test Organization
+  - Unit Tests (`tests/unit/`)
+  - E2E Tests (`tests/e2e/`)
+  - Integration Tests
+- Key Testing Principles
+  - Database Integrity Testing
+  - Test Workflow
+- Common Issues
+  - "RMNOCASE collation not found"
+  - Tests fail on database operations
+  - E2E tests slow/hanging
+- Progress Timeline
+- Next Steps
+  - Low Priority (xfailed tests)
+  - Maintenance
+
+### [End-to-End (E2E) Tests for FamilySearch Automation](https://github.com/mikeiacovacci/RMCitecraft/blob/main/tests/e2e/README.md) [essential]
+
+- Overview
+- Test Coverage
+  - 1. Chrome Connection Tests (`test_chrome_connection.py`)
+  - 2. Citation Extraction Tests (`test_citation_extraction.py`)
+  - 3. Image Download Tests (`test_image_download.py`)
+  - 4. Complete Workflow Tests (`test_complete_workflow.py`)
+- Prerequisites
+  - 1. Chrome with Remote Debugging
+  - 2. FamilySearch Authentication
+  - 3. Test URLs Configuration
+- Running Tests
+  - Install Dependencies
+  - Run All E2E Tests
+  - Run Specific Test Files
+  - Run Specific Tests
+  - Run with Coverage
+- Test Output
+  - Successful Test Run
+  - Expected Timing
+- Troubleshooting
+  - "Chrome not running with remote debugging"
+  - "Connection refused" or "Could not connect"
+  - "Authentication required" or "401 Unauthorized"
+  - "Element not found" or "Timeout"
+  - Tests are slow
+  - Downloaded images not cleaned up
+- Test Data
+  - What Gets Downloaded
+  - Test URLs
+  - Privacy
+- CI/CD Integration
+  - GitHub Actions
+- Test Development
+  - Adding New Tests
+  - Test Best Practices
+  - Debugging Tests
+- Performance Benchmarks
+- Dependencies
+- Known Issues
+- Support
+
+## User Guides (1 docs)
+
+### [Census Image Workflow Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/user-guides/IMAGE-WORKFLOW.md) 
+
+- Overview
+  - What Gets Automated
+  - What You Do
+- Workflow 1: New Citation with Image (Most Common)
+  - Step-by-Step
+- Workflow 2: Download Image for Existing Citation
+  - When to Use
+  - How to Identify Missing Images
+  - Step-by-Step
+- Workflow 3: Bulk Download Missing Images
+  - When to Use
+  - Step-by-Step
+- Where Images Are Stored
+  - Directory Structure
+  - Filename Format
+- Viewing Images in RMCitecraft
+  - During Citation Processing
+  - In RootsMagic
+- Troubleshooting
+  - Image Not Downloading
+  - Image Download Failed
+  - Wrong Image Downloaded
+  - Image Not Appearing in Citation Dialog
+  - Duplicate Images
+- Best Practices
+  - 1. Process Citations in Batches
+  - 2. Use Filters in Image Manager
+  - 3. Keep FamilySearch Tab Open
+  - 4. Verify Image Quality
+  - 5. Regular Backups
+- FAQ
+  - Q: Can I change the zoom level default?
+  - Q: What if I don't have the browser extension?
+  - Q: Can I download images for non-census records?
+  - Q: Where are original filenames stored?
+  - Q: Can I organize images differently?
+  - Q: What image formats are supported?
+  - Q: How much disk space do census images use?
+- Keyboard Shortcuts (Future)
+- Getting Help
+  - In-App Help
+  - Documentation
+  - Support
+- Document Version
+
+## Other (1 docs)
+
+### [RMCitecraft Screenshots](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/screenshots/README.md) 
+
+- Capturing User Journey Screenshots
+- Screenshot List
+  - Main User Journey Screenshots
+  - Less-Used Interfaces (Manual Capture)
+- Screenshot Guidelines
+- Updating Screenshots
+- Notes

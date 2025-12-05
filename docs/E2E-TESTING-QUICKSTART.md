@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [census, citation, batch, testing, ui]
+---
+
 # E2E Testing Quick Start Guide
 
 ## What We Built

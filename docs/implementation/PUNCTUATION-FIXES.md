@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, testing, ui]
+---
+
 # Punctuation and Abbreviation Corrections
 
 **Date**: 2025-10-25

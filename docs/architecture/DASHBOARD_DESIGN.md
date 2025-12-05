@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, findagrave]
+---
+
 # Find a Grave Batch Operations Dashboard - Design Specification
 
 **Version**: 1.0

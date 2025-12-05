@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, citation, batch, findagrave, ui]
+---
+
 # UI Logging Guide
 
 ## IMPORTANT: Use Only error_log_service

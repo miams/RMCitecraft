@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, testing, ui]
+---
+
 # Simplified FamilySearch Format Support
 
 **Date:** October 20, 2025

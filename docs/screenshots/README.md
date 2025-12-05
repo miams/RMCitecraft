@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [ui]
+---
+
 # RMCitecraft Screenshots
 
 This directory contains screenshots for documentation purposes.

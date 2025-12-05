@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, census, citation, ui, automation]
+---
+
 # RootsMagic 11 Schema Reference
 
 This document provides a comprehensive reference for the RootsMagic 11 SQLite database schema, organized by functional area.

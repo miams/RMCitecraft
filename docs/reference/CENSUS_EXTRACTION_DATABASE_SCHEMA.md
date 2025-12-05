@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, census, citation, batch, testing]
+---
+
 # Census Extraction Database Schema Reference
 
 ## Overview

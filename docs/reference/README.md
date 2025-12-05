@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, census, citation, batch, findagrave]
+---
+
 # RootsMagic Database Reference Documentation
 
 **Comprehensive reference materials for working with RootsMagic databases**

@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, findagrave, testing, ui]
+---
+
 # RootsMagic 11: EventTable.Details Field
 
 **Document Version:** 1.0

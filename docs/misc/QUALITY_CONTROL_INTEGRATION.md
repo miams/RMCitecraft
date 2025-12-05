@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, census, citation, batch, testing]
+---
+
 # Quality Control Integration - Completed
 
 **Date:** November 6, 2025

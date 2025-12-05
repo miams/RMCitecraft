@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, census, citation, batch, findagrave]
+---
+
 # Frontend Design & Testing Reference
 
 Detailed patterns and techniques for the `frontend-design` skill.

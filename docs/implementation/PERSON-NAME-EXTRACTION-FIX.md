@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [census, citation, testing, ui, automation]
+---
+
 # Person Name Extraction Fix - October 20, 2025
 
 ## Problem Report

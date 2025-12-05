@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # FamilySearch URL Extraction Fix - October 20, 2025
 
 ## Problem Report

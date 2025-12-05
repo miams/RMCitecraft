@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, census, citation, batch, testing]
+---
+
 # Census Batch E2E Test with Image Downloads
 
 ## Overview

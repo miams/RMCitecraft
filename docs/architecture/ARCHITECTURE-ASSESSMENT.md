@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, citation, batch, findagrave, testing]
+---
+
 # Architecture Assessment: Presentation vs Application Logic Separation
 
 **Assessment Date**: 2025-11-17

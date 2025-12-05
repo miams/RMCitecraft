@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # Census Image Viewer Component
 
 **Date**: 2025-10-25

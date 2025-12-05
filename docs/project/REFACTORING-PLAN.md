@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, citation, batch, findagrave, testing]
+---
+
 # Refactoring Plan: Find a Grave Batch Processing
 
 **Status**: 📋 **PLANNED** - Not yet started

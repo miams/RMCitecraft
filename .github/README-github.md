@@ -182,6 +182,46 @@ python3 .github/scripts/generate_docs_map.py
 - `contents: write` - To commit changes to main branch
 - `pull-requests: write` - To post PR comments
 
+---
+
+## Frontmatter Validation
+
+### Workflow: `check-frontmatter.yml`
+
+Validates that all markdown files have required frontmatter with priority classification.
+
+**Purpose:**
+- Ensures new documentation includes proper frontmatter
+- Maintains consistent priority classification for docs map generation
+- Provides auto-fix guidance when validation fails
+
+**Triggers:**
+- **Pull requests**: When markdown files are modified (excluding generated files)
+
+**Required Frontmatter Format:**
+
+```yaml
+---
+priority: reference  # Options: essential, reference, archive
+topics: [database, census]  # Optional topic tags
+---
+```
+
+**Priority Guidelines:**
+- **essential**: Core docs that always appear in `claude_code_docs_map.md` (CLAUDE.md, schema-reference.md, etc.)
+- **reference**: Detailed guides that appear in `docs/FULL_INDEX.md` only
+- **archive**: Historical/superseded docs, excluded from both indexes
+
+**Auto-fix Command:**
+```bash
+python3 .github/scripts/add_frontmatter.py
+```
+
+**Script Location:**
+`.github/scripts/check_frontmatter.py`
+
+---
+
 ## Adding New Workflows
 
 When adding new workflows to this directory:

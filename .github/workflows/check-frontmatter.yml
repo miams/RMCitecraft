@@ -1,0 +1,95 @@
+name: Check Documentation Frontmatter
+
+on:
+  pull_request:
+    paths:
+      - '**.md'
+      - '!claude_code_docs_map.md'
+      - '!docs/FULL_INDEX.md'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-frontmatter:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Get changed markdown files
+        id: changed_files
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            **.md
+          files_ignore: |
+            claude_code_docs_map.md
+            docs/FULL_INDEX.md
+
+      - name: Check frontmatter on changed files
+        if: steps.changed_files.outputs.any_changed == 'true'
+        id: check
+        continue-on-error: true
+        run: |
+          python .github/scripts/check_frontmatter.py ${{ steps.changed_files.outputs.all_changed_files }}
+
+      - name: Comment on PR with results
+        if: steps.check.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ⚠️ Documentation Frontmatter Check Failed
+
+            Some markdown files are missing required frontmatter.
+
+            ### Required Frontmatter Format
+            \`\`\`yaml
+            ---
+            priority: reference  # Options: essential, reference, archive
+            topics: [database, census]  # Optional topic tags
+            ---
+            \`\`\`
+
+            ### Priority Guidelines
+            - **essential**: Core docs (CLAUDE.md, schema-reference.md, etc.)
+            - **reference**: Detailed guides and implementation docs
+            - **archive**: Historical/superseded docs, session logs
+
+            ### Auto-fix Command
+            \`\`\`bash
+            python3 .github/scripts/add_frontmatter.py
+            \`\`\`
+
+            See workflow logs for specific files that need updating.`
+            });
+
+      - name: Fail if frontmatter missing
+        if: steps.check.outcome == 'failure'
+        run: exit 1
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Frontmatter Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outcome }}" == "success" ]; then
+            echo "✅ All changed markdown files have valid frontmatter" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.check.outcome }}" == "failure" ]; then
+            echo "❌ Some files are missing frontmatter" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Run \`python3 .github/scripts/add_frontmatter.py\` to auto-fix" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No markdown files were changed" >> $GITHUB_STEP_SUMMARY
+          fi

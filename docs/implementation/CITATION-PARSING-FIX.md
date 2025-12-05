@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, testing, ui]
+---
+
 # Citation Parsing Fix - October 20, 2025
 
 ## Problem Report

@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # 1930 Census ED Extraction - Investigation Summary
 
 **Date**: November 6, 2025

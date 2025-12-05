@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, census, citation, batch, findagrave]
+---
+
 # CLAUDE.md
 
 Project guidance for Claude Code. For machine-readable instructions, see [AGENTS.md](AGENTS.md).
@@ -41,10 +46,11 @@ rmcitecraft status     # Check status
 
 ### Core Features
 
-- **Census Batch Processing**: Browser automation extracts FamilySearch data, formats *Evidence Explained* citations
+- **Census Batch Transcription**: Browser automation extracts FamilySearch data with household member matching
+- **Census Form Rendering**: 30-line census forms with persons at correct line positions (Jinja2 templates)
 - **Find a Grave Processing**: Automated memorial data extraction with image downloads
 - **Citation Validation**: `FormattedCitationValidator` validates against Evidence Explained standards
-- **State Persistence**: SQLite-based crash recovery at `~/.rmcitecraft/batch_state.db`
+- **State Persistence**: SQLite-based crash recovery at `~/.rmcitecraft/batch_state.db` and `~/.rmcitecraft/census.db`
 - **Dashboard**: Real-time analytics, session management, error analysis
 
 ## Before Modifying Code
@@ -61,17 +67,25 @@ rmcitecraft status     # Check status
 src/rmcitecraft/
 ├── config/                # Settings (settings.py)
 ├── database/              # Database access layer
-│   ├── connection.py                    # ICU extension, RMNOCASE
-│   ├── batch_state_repository.py        # Find a Grave state
-│   └── census_batch_state_repository.py # Census state
+│   ├── connection.py                      # ICU extension, RMNOCASE
+│   ├── batch_state_repository.py          # Find a Grave state
+│   ├── census_batch_state_repository.py   # Census batch state (legacy)
+│   ├── census_extraction_db.py            # census.db repository (EAV pattern)
+│   └── census_transcription_repository.py # Transcription batch state
 ├── services/              # Business logic
-│   ├── batch_processing.py              # Workflow controller
-│   ├── familysearch_automation.py       # FamilySearch browser automation
-│   ├── findagrave_automation.py         # Find a Grave automation
-│   └── citation_formatter.py            # Evidence Explained formatting
+│   ├── batch_processing.py                # Find a Grave workflow
+│   ├── familysearch_automation.py         # Browser automation base
+│   ├── familysearch_census_extractor.py   # FamilySearch extraction + name matching
+│   ├── census_transcription_batch.py      # Census batch transcription workflow
+│   ├── census_form_service.py             # Census form data loading
+│   ├── census_form_renderer.py            # Jinja2 form rendering
+│   ├── census_rmtree_matcher.py           # RootsMagic person matching
+│   ├── findagrave_automation.py           # Find a Grave automation
+│   └── citation_formatter.py              # Evidence Explained formatting
 ├── ui/
 │   ├── tabs/              # Main UI tabs
 │   └── components/        # Reusable components
+├── templates/census/jinja/  # Census form Jinja2 templates
 ├── validation/
 │   └── data_quality.py    # FormattedCitationValidator
 └── main.py                # Entry point
@@ -217,8 +231,10 @@ browser = await playwright.chromium.connect_over_cdp("http://localhost:9222")
 | File | Purpose |
 |------|---------|
 | `src/rmcitecraft/main.py` | Application entry point |
-| `src/rmcitecraft/services/batch_processing.py` | Batch workflow controller |
-| `src/rmcitecraft/services/familysearch_automation.py` | FamilySearch browser automation |
+| `src/rmcitecraft/services/familysearch_census_extractor.py` | FamilySearch extraction with name matching |
+| `src/rmcitecraft/services/census_transcription_batch.py` | Census batch transcription workflow |
+| `src/rmcitecraft/services/census_rmtree_matcher.py` | RootsMagic person matching logic |
+| `src/rmcitecraft/database/census_extraction_db.py` | census.db repository (EAV pattern) |
 | `src/rmcitecraft/validation/data_quality.py` | Citation validation |
 | `src/rmcitecraft/database/connection.py` | Database connection with ICU |
 | `sqlite-extension/python_example.py` | Database connection examples |
@@ -233,6 +249,7 @@ browser = await playwright.chromium.connect_over_cdp("http://localhost:9222")
 | [docs/reference/DATABASE_TESTING.md](docs/reference/DATABASE_TESTING.md) | Integrity testing methodology |
 | [docs/reference/BATCH_STATE_DATABASE_SCHEMA.md](docs/reference/BATCH_STATE_DATABASE_SCHEMA.md) | Batch state database schema |
 | [docs/reference/CENSUS_EXTRACTION_DATABASE_SCHEMA.md](docs/reference/CENSUS_EXTRACTION_DATABASE_SCHEMA.md) | Census extraction database (census.db) |
+| [docs/reference/CENSUS_FORM_RENDERING.md](docs/reference/CENSUS_FORM_RENDERING.md) | Census form rendering architecture |
 | [docs/architecture/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md](docs/architecture/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md) | Census processing workflow |
 | [docs/architecture/BATCH_PROCESSING_ARCHITECTURE.md](docs/architecture/BATCH_PROCESSING_ARCHITECTURE.md) | Find a Grave processing |
 
@@ -277,4 +294,4 @@ This file loads with every Claude Code conversation. Keep it concise:
 
 ---
 
-*Last updated: 2025-12-03*
+*Last updated: 2025-12-05*

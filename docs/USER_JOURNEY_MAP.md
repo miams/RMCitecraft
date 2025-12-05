@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, findagrave]
+---
+
 # RMCitecraft User Journey Map
 
 **Version**: 1.0

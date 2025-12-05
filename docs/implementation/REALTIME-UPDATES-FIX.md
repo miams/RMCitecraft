@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, testing, ui]
+---
+
 # Real-Time Preview Updates and URL Parameter Fix
 
 **Date**: 2025-10-25

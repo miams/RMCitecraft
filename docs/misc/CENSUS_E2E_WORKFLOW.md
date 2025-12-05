@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, census, batch, testing, automation]
+---
+
 # Census Image Download E2E Test Workflow
 
 ## Issue Summary

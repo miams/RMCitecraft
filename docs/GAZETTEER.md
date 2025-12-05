@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, batch, findagrave, testing]
+---
+
 # RootsMagic Gazetteer Integration
 
 ## Overview

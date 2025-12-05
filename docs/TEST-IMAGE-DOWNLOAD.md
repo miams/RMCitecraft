@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # Testing Image Download - Step by Step
 
 ## What Was Fixed

@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, census, citation, batch, findagrave]
+---
+
 # RMCitecraft Documentation
 
 **Comprehensive documentation for RMCitecraft development and RootsMagic database operations**

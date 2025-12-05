@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, census, citation, batch, testing]
+---
+
 # Sorting and Status Icon Enhancements
 
 **Date:** October 20, 2025

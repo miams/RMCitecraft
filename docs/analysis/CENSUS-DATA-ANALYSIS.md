@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, testing, ui]
+---
+
 # Census Data Structure Analysis
 
 **Date**: 2025-10-20

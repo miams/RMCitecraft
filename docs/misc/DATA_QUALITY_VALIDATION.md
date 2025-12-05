@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, census, citation, batch, testing]
+---
+
 # Data Quality Validation for Census Citations
 
 ## Problem Identified

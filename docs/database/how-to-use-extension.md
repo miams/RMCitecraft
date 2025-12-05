@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, ui]
+---
+
 # Using RMNOCASE Collation with RootsMagic Databases
 
 RootsMagic uses a proprietary collation sequence called RMNOCASE, with several fields requiring it for sorting. As a work-around, unifuzz.dll is frequently used on the Windows platform. Below are methods to use RMNOCASE on the MacOS platform using icu.dylib.

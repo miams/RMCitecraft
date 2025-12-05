@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, citation, batch, findagrave, ui]
+---
+
 # Dashboard Components Reference
 
 **Quick reference guide for Find a Grave batch operations dashboard components**

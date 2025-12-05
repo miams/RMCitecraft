@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, findagrave, testing, ui]
+---
+
 # RootsMagic 11: FactType Reference
 
 **Document Version:** 1.0

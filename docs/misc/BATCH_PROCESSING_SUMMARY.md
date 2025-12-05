@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, census, citation, batch, testing]
+---
+
 # Census Batch Processing - Implementation Summary
 
 ## Overview

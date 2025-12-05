@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, census, citation, batch, testing]
+---
+
 # Week 4 Progress - Browser Extension & Citation Processing
 
 **Date Started**: 2025-10-20

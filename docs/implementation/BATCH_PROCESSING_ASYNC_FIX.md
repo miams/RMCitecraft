@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # Batch Processing - Async Context Fix
 
 **Date**: November 6, 2025

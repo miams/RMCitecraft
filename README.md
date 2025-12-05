@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, census, citation, batch, findagrave]
+---
+
 # RMCitecraft
 
 **Automated Citation and Image Management for RootsMagic**
@@ -20,11 +25,23 @@ Genealogists using RootsMagic spend significant time manually formatting citatio
 
 ### Census Records (1790-1950)
 
+**AI-Powered Census Extraction:**
+- Playwright automation navigates FamilySearch census pages
+- AI (Claude/GPT) transcribes census images using schema-based prompts
+- Extracts all household members with line numbers, relationships, ages, birthplaces
+- Matches extracted persons to RootsMagic database with fuzzy name matching
+- Stores extracted data in separate `census.db` for review before import
+
 **Citation Processing:**
 - Batch process multiple citations per session
 - Smart validation identifies unprocessed vs. already-formatted citations
 - *Evidence Explained* compliant output (footnote, short footnote, bibliography)
 - Prompts for missing data (e.g., enumeration district) with FamilySearch page displayed
+
+**Census Form Viewer:**
+- Renders extracted census data using Jinja2 templates
+- Displays 1950 census forms matching original document layout
+- Shows RootsMagic person links for each extracted household member
 
 **Image Management:**
 - Auto-rename: `YYYY, State, County - Surname, GivenName.ext`
@@ -53,11 +70,12 @@ Genealogists using RootsMagic spend significant time manually formatting citatio
 
 ## Use Cases
 
-1. **Census Cleanup**: Batch-format existing FamilySearch placeholder citations
-2. **Find a Grave Integration**: Process burial records with photo downloads
-3. **New Record Import**: Format citations immediately after accepting FamilySearch hints
-4. **Image Standardization**: Organize scattered downloads into consistent folder structure
-5. **Quality Assurance**: Validate citations meet Evidence Explained standards
+1. **Census Batch Transcription**: Extract and transcribe census pages from FamilySearch using AI
+2. **Census Cleanup**: Batch-format existing FamilySearch placeholder citations
+3. **Find a Grave Integration**: Process burial records with photo downloads
+4. **New Record Import**: Format citations immediately after accepting FamilySearch hints
+5. **Image Standardization**: Organize scattered downloads into consistent folder structure
+6. **Quality Assurance**: Validate citations meet Evidence Explained standards
 
 ## Requirements
 

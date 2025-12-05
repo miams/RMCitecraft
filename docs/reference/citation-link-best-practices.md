@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, citation, findagrave, testing, ui]
+---
+
 # CitationLinkTable Best Practices
 
 **Empirical Analysis of RootsMagic Database Citation Linking Patterns**

@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, testing, ui]
+---
+
 # CLI Implementation Summary
 
 ## Overview

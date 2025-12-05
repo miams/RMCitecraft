@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [citation, batch, testing, ui, automation]
+---
+
 # Claude Skills Best Practices
 
 Guidelines for creating effective, context-efficient Claude Code skills.

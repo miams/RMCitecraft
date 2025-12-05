@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, citation, findagrave, testing, ui]
+---
+
 # RootsMagic 11: Query Performance Patterns
 
 **Document Version:** 1.0

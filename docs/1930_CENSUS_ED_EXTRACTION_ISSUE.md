@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # 1930 Census Enumeration District (ED) Extraction Issue
 
 ## Problem Summary

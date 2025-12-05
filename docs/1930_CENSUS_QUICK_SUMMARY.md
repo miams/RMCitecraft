@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [database, census, citation, batch, testing]
+---
+
 # 1930 Census Issue - Quick Summary
 
 **Problem**: All 6 tested 1930 census entries fail validation with missing Enumeration District (ED)

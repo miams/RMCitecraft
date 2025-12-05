@@ -1,3 +1,8 @@
+---
+priority: essential
+topics: [database, citation, batch, testing, ui]
+---
+
 # Database Integrity Testing Guide
 
 ## Why Comparison-Based Testing is Essential

@@ -1,3 +1,8 @@
+---
+priority: reference
+topics: [census, citation, testing, ui, automation]
+---
+
 # Citation Formatter Corrections for 1930 Census
 
 **Date**: 2025-10-25

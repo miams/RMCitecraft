@@ -1,3 +1,8 @@
+---
+priority: archive
+topics: [database, census, citation, batch, testing]
+---
+
 # Quick Start Guide - Citation Manager UI
 
 ## Running the Application
