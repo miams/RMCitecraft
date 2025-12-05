@@ -1,6 +1,15 @@
 name: Generate Documentation Map
 
 on:
+  # Run on push to main when docs or script changes
+  push:
+    branches: [main]
+    paths:
+      - '**.md'
+      - '.github/scripts/generate_docs_map.py'
+      - '!claude_code_docs_map.md'
+      - '!docs/FULL_INDEX.md'
+
   # Triggered by refactor-docs workflow after reorganization
   workflow_dispatch:
 
