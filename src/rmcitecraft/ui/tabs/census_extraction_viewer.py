@@ -20,13 +20,12 @@ from rmcitecraft.database.census_extraction_db import (
     CensusPage,
     CensusPerson,
     FieldQuality,
+    MatchAttempt,
     get_census_repository,
 )
-from rmcitecraft.services.census_transcription_batch import (
-    CensusTranscriptionBatchService,
-    QueueItem,
-    QueueStats,
-    get_batch_service,
+from rmcitecraft.services.census_rmtree_matcher import (
+    CensusRMTreeMatcher,
+    RMPersonData,
 )
 from rmcitecraft.services.familysearch_census_extractor import (
     MatchCandidate,
@@ -56,6 +55,7 @@ STATE_ABBREVIATIONS = {
 
 # Field categories organized by census form sections
 IDENTITY_FIELDS = [
+    ("line_number", "Line #"),
     ("full_name", "Name"),
     ("relationship_to_head", "Relationship"),
     ("sex", "Sex"),
@@ -147,14 +147,11 @@ class CensusExtractionViewerTab:
         # Field history cache
         self.field_history: dict[str, list] = {}  # field_name -> list of history entries
 
-        # Batch import state
-        self.batch_service: CensusTranscriptionBatchService | None = None
-        self.batch_queue: list[QueueItem] = []
-        self.batch_stats: QueueStats | None = None
-        self.batch_selected: set[int] = set()  # Set of selected source IDs
-        self.batch_processing: bool = False
-        self.batch_session_id: str | None = None
-        self.batch_sort_by: str = "location"  # "location" or "name"
+        # Validation workflow state
+        self.validation_queue: list[MatchAttempt] = []
+        self.validation_index: int = 0
+        self.validation_dialog: ui.dialog | None = None
+        self.validation_content: ui.column | None = None
 
     def render(self) -> None:
         """Render the census extraction viewer tab."""
@@ -216,34 +213,79 @@ class CensusExtractionViewerTab:
     def _render_stats_bar(self) -> None:
         """Render statistics bar."""
         stats = self.repository.get_extraction_stats()
+        validation_stats = self.repository.get_validation_stats()
 
-        with ui.row().classes("w-full items-center gap-6 bg-gray-100 p-2 rounded"):
-            with ui.row().classes("items-center gap-2"):
-                ui.icon("people", size="sm").classes("text-blue-500")
-                ui.label(f"{stats.get('total_persons', 0)} Persons").classes("text-sm")
+        with ui.column().classes("w-full gap-2"):
+            # Main stats row
+            with ui.row().classes("w-full items-center gap-6 bg-gray-100 p-2 rounded"):
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("people", size="sm").classes("text-blue-500")
+                    ui.label(f"{stats.get('total_persons', 0)} Persons").classes("text-sm")
 
-            with ui.row().classes("items-center gap-2"):
-                ui.icon("description", size="sm").classes("text-green-500")
-                ui.label(f"{stats.get('total_pages', 0)} Pages").classes("text-sm")
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("description", size="sm").classes("text-green-500")
+                    ui.label(f"{stats.get('total_pages', 0)} Pages").classes("text-sm")
 
-            with ui.row().classes("items-center gap-2"):
-                ui.icon("link", size="sm").classes("text-purple-500")
-                ui.label(f"{stats.get('rmtree_links', 0)} RootsMagic Links").classes("text-sm")
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("link", size="sm").classes("text-purple-500")
+                    ui.label(f"{stats.get('rmtree_links', 0)} RootsMagic Links").classes("text-sm")
 
-            with ui.row().classes("items-center gap-2"):
-                ui.icon("star", size="sm").classes("text-yellow-500")
-                ui.label(f"{stats.get('sample_line_persons', 0)} Sample Line").classes("text-sm").tooltip(
-                    "Persons with 1950 census sample line data (Cols 21-33)"
-                )
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("star", size="sm").classes("text-yellow-500")
+                    ui.label(f"{stats.get('sample_line_persons', 0)} Sample Line").classes("text-sm").tooltip(
+                        "Persons with 1950 census sample line data (Cols 21-33)"
+                    )
 
-            # Year breakdown
-            by_year = stats.get("by_year", {})
-            if by_year:
-                year_text = ", ".join(
-                    f"{year}: {data['persons']}"
-                    for year, data in sorted(by_year.items(), reverse=True)
-                )
-                ui.label(f"By Year: {year_text}").classes("text-xs text-gray-500 ml-auto")
+                # Year breakdown
+                by_year = stats.get("by_year", {})
+                if by_year:
+                    year_text = ", ".join(
+                        f"{year}: {data['persons']}"
+                        for year, data in sorted(by_year.items(), reverse=True)
+                    )
+                    ui.label(f"By Year: {year_text}").classes("text-xs text-gray-500 ml-auto")
+
+            # Validation stats row
+            total_queue = validation_stats.get("total_queue", 0)
+            validated_needing_extraction = self.repository.get_validated_count()
+
+            if total_queue > 0 or validated_needing_extraction > 0:
+                with ui.row().classes("w-full items-center gap-4 bg-yellow-50 p-2 rounded border border-yellow-200"):
+                    ui.icon("pending_actions", size="sm").classes("text-yellow-600")
+                    ui.label("Validation Queue:").classes("text-sm font-medium text-yellow-800")
+
+                    with ui.row().classes("items-center gap-1"):
+                        ui.label(f"{validation_stats.get('skipped', 0)} skipped").classes(
+                            "text-sm text-red-600"
+                        ).tooltip("Records that couldn't be matched automatically")
+
+                    with ui.row().classes("items-center gap-1"):
+                        ui.label(f"{validation_stats.get('low_confidence', 0)} low confidence").classes(
+                            "text-sm text-orange-600"
+                        ).tooltip("Matched records with score < 0.80")
+
+                    if validation_stats.get("validated", 0) > 0:
+                        with ui.row().classes("items-center gap-1"):
+                            ui.icon("check_circle", size="xs").classes("text-green-500")
+                            ui.label(f"{validation_stats.get('validated', 0)} validated").classes(
+                                "text-sm text-green-600"
+                            )
+
+                    # Buttons on the right
+                    with ui.row().classes("ml-auto gap-2"):
+                        if total_queue > 0:
+                            ui.button(
+                                "Start Validation",
+                                icon="fact_check",
+                                on_click=self._start_validation_workflow,
+                            ).props("size=sm color=warning")
+
+                        if validated_needing_extraction > 0:
+                            ui.button(
+                                f"Extract Data ({validated_needing_extraction})",
+                                icon="download",
+                                on_click=self._extract_validated_matches,
+                            ).props("size=sm color=positive")
 
     def _render_search_controls(self) -> None:
         """Render search and filter controls."""
@@ -281,10 +323,6 @@ class CensusExtractionViewerTab:
             ui.button(
                 "Import from URL", icon="cloud_download", on_click=self._show_import_dialog
             ).props("color=green")
-
-            ui.button(
-                "Batch Import", icon="playlist_add", on_click=self._show_batch_import_dialog
-            ).props("color=purple")
 
             self.status_label = ui.label("").classes("text-sm text-gray-500 ml-auto")
 
@@ -1668,324 +1706,6 @@ class CensusExtractionViewerTab:
         logger.info("\n".join(log_lines))
 
     # =========================================================================
-    # Batch Import
-    # =========================================================================
-
-    def _show_batch_import_dialog(self) -> None:
-        """Show dialog to batch import from RootsMagic sources."""
-        with ui.dialog() as self._batch_dialog, ui.card().classes("w-[900px] max-h-[80vh]"):
-            ui.label("Batch Import from RootsMagic").classes("text-xl font-bold mb-2")
-            ui.label(
-                "Import census data from FamilySearch for multiple sources at once."
-            ).classes("text-sm text-gray-500 mb-4")
-
-            # Filter and sort controls
-            with ui.row().classes("w-full items-center gap-4 mb-2"):
-                self._batch_year_select = ui.select(
-                    options={
-                        None: "All Years",
-                        1950: "1950",
-                        1940: "1940",
-                        1930: "1930",
-                        1920: "1920",
-                        1910: "1910",
-                        1900: "1900",
-                    },
-                    value=None,
-                    label="Census Year",
-                ).classes("w-32")
-
-                self._batch_sort_select = ui.select(
-                    options={
-                        "location": "Sort by State, County",
-                        "name": "Sort by Surname",
-                    },
-                    value="location",
-                    label="Sort Order",
-                    on_change=lambda e: self._on_sort_change(e.value),
-                ).classes("w-48")
-
-                ui.button(
-                    "Load Queue", icon="refresh", on_click=self._load_batch_queue
-                ).props("color=primary")
-
-            # Statistics display
-            with ui.row().classes("w-full items-center gap-4 mb-2"):
-                self._batch_stats_label = ui.label("").classes("text-sm")
-
-            # Queue table
-            with ui.scroll_area().classes("h-[350px] w-full border rounded"):
-                self._batch_queue_container = ui.column().classes("w-full gap-1 p-2")
-                with self._batch_queue_container:
-                    ui.label("Click 'Load Queue' to find sources").classes(
-                        "text-gray-400 italic text-sm"
-                    )
-
-            # Selection controls
-            with ui.row().classes("w-full items-center gap-2 mt-4 flex-wrap"):
-                ui.button(
-                    "Select Next 10", icon="add", on_click=lambda: self._batch_select_next(10)
-                ).props("size=sm outline")
-                ui.button(
-                    "Select Next 25", icon="add", on_click=lambda: self._batch_select_next(25)
-                ).props("size=sm outline")
-                ui.button(
-                    "Select All", icon="select_all", on_click=self._batch_select_all
-                ).props("size=sm outline")
-                ui.button(
-                    "Deselect All", icon="deselect", on_click=self._batch_deselect_all
-                ).props("size=sm outline")
-
-                self._batch_selected_label = ui.label("0 selected").classes(
-                    "text-sm font-medium ml-auto"
-                )
-
-            # Progress section (hidden initially)
-            self._batch_progress_container = ui.column().classes("w-full mt-4 hidden")
-            with self._batch_progress_container:
-                self._batch_progress_bar = ui.linear_progress(value=0).classes("w-full")
-                with ui.row().classes("w-full items-center gap-2"):
-                    self._batch_progress_spinner = ui.spinner(size="sm")
-                    self._batch_progress_text = ui.label("").classes("text-sm")
-                self._batch_edge_warnings = ui.column().classes("w-full mt-2")
-
-            # Action buttons
-            with ui.row().classes("w-full justify-end gap-2 mt-4"):
-                ui.button("Cancel", on_click=self._batch_dialog.close).props("flat")
-                self._batch_process_btn = ui.button(
-                    "Process Selected",
-                    icon="play_arrow",
-                    on_click=self._start_batch_processing,
-                ).props("color=purple")
-                self._batch_process_btn.disable()
-
-        self._batch_dialog.open()
-
-    async def _load_batch_queue(self) -> None:
-        """Load the batch queue from RootsMagic."""
-        self._batch_stats_label.set_text("Loading...")
-
-        try:
-            # Initialize batch service if needed
-            if not self.batch_service:
-                self.batch_service = get_batch_service()
-
-            # Build queue with stats
-            year_filter = self._batch_year_select.value
-            sort_by = self._batch_sort_select.value if hasattr(self, '_batch_sort_select') else "location"
-            self.batch_queue, self.batch_stats = await self.batch_service.build_transcription_queue(
-                census_year=year_filter,
-                sort_by=sort_by,
-            )
-            self.batch_selected.clear()
-
-            # Update stats display
-            year_str = str(year_filter) if year_filter else "All Years"
-            self._batch_stats_label.set_text(
-                f"{year_str}: {self.batch_stats.total_sources} total sources | "
-                f"{self.batch_stats.already_processed} already processed | "
-                f"{self.batch_stats.remaining} remaining"
-            )
-            self._refresh_batch_queue_display()
-
-        except Exception as e:
-            logger.error(f"Failed to load batch queue: {e}")
-            self._batch_stats_label.set_text(f"Error: {e}")
-            ui.notify(f"Failed to load queue: {e}", type="negative")
-
-    def _on_sort_change(self, sort_by: str) -> None:
-        """Handle sort order change - re-sort the existing queue."""
-        self.batch_sort_by = sort_by
-        if self.batch_queue:
-            if sort_by == "name":
-                self.batch_queue.sort(key=lambda x: (x.surname.lower(), x.person_name.lower()))
-            else:  # location
-                self.batch_queue.sort(key=lambda x: (x.state.lower(), x.county.lower(), x.surname.lower()))
-            self._refresh_batch_queue_display()
-
-    def _batch_select_next(self, count: int) -> None:
-        """Select the next N unselected items in the queue."""
-        added = 0
-        for item in self.batch_queue:
-            if item.rmtree_citation_id not in self.batch_selected:
-                self.batch_selected.add(item.rmtree_citation_id)
-                added += 1
-                if added >= count:
-                    break
-        self._refresh_batch_queue_display()
-        if added > 0:
-            ui.notify(f"Selected {added} sources", type="info")
-
-    def _refresh_batch_queue_display(self) -> None:
-        """Refresh the batch queue display."""
-        self._batch_queue_container.clear()
-
-        with self._batch_queue_container:
-            if not self.batch_queue:
-                ui.label("No unprocessed sources found matching filters").classes(
-                    "text-gray-400 italic text-sm"
-                )
-                return
-
-            # Group by state if sorting by location, or show flat list
-            sort_by = getattr(self, 'batch_sort_by', 'location')
-            if sort_by == "location":
-                # Group by state
-                by_state: dict[str, list[QueueItem]] = {}
-                for item in self.batch_queue:
-                    state = item.state or "Unknown"
-                    if state not in by_state:
-                        by_state[state] = []
-                    by_state[state].append(item)
-
-                for state in sorted(by_state.keys()):
-                    items = by_state[state]
-                    with ui.expansion(
-                        f"{state} ({len(items)} sources)",
-                        icon="location_on",
-                        value=len(by_state) <= 5,  # Auto-expand if few states
-                    ).classes("w-full"):
-                        for item in items:
-                            self._render_batch_queue_item(item)
-            else:
-                # Flat list sorted by surname
-                for item in self.batch_queue:
-                    self._render_batch_queue_item(item)
-
-        self._update_batch_selection_count()
-
-    def _render_batch_queue_item(self, item: QueueItem) -> None:
-        """Render a single batch queue item with checkbox."""
-        is_selected = item.rmtree_citation_id in self.batch_selected
-
-        with ui.card().classes(
-            f"w-full p-2 {'bg-purple-50 border-purple-200' if is_selected else ''}"
-        ), ui.row().classes("w-full items-center gap-2"):
-            # Checkbox
-            ui.checkbox(
-                value=is_selected,
-                on_change=lambda e, cid=item.rmtree_citation_id: self._toggle_batch_selection(
-                    cid, e.value
-                ),
-            )
-
-            # Person info
-            with ui.column().classes("flex-1"):
-                ui.label(item.person_name).classes("font-medium text-sm")
-                location = f"{item.county} Co., {item.state}" if item.county else item.state
-                ui.label(location).classes("text-xs text-gray-500")
-
-            # Source ID badge
-            ui.badge(f"Source #{item.rmtree_citation_id}", color="gray").classes("text-xs")
-
-            # Already processed indicator
-            if item.already_processed:
-                ui.badge("Already imported", color="green").classes("text-xs")
-
-    def _toggle_batch_selection(self, citation_id: int, selected: bool) -> None:
-        """Toggle selection of a batch item."""
-        if selected:
-            self.batch_selected.add(citation_id)
-        else:
-            self.batch_selected.discard(citation_id)
-        self._update_batch_selection_count()
-
-    def _batch_select_all(self) -> None:
-        """Select all items in the queue."""
-        for item in self.batch_queue:
-            if not item.already_processed:
-                self.batch_selected.add(item.rmtree_citation_id)
-        self._refresh_batch_queue_display()
-
-    def _batch_deselect_all(self) -> None:
-        """Deselect all items."""
-        self.batch_selected.clear()
-        self._refresh_batch_queue_display()
-
-    def _update_batch_selection_count(self) -> None:
-        """Update the selection count label."""
-        count = len(self.batch_selected)
-        self._batch_selected_label.set_text(f"{count} selected")
-        if count > 0:
-            self._batch_process_btn.enable()
-        else:
-            self._batch_process_btn.disable()
-
-    async def _start_batch_processing(self) -> None:
-        """Start processing the selected batch items."""
-        if not self.batch_selected:
-            ui.notify("No items selected", type="warning")
-            return
-
-        if self.batch_processing:
-            ui.notify("Batch processing already in progress", type="warning")
-            return
-
-        self.batch_processing = True
-        self._batch_process_btn.disable()
-        self._batch_progress_container.classes(remove="hidden")
-        self._batch_edge_warnings.clear()
-
-        # Filter queue to selected items
-        selected_items = [
-            item for item in self.batch_queue
-            if item.rmtree_citation_id in self.batch_selected
-        ]
-
-        try:
-            # Create session
-            session_id = self.batch_service.create_session_from_queue(
-                selected_items,
-                census_year=self._batch_year_select.value,
-            )
-            self.batch_session_id = session_id
-
-            # Define progress callback
-            def on_progress(completed: int, total: int, current_name: str) -> None:
-                progress = completed / total if total > 0 else 0
-                self._batch_progress_bar.set_value(progress)
-                self._batch_progress_text.set_text(
-                    f"Processing {completed}/{total}: {current_name}"
-                )
-
-            # Define edge warning callback
-            def on_edge_warning(message: str, item_data: dict) -> None:
-                with self._batch_edge_warnings, ui.row().classes("items-center gap-1 text-xs"):
-                    ui.icon("warning", size="xs").classes("text-yellow-500")
-                    ui.label(message).classes("text-yellow-700")
-
-            # Run batch processing
-            result = await self.batch_service.process_batch(
-                session_id,
-                on_progress=on_progress,
-                on_edge_warning=on_edge_warning,
-            )
-
-            # Show results
-            self._batch_progress_text.set_text(
-                f"Complete! {result.completed} imported, {result.errors} errors, "
-                f"{result.skipped} skipped, {result.edge_warnings} edge warnings"
-            )
-            self._batch_progress_spinner.set_visibility(False)
-
-            ui.notify(
-                f"Batch import complete: {result.completed} imported",
-                type="positive" if result.errors == 0 else "warning",
-            )
-
-            # Refresh the main person list
-            self._search_persons()
-
-        except Exception as e:
-            logger.error(f"Batch processing failed: {e}")
-            self._batch_progress_text.set_text(f"Error: {e}")
-            ui.notify(f"Batch processing failed: {e}", type="negative")
-
-        finally:
-            self.batch_processing = False
-            self._batch_process_btn.enable()
-
-    # =========================================================================
     # Clear Database
     # =========================================================================
 
@@ -2030,3 +1750,408 @@ class CensusExtractionViewerTab:
         except Exception as e:
             logger.error(f"Failed to clear database: {e}")
             ui.notify(f"Failed: {e}", type="negative")
+
+    # =========================================================================
+    # Validation Workflow
+    # =========================================================================
+
+    def _start_validation_workflow(self) -> None:
+        """Start the validation workflow dialog."""
+        # Load validation queue
+        self.validation_queue = self.repository.get_validation_queue(
+            include_skipped=True,
+            include_low_confidence=True,
+            confidence_threshold=0.80,
+            limit=500,
+        )
+        self.validation_index = 0
+
+        if not self.validation_queue:
+            ui.notify("No records need validation", type="info")
+            return
+
+        # Create and open the validation dialog
+        self.validation_dialog = ui.dialog().classes("w-full max-w-6xl")
+        with self.validation_dialog, ui.card().classes("w-full p-4"):
+            # Header
+            with ui.row().classes("w-full items-center gap-4 mb-4"):
+                ui.icon("fact_check", size="2rem").classes("text-yellow-600")
+                ui.label("Match Validation").classes("text-xl font-bold")
+                self._validation_progress_label = ui.label(
+                    f"Record 1 of {len(self.validation_queue)}"
+                ).classes("text-sm text-gray-500 ml-auto")
+                ui.button(icon="close", on_click=self._close_validation).props("flat round")
+
+            # Content area (will be dynamically updated)
+            self.validation_content = ui.column().classes("w-full gap-4")
+
+        self.validation_dialog.open()
+        self._render_validation_record()
+
+    def _close_validation(self) -> None:
+        """Close validation dialog and refresh stats."""
+        if self.validation_dialog:
+            self.validation_dialog.close()
+        # Refresh the stats bar to show updated counts
+        # This would require re-rendering the stats bar which is complex
+        # For now, just notify the user
+        ui.notify("Validation complete. Refresh page to see updated stats.", type="info")
+
+    def _render_validation_record(self) -> None:
+        """Render the current validation record."""
+        if not self.validation_content:
+            return
+
+        self.validation_content.clear()
+
+        if self.validation_index >= len(self.validation_queue):
+            with self.validation_content:
+                with ui.column().classes("w-full items-center py-8"):
+                    ui.icon("check_circle", size="4rem").classes("text-green-500")
+                    ui.label("All records validated!").classes("text-xl font-bold text-green-600")
+                    ui.button("Close", on_click=self._close_validation).props("color=primary")
+            return
+
+        attempt = self.validation_queue[self.validation_index]
+        self._validation_progress_label.set_text(
+            f"Record {self.validation_index + 1} of {len(self.validation_queue)}"
+        )
+
+        with self.validation_content:
+            # Status indicator
+            status_color = "red" if attempt.match_status == "skipped" else "orange"
+            status_text = "Skipped (No Match Found)" if attempt.match_status == "skipped" else f"Low Confidence ({attempt.best_candidate_score:.2f})"
+
+            with ui.row().classes("w-full items-center gap-2"):
+                ui.badge(status_text, color=status_color)
+                if attempt.skip_reason:
+                    ui.label(f"Reason: {attempt.skip_reason}").classes("text-sm text-gray-500")
+
+            # Two-column layout: FamilySearch left, RootsMagic right
+            with ui.row().classes("w-full gap-4"):
+                # Left: FamilySearch Data
+                with ui.card().classes("w-1/2 p-3"):
+                    ui.label("FamilySearch Census Record").classes("font-bold text-blue-600 mb-2")
+                    self._render_fs_person_card(attempt)
+
+                    # FS Household context
+                    ui.label("Household on This Page").classes("font-bold text-sm mt-4 mb-2")
+                    self._render_fs_household(attempt)
+
+                # Right: RootsMagic Data
+                with ui.card().classes("w-1/2 p-3"):
+                    ui.label("RootsMagic Candidates").classes("font-bold text-purple-600 mb-2")
+                    self._render_rm_candidates(attempt)
+
+            # Decision buttons
+            with ui.row().classes("w-full justify-center gap-4 mt-4"):
+                if attempt.best_candidate_rm_id:
+                    ui.button(
+                        f"Confirm: {attempt.best_candidate_name}",
+                        icon="check",
+                        on_click=lambda a=attempt: self._confirm_match(a, a.best_candidate_rm_id),
+                    ).props("color=positive")
+
+                ui.button(
+                    "Skip / No Match",
+                    icon="skip_next",
+                    on_click=lambda a=attempt: self._reject_match(a),
+                ).props("color=negative outline")
+
+                ui.button(
+                    "Next",
+                    icon="arrow_forward",
+                    on_click=self._next_validation_record,
+                ).props("color=primary outline")
+
+    def _render_fs_person_card(self, attempt: MatchAttempt) -> None:
+        """Render FamilySearch person details from match attempt."""
+        with ui.column().classes("gap-1"):
+            # Name and basic info
+            ui.label(attempt.fs_full_name).classes("text-lg font-medium")
+
+            with ui.row().classes("gap-4 text-sm"):
+                if attempt.fs_relationship:
+                    ui.label(f"Role: {attempt.fs_relationship}").classes("text-gray-600")
+                if attempt.fs_age:
+                    ui.label(f"Age: {attempt.fs_age}").classes("text-gray-600")
+                if attempt.fs_line_number:
+                    ui.label(f"Line: {attempt.fs_line_number}").classes("text-gray-600")
+
+            if attempt.fs_birthplace:
+                ui.label(f"Birthplace: {attempt.fs_birthplace}").classes("text-sm text-gray-500")
+
+            # FamilySearch link
+            if attempt.fs_ark:
+                ui.link(
+                    "View on FamilySearch",
+                    target=attempt.fs_ark,
+                    new_tab=True,
+                ).classes("text-sm text-blue-500")
+
+    def _render_fs_household(self, attempt: MatchAttempt) -> None:
+        """Render FamilySearch household context from census_person table."""
+        # Get the page for this attempt
+        if not attempt.page_id:
+            ui.label("No page data available").classes("text-sm text-gray-400 italic")
+            return
+
+        # Get all persons on the same page
+        persons = self.repository.get_persons_on_page(attempt.page_id)
+
+        if not persons:
+            ui.label("No household data found").classes("text-sm text-gray-400 italic")
+            return
+
+        # Group by household_id or show all
+        with ui.scroll_area().classes("h-48"):
+            with ui.column().classes("gap-1"):
+                current_household = None
+                for p in sorted(persons, key=lambda x: x.line_number or 999):
+                    # Show household header if changed
+                    if p.household_id and p.household_id != current_household:
+                        current_household = p.household_id
+                        ui.label(f"Household {p.dwelling_number or ''}").classes(
+                            "text-xs font-bold text-gray-500 mt-2"
+                        )
+
+                    # Highlight the current person being validated
+                    is_current = (
+                        p.familysearch_ark == attempt.fs_ark or
+                        p.full_name.lower() == attempt.fs_full_name.lower()
+                    )
+                    row_class = "bg-yellow-100 rounded px-1" if is_current else ""
+
+                    with ui.row().classes(f"gap-2 text-sm {row_class}"):
+                        ui.label(f"L{p.line_number or '?'}").classes("w-8 text-gray-400")
+                        ui.label(p.full_name).classes("w-40 truncate")
+                        ui.label(p.relationship_to_head or "-").classes("w-16 text-gray-500")
+                        ui.label(p.sex or "-").classes("w-6 text-gray-500")
+                        ui.label(str(p.age) if p.age else "-").classes("w-8 text-gray-500")
+
+    def _render_rm_candidates(self, attempt: MatchAttempt) -> None:
+        """Render RootsMagic candidates and household context."""
+        import json
+
+        # Parse candidates from JSON
+        candidates = []
+        if attempt.candidates_json:
+            try:
+                candidates = json.loads(attempt.candidates_json)
+            except json.JSONDecodeError:
+                pass
+
+        # Show best candidate prominently
+        if attempt.best_candidate_rm_id:
+            with ui.card().classes("w-full p-2 bg-purple-50 border-purple-200"):
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("star", size="sm").classes("text-purple-500")
+                    ui.label("Best Match").classes("text-sm font-bold text-purple-700")
+
+                ui.label(attempt.best_candidate_name or "Unknown").classes("text-lg font-medium")
+
+                with ui.row().classes("gap-4 text-sm"):
+                    ui.label(f"Score: {attempt.best_candidate_score:.2f}").classes("text-purple-600")
+                    ui.label(f"Method: {attempt.best_match_method}").classes("text-gray-500")
+                    ui.label(f"RIN: {attempt.best_candidate_rm_id}").classes("text-gray-400")
+
+        # Show alternates (up to 3)
+        alternates = [c for c in candidates if c.get("rm_id") != attempt.best_candidate_rm_id][:3]
+
+        if alternates:
+            ui.label("Alternates").classes("font-bold text-sm mt-3 mb-1")
+            for alt in alternates:
+                with ui.row().classes("items-center gap-2 text-sm py-1 border-b"):
+                    ui.label(alt.get("name", "Unknown")).classes("w-40")
+                    ui.label(f"{alt.get('score', 0):.2f}").classes("text-gray-500")
+                    ui.button(
+                        "Select",
+                        on_click=lambda a=attempt, rid=alt.get("rm_id"): self._confirm_match(a, rid),
+                    ).props("size=xs flat color=purple")
+
+        # RootsMagic household context
+        if attempt.source_id:
+            ui.label("RootsMagic Household").classes("font-bold text-sm mt-4 mb-2")
+            self._render_rm_household(attempt.source_id)
+
+    def _render_rm_household(self, source_id: int) -> None:
+        """Render RootsMagic household members for a source."""
+        try:
+            from rmcitecraft.config.settings import get_settings
+
+            settings = get_settings()
+            matcher = CensusRMTreeMatcher(
+                rmtree_path=settings.rm_database_path,
+                icu_extension_path=settings.sqlite_icu_extension,
+            )
+
+            # Get RM persons for this source
+            rm_persons, event_id, census_year = matcher.get_rm_persons_for_source(source_id)
+
+            if not rm_persons:
+                ui.label("No RootsMagic household data").classes("text-sm text-gray-400 italic")
+                return
+
+            with ui.scroll_area().classes("h-48"):
+                with ui.column().classes("gap-1"):
+                    for p in rm_persons:
+                        # Calculate age at census time
+                        age_at_census = ""
+                        if p.birth_year and census_year:
+                            age_at_census = str(census_year - p.birth_year)
+
+                        with ui.row().classes("gap-2 text-sm"):
+                            ui.label(p.full_name).classes("w-40 truncate")
+                            ui.label(p.relationship or "-").classes("w-20 text-gray-500")
+                            ui.label(p.sex or "-").classes("w-6 text-gray-500")
+                            ui.label(age_at_census or "-").classes("w-8 text-gray-500")
+                            ui.label(f"RIN {p.person_id}").classes("w-16 text-gray-400")
+
+        except Exception as e:
+            logger.error(f"Failed to load RM household: {e}")
+            ui.label(f"Error loading household: {e}").classes("text-sm text-red-500")
+
+    def _confirm_match(self, attempt: MatchAttempt, rm_person_id: int) -> None:
+        """Confirm a match and advance to next record."""
+        try:
+            self.repository.update_match_attempt_validation(
+                attempt_id=attempt.attempt_id,
+                new_status="validated",
+                confirmed_rm_person_id=rm_person_id,
+                validation_note="manual_confirmation",
+            )
+            ui.notify(f"Match confirmed: RIN {rm_person_id}", type="positive")
+            self._next_validation_record()
+
+        except Exception as e:
+            logger.error(f"Failed to confirm match: {e}")
+            ui.notify(f"Error: {e}", type="negative")
+
+    def _reject_match(self, attempt: MatchAttempt) -> None:
+        """Reject/skip a match and advance to next record."""
+        try:
+            self.repository.update_match_attempt_validation(
+                attempt_id=attempt.attempt_id,
+                new_status="rejected",
+                validation_note="manual_rejection",
+            )
+            ui.notify("Match rejected", type="warning")
+            self._next_validation_record()
+
+        except Exception as e:
+            logger.error(f"Failed to reject match: {e}")
+            ui.notify(f"Error: {e}", type="negative")
+
+    def _next_validation_record(self) -> None:
+        """Advance to the next validation record."""
+        self.validation_index += 1
+        self._render_validation_record()
+
+    async def _extract_validated_matches(self) -> None:
+        """Extract data for validated matches that need it.
+
+        This triggers browser automation to extract person data from FamilySearch
+        for each validated match and creates census_person + rmtree_link records.
+        """
+        validated = self.repository.get_validated_needing_extraction()
+
+        if not validated:
+            ui.notify("No validated matches need extraction", type="info")
+            return
+
+        ui.notify(f"Starting extraction for {len(validated)} validated matches...", type="info")
+
+        # Import the extraction service
+        try:
+            from rmcitecraft.services.familysearch_census_extractor import (
+                FamilySearchCensusExtractor,
+            )
+            from rmcitecraft.database.census_extraction_db import RMTreeLink
+            from rmcitecraft.config.settings import get_settings
+
+            settings = get_settings()
+
+            # Create dialog for progress
+            with ui.dialog() as progress_dialog, ui.card().classes("w-96 p-4"):
+                ui.label("Extracting Validated Matches").classes("font-bold text-lg mb-2")
+                progress_bar = ui.linear_progress(value=0).classes("w-full")
+                progress_label = ui.label("Initializing...").classes("text-sm text-gray-500")
+                with ui.row().classes("w-full justify-end mt-4"):
+                    close_btn = ui.button("Close", on_click=progress_dialog.close)
+                    close_btn.disable()
+
+            progress_dialog.open()
+
+            # Process each validated match
+            completed = 0
+            errors = 0
+            extractor = FamilySearchCensusExtractor()
+
+            for i, attempt in enumerate(validated):
+                progress_bar.set_value((i + 1) / len(validated))
+                progress_label.set_text(f"Processing {i + 1}/{len(validated)}: {attempt.fs_full_name}")
+
+                try:
+                    # Get census year from page if available
+                    census_year = 1940  # Default
+                    if attempt.page_id:
+                        page = self.repository.get_page(attempt.page_id)
+                        if page and page.census_year:
+                            census_year = page.census_year
+
+                    # Extract person data using extract_from_ark
+                    result = await extractor.extract_from_ark(
+                        ark_url=attempt.fs_ark,
+                        census_year=census_year,
+                        rmtree_person_id=attempt.matched_rm_person_id,
+                        rmtree_database=str(settings.rm_database_path),
+                        extract_household=False,  # Only extract this person
+                        is_primary_target=True,
+                        line_number=attempt.fs_line_number,
+                    )
+
+                    if result.success and result.person_id:
+                        # Create rmtree_link
+                        link = RMTreeLink(
+                            census_person_id=result.person_id,
+                            rmtree_person_id=attempt.matched_rm_person_id,
+                            rmtree_database=str(settings.rm_database_path),
+                            match_confidence=1.0,  # Manual validation = 100% confidence
+                            match_method="manual_validation",
+                        )
+                        self.repository.insert_rmtree_link(link)
+
+                        # Update match attempt with census_person_id
+                        with self.repository._connect() as conn:
+                            conn.execute(
+                                """UPDATE match_attempt
+                                   SET matched_census_person_id = ?
+                                   WHERE attempt_id = ?""",
+                                (result.person_id, attempt.attempt_id),
+                            )
+
+                        completed += 1
+                        logger.info(f"Extracted validated match: {attempt.fs_full_name} -> RIN {attempt.matched_rm_person_id}")
+                    else:
+                        errors += 1
+                        error_msg = result.error_message if result else "Unknown error"
+                        logger.warning(f"Failed to extract person data for ARK: {attempt.fs_ark} - {error_msg}")
+
+                except Exception as e:
+                    errors += 1
+                    logger.error(f"Error extracting {attempt.fs_ark}: {e}")
+
+            progress_label.set_text(f"Complete: {completed} extracted, {errors} errors")
+            close_btn.enable()
+
+            # Cleanup
+            await extractor.close()
+
+            ui.notify(
+                f"Extraction complete: {completed} records extracted, {errors} errors",
+                type="positive" if errors == 0 else "warning",
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to start extraction: {e}")
+            ui.notify(f"Extraction failed: {e}", type="negative")

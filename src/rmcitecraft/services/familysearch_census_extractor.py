@@ -19,6 +19,7 @@ Usage:
     await extractor.disconnect()
 """
 
+import json
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -31,6 +32,7 @@ from rmcitecraft.database.census_extraction_db import (
     CensusExtractionRepository,
     CensusPage,
     CensusPerson,
+    MatchAttempt,
     RMTreeLink,
     get_census_repository,
 )
@@ -250,6 +252,108 @@ for nick, formals in NICKNAME_MAP.items():
         FORMAL_TO_NICKNAMES[formal].append(nick)
 
 
+# =============================================================================
+# Phonetic Surname Matching
+# =============================================================================
+
+# Surname variants that should be treated as equivalent (same family)
+# This handles OCR errors, spelling variations, and historical transcription differences
+SURNAME_PHONETIC_GROUPS: dict[str, set[str]] = {
+    "ijams_family": {
+        "ijams", "iiams", "iams", "imes", "ijames", "iames", "ines", "iimes",
+        "sjames",  # OCR error: S/I confusion
+    },
+    # Add more family groups as needed
+}
+
+# Build reverse lookup: surname -> group name
+SURNAME_TO_GROUP: dict[str, str] = {}
+for group_name, variants in SURNAME_PHONETIC_GROUPS.items():
+    for variant in variants:
+        SURNAME_TO_GROUP[variant] = group_name
+
+
+def get_surname_phonetic_group(surname: str) -> str | None:
+    """Get the phonetic group for a surname, if any."""
+    surname_normalized = re.sub(r'[^a-z]', '', surname.lower())
+    return SURNAME_TO_GROUP.get(surname_normalized)
+
+
+def surnames_phonetically_match(surname1: str, surname2: str) -> bool:
+    """Check if two surnames are phonetically equivalent.
+
+    Handles:
+    - Exact match
+    - Same phonetic group (family variants)
+    - Prefix/suffix match for minor variations
+    """
+    s1 = re.sub(r'[^a-z]', '', surname1.lower())
+    s2 = re.sub(r'[^a-z]', '', surname2.lower())
+
+    if s1 == s2:
+        return True
+
+    # Check if in same phonetic group
+    group1 = get_surname_phonetic_group(s1)
+    group2 = get_surname_phonetic_group(s2)
+
+    if group1 and group1 == group2:
+        return True
+
+    # Check prefix/suffix match for OCR variations
+    if len(s1) >= 3 and len(s2) >= 3:
+        if s1[:3] == s2[:3] or s1[-3:] == s2[-3:]:
+            return True
+
+    return False
+
+
+# =============================================================================
+# First Name Spelling Variations
+# =============================================================================
+
+# Common spelling variations that should match
+FIRST_NAME_SPELLING_VARIANTS: dict[str, set[str]] = {
+    "catherine": {"katherine", "kathryn", "catharine", "katharine", "chatharine"},
+    "elisabeth": {"elizabeth"},
+    "steven": {"stephen"},
+    "jeffrey": {"geoffrey"},
+    "ann": {"anne"},
+    "sara": {"sarah"},
+    "theresa": {"teresa"},
+    "phillip": {"philip"},
+    "allan": {"allen", "alan"},
+    "carl": {"karl"},
+    "eric": {"erik"},
+    "grey": {"gray"},
+    "lyndon": {"lydon"},  # OCR error variation
+}
+
+# Build bidirectional lookup
+SPELLING_VARIANT_MAP: dict[str, set[str]] = {}
+for canonical, variants in FIRST_NAME_SPELLING_VARIANTS.items():
+    all_forms = variants | {canonical}
+    for form in all_forms:
+        if form not in SPELLING_VARIANT_MAP:
+            SPELLING_VARIANT_MAP[form] = set()
+        SPELLING_VARIANT_MAP[form].update(all_forms - {form})
+
+
+def first_names_spelling_match(name1: str, name2: str) -> bool:
+    """Check if two first names are spelling variants of each other."""
+    n1 = name1.lower()
+    n2 = name2.lower()
+
+    if n1 == n2:
+        return True
+
+    variants1 = SPELLING_VARIANT_MAP.get(n1, set())
+    if n2 in variants1:
+        return True
+
+    return False
+
+
 def get_name_variations(name: str) -> set[str]:
     """Get all variations of a name (nicknames and formal versions)."""
     name_lower = name.lower()
@@ -266,8 +370,25 @@ def get_name_variations(name: str) -> set[str]:
     return variations
 
 
-def names_match_score(name1: str, name2: str) -> tuple[float, str]:
+def names_match_score(
+    name1: str,
+    name2: str,
+    check_middle_as_first: bool = True,
+) -> tuple[float, str]:
     """Calculate a match score between two names.
+
+    Supports:
+    - Exact match
+    - Phonetic surname matching (family variants, OCR errors)
+    - Nickname/formal name matching
+    - Spelling variations (Katherine/Catherine)
+    - Initial matching (L matches Larry)
+    - Middle name as first name (Harvey matches Guy Harvey)
+
+    Args:
+        name1: First name to compare (typically FamilySearch)
+        name2: Second name to compare (typically RootsMagic)
+        check_middle_as_first: If True, check if first name matches a middle name
 
     Returns:
         Tuple of (score 0.0-1.0, match_reason)
@@ -295,14 +416,11 @@ def names_match_score(name1: str, name2: str) -> tuple[float, str]:
     given1 = tokens1[:-1] if len(tokens1) > 1 else []
     given2 = tokens2[:-1] if len(tokens2) > 1 else []
 
-    # Surname must match (or be very similar)
+    # Surname must match (using phonetic matching for family variants)
+    surname_match_type = "exact"
     if surname1 != surname2:
-        # Allow minor spelling variations in surname
-        if len(surname1) > 3 and len(surname2) > 3:
-            if surname1[:3] == surname2[:3] or surname1[-3:] == surname2[-3:]:
-                pass  # Close enough
-            else:
-                return 0.0, "surname_mismatch"
+        if surnames_phonetically_match(surname1, surname2):
+            surname_match_type = "phonetic"
         else:
             return 0.0, "surname_mismatch"
 
@@ -327,7 +445,12 @@ def names_match_score(name1: str, name2: str) -> tuple[float, str]:
                 if g1 == g2 or (len(g1) == 1 and g2.startswith(g1)) or (len(g2) == 1 and g1.startswith(g2)):
                     middle_matches += 1
                     break
-        return 0.95 + (0.05 * min(middle_matches, 1)), "first_name_exact"
+        base_score = 0.95 if surname_match_type == "exact" else 0.90
+        return base_score + (0.05 * min(middle_matches, 1)), "first_name_exact"
+
+    # Check for spelling variant match (Katherine/Catherine, Lyndon/Lydon)
+    if first_names_spelling_match(first1, first2):
+        return 0.90, "spelling_variant"
 
     # Check for initial match (first letter)
     if len(first1) == 1 and first2.startswith(first1):
@@ -344,6 +467,24 @@ def names_match_score(name1: str, name2: str) -> tuple[float, str]:
         min_len = min(len(first1), len(first2))
         if min_len >= 3:  # At least 3 chars must match
             return 0.75, "prefix_match"
+
+    # Check if first1 matches any middle name in name2 (middle name used as first)
+    if check_middle_as_first and len(given2) > 1:
+        for middle in given2[1:]:
+            if first1 == middle:
+                return 0.78, "middle_as_first"
+            if first_names_spelling_match(first1, middle):
+                return 0.75, "middle_as_first_spelling"
+            if len(first1) == 1 and middle.startswith(first1):
+                return 0.72, "middle_as_first_initial"
+
+    # Check if first2 matches any middle name in name1
+    if check_middle_as_first and len(given1) > 1:
+        for middle in given1[1:]:
+            if first2 == middle:
+                return 0.78, "middle_as_first"
+            if first_names_spelling_match(first2, middle):
+                return 0.75, "middle_as_first_spelling"
 
     # No good first name match
     return 0.3, "surname_match_only"
@@ -859,13 +1000,64 @@ class FamilySearchCensusExtractor:
                 household_members = family_members_from_table
 
                 # FALLBACK: If no family found in table, try the index approach
+                # BUT skip if person appears to be a single-person household
                 if not household_members:
-                    logger.info("No family in table, falling back to index extraction")
-                    if rm_persons_filter:
-                        # require_names=True forces DOM extraction for RM person matching
-                        household_members = await self._extract_household_index(page, require_names=True)
+                    # Check if this is likely a single-person household
+                    marital = raw_data.get("marital_status", "").lower()
+                    relationship = raw_data.get("relationship_to_head_of_household", "").lower()
+                    is_single_household = (
+                        relationship == "head" and
+                        marital in ("single", "widowed", "divorced", "never married", "s", "wd", "d")
+                    )
+
+                    if is_single_household:
+                        logger.info(
+                            f"Skipping full page index extraction - single-person household "
+                            f"(marital={marital}, relationship={relationship})"
+                        )
+                        # Still get line number from SLS API for accuracy
+                        # Extract image ARK from current URL or navigate to get it
+                        try:
+                            current_url = page.url
+                            # Extract image ARK (3:1:XXXX format) from URL
+                            image_ark_match = re.search(r'/ark:/61903/(3:1:[A-Z0-9-]+)', current_url)
+                            if image_ark_match:
+                                image_ark = image_ark_match.group(1)
+                                logger.info(f"Fetching SLS API for line number verification (image={image_ark})")
+                                ark_to_line = await self._extract_person_arks_via_api(page, image_ark)
+
+                                # Find target person's line number from SLS API
+                                target_ark_id = normalize_ark_url(ark_url)
+                                if target_ark_id:
+                                    # Extract just the ID part (1:1:XXXX)
+                                    ark_id_match = re.search(r'(1:1:[A-Z0-9-]+)', target_ark_id)
+                                    if ark_id_match:
+                                        ark_id = ark_id_match.group(1)
+                                        sls_line_number = ark_to_line.get(ark_id)
+                                        if sls_line_number is not None:
+                                            logger.info(f"SLS API line number for target: {sls_line_number}")
+                                            # Check for mismatch between extracted and SLS API line numbers
+                                            extracted_line = person_data.line_number
+                                            if extracted_line is not None and extracted_line != sls_line_number:
+                                                logger.error(
+                                                    f"LINE NUMBER MISMATCH - Manual verification required: "
+                                                    f"person='{person_data.full_name}' ARK={ark_url} "
+                                                    f"extracted_line={extracted_line} sls_api_line={sls_line_number}"
+                                                )
+                                            # Update to SLS API value (considered authoritative)
+                                            if extracted_line != sls_line_number:
+                                                self.repository.update_person_line_number(person_id, sls_line_number)
+                                        else:
+                                            logger.debug(f"Target ARK {ark_id} not found in SLS API response")
+                        except Exception as e:
+                            logger.warning(f"Failed to get SLS API line number: {e}")
                     else:
-                        household_members = await self._extract_household_index(page)
+                        logger.info("No family in table, falling back to index extraction")
+                        if rm_persons_filter:
+                            # require_names=True forces DOM extraction for RM person matching
+                            household_members = await self._extract_household_index(page, require_names=True)
+                        else:
+                            household_members = await self._extract_household_index(page)
 
                 # Final fallback to raw_data
                 if not household_members:
@@ -926,23 +1118,67 @@ class FamilySearchCensusExtractor:
 
                     # If RM filter is active, only extract members who match a RootsMagic person
                     if rm_persons_filter:
-                        matches_rm, matched_rm = self._matches_any_rm_person(
+                        # Use enhanced matching with full candidate diagnostics
+                        match_result = self._find_rm_match_candidates(
                             member_name, rm_persons_filter, head_surname=head_surname
                         )
+                        matches_rm = match_result["matched"]
+                        matched_rm = match_result["best_match"]
+
+                        # Parse member name for MatchAttempt
+                        member_tokens = normalize_name(member_name).split() if member_name else []
+                        fs_given = member_tokens[0] if member_tokens else ""
+                        fs_surname = member_tokens[-1] if len(member_tokens) > 1 else ""
+
+                        # Save match attempt to database for analysis
+                        match_attempt = MatchAttempt(
+                            batch_id=getattr(result, '_batch_id', None),
+                            page_id=page_id,
+                            source_id=getattr(result, '_source_id', None),
+                            fs_full_name=member_name,
+                            fs_given_name=fs_given,
+                            fs_surname=fs_surname,
+                            fs_ark=member_ark_normalized or "",
+                            fs_line_number=member.get("line_number"),
+                            fs_relationship=member.get("relationship", ""),
+                            fs_age=str(member.get("age", "")),
+                            fs_birthplace=member.get("birthplace", ""),
+                            fs_household_head_name=target_name or "",
+                            match_status="matched" if matches_rm else "skipped",
+                            matched_rm_person_id=getattr(matched_rm, 'person_id', None) if matched_rm else None,
+                            skip_reason=match_result["skip_reason"],
+                            best_candidate_rm_id=match_result["candidates"][0]["rm_id"] if match_result["candidates"] else None,
+                            best_candidate_name=match_result["candidates"][0]["rm_name"] if match_result["candidates"] else "",
+                            best_candidate_score=match_result["best_score"],
+                            best_match_method=match_result["best_method"],
+                            candidates_json=json.dumps(match_result["candidates"][:5]),  # Top 5 candidates
+                        )
+                        try:
+                            self.repository.insert_match_attempt(match_attempt)
+                        except Exception as e:
+                            logger.warning(f"Failed to save match attempt: {e}")
+
                         if not matches_rm:
-                            logger.debug(f"Skipping '{member_name}' - no RootsMagic match")
+                            logger.debug(
+                                f"Skipping '{member_name}' - no RootsMagic match "
+                                f"(reason={match_result['skip_reason']}, best_score={match_result['best_score']:.2f})"
+                            )
                             skipped_count += 1
                             result.related_persons.append({
                                 "name": member_name,
                                 "ark": member_ark_normalized,
                                 "skipped": True,
-                                "reason": "No RootsMagic match",
+                                "reason": f"No RootsMagic match ({match_result['skip_reason']})",
+                                "best_candidate": match_result["candidates"][0] if match_result["candidates"] else None,
                             })
                             continue
                         else:
                             rm_name = getattr(matched_rm, 'full_name', 'Unknown')
                             rm_id = getattr(matched_rm, 'person_id', 0)
-                            logger.info(f"Extracting '{member_name}' - matches RM person '{rm_name}' (RIN {rm_id})")
+                            logger.info(
+                                f"Extracting '{member_name}' - matches RM person '{rm_name}' (RIN {rm_id}) "
+                                f"[score={match_result['best_score']:.2f}, method={match_result['best_method']}]"
+                            )
 
                     # If no ARK, create a basic record with available data from the index
                     if not member_ark_normalized:
@@ -1216,61 +1452,180 @@ class FamilySearchCensusExtractor:
     ) -> tuple[bool, Any | None]:
         """Check if a household member name matches any RootsMagic person.
 
-        Uses fuzzy name matching to determine if the FamilySearch household member
-        corresponds to someone in the RootsMagic database.
+        Wrapper around _find_rm_match_candidates that returns a simple match result.
 
         Args:
             member_name: Name from FamilySearch (e.g., "John W Smith")
             rm_persons: List of RMPersonData objects from RootsMagic
-            head_surname: Surname of household head, used for matching married women
-                         who may be recorded with husband's surname on census but
-                         maiden name in RootsMagic
+            head_surname: Surname of household head, for married women matching
 
         Returns:
             Tuple of (matches: bool, matched_rm_person or None)
         """
+        result = self._find_rm_match_candidates(member_name, rm_persons, head_surname)
+        return result["matched"], result["best_match"]
+
+    def _find_rm_match_candidates(
+        self,
+        member_name: str,
+        rm_persons: list[Any],
+        head_surname: str | None = None,
+        match_threshold: float = 0.75,
+    ) -> dict[str, Any]:
+        """Find all potential RootsMagic matches with scores and diagnostics.
+
+        Uses enhanced fuzzy name matching including:
+        - Phonetic surname matching (family variants, OCR errors)
+        - Nickname/formal name matching
+        - Spelling variations
+        - Initial matching
+        - Middle name as first name
+        - Married name matching (using head's surname)
+
+        Args:
+            member_name: Name from FamilySearch (e.g., "John W Smith")
+            rm_persons: List of RMPersonData objects from RootsMagic
+            head_surname: Surname of household head, for married women matching
+            match_threshold: Minimum score to consider a match (default 0.75)
+
+        Returns:
+            Dict with:
+                - matched: bool - whether a match was found
+                - best_match: RMPersonData or None - best matching person
+                - best_score: float - score of best match
+                - best_method: str - method that found best match
+                - candidates: list - all candidates with scores
+                - skip_reason: str - reason for rejection if not matched
+        """
+        result = {
+            "matched": False,
+            "best_match": None,
+            "best_score": 0.0,
+            "best_method": "",
+            "candidates": [],
+            "skip_reason": "",
+        }
+
         if not rm_persons or not member_name:
-            return False, None
+            result["skip_reason"] = "no_candidates" if not rm_persons else "empty_name"
+            return result
 
         member_tokens = normalize_name(member_name).split()
         member_given = member_tokens[0] if member_tokens else ""
         member_surname = member_tokens[-1] if len(member_tokens) > 1 else ""
 
+        candidates = []
+
         for rm_person in rm_persons:
             rm_full_name = getattr(rm_person, 'full_name', '')
             rm_given = getattr(rm_person, 'given_name', '')
             rm_surname = getattr(rm_person, 'surname', '')
+            rm_id = getattr(rm_person, 'person_id', 0)
 
-            # Try full name match first
-            if names_match_fuzzy(member_name, rm_full_name):
-                logger.debug(f"RM match found: '{member_name}' ~ '{rm_full_name}'")
-                return True, rm_person
+            best_candidate_score = 0.0
+            best_candidate_method = ""
 
-            # Try given + surname if full name didn't match
-            # This handles cases where RootsMagic has "John William" but census has "John W"
+            # Method 1: Full name match
+            score, method = names_match_score(member_name, rm_full_name)
+            if score > best_candidate_score:
+                best_candidate_score = score
+                best_candidate_method = f"full_name:{method}"
+
+            # Method 2: Combined given+surname match
             if rm_given and rm_surname:
                 combined = f"{rm_given} {rm_surname}"
-                if names_match_fuzzy(member_name, combined):
-                    logger.debug(f"RM match found (combined): '{member_name}' ~ '{combined}'")
-                    return True, rm_person
+                score, method = names_match_score(member_name, combined)
+                if score > best_candidate_score:
+                    best_candidate_score = score
+                    best_candidate_method = f"combined:{method}"
 
-            # Try given name match with head's surname for married women
-            # Handles: FS "Vida Ijams" (married name) vs RM "Vida Ester Ruth" (maiden name)
-            # If FS surname matches head and RM given name matches FS given name
+            # Method 3: Married name matching (surname matches head's surname)
             if head_surname and member_given and rm_given:
                 head_surname_norm = normalize_name(head_surname)
-                if member_surname == head_surname_norm:
-                    # FS person uses head's surname - check if given names match
+                # Check if member uses head's surname (married woman on census)
+                if surnames_phonetically_match(member_surname, head_surname_norm):
                     rm_given_norm = normalize_name(rm_given)
-                    # Check for exact or initial match on given name
-                    if member_given == rm_given_norm or rm_given_norm.startswith(member_given):
-                        logger.debug(
-                            f"RM match found (married name): '{member_name}' ~ '{rm_full_name}' "
-                            f"(given '{member_given}' matches, uses head surname '{head_surname}')"
-                        )
-                        return True, rm_person
+                    rm_given_first = rm_given_norm.split()[0] if rm_given_norm else ""
 
-        return False, None
+                    # Exact given name match
+                    if member_given == rm_given_first:
+                        married_score = 0.88
+                        if married_score > best_candidate_score:
+                            best_candidate_score = married_score
+                            best_candidate_method = "married_name:exact"
+
+                    # Initial match on given name
+                    elif len(member_given) == 1 and rm_given_first.startswith(member_given):
+                        married_score = 0.82
+                        if married_score > best_candidate_score:
+                            best_candidate_score = married_score
+                            best_candidate_method = "married_name:initial"
+
+                    # Given name matches RM middle name
+                    elif len(rm_given_norm.split()) > 1:
+                        for middle in rm_given_norm.split()[1:]:
+                            if member_given == middle:
+                                married_score = 0.80
+                                if married_score > best_candidate_score:
+                                    best_candidate_score = married_score
+                                    best_candidate_method = "married_name:middle_as_first"
+                                break
+                            elif first_names_spelling_match(member_given, middle):
+                                married_score = 0.77
+                                if married_score > best_candidate_score:
+                                    best_candidate_score = married_score
+                                    best_candidate_method = "married_name:middle_spelling"
+                                break
+
+                    # Nickname match on given name
+                    member_variations = get_name_variations(member_given)
+                    rm_variations = get_name_variations(rm_given_first)
+                    if member_variations & rm_variations:
+                        married_score = 0.78
+                        if married_score > best_candidate_score:
+                            best_candidate_score = married_score
+                            best_candidate_method = "married_name:nickname"
+
+            # Record this candidate
+            if best_candidate_score > 0:
+                candidates.append({
+                    "rm_id": rm_id,
+                    "rm_name": rm_full_name,
+                    "score": round(best_candidate_score, 3),
+                    "method": best_candidate_method,
+                })
+
+        # Sort candidates by score (highest first)
+        candidates.sort(key=lambda c: -c["score"])
+        result["candidates"] = candidates
+
+        # Determine best match
+        if candidates:
+            best = candidates[0]
+            result["best_score"] = best["score"]
+            result["best_method"] = best["method"]
+
+            if best["score"] >= match_threshold:
+                # Find the rm_person object for the best match
+                for rm_person in rm_persons:
+                    if getattr(rm_person, 'person_id', 0) == best["rm_id"]:
+                        result["matched"] = True
+                        result["best_match"] = rm_person
+                        logger.debug(
+                            f"RM match found: '{member_name}' ~ '{best['rm_name']}' "
+                            f"(score={best['score']:.2f}, method={best['method']})"
+                        )
+                        break
+            else:
+                result["skip_reason"] = "below_threshold"
+                logger.debug(
+                    f"Best candidate for '{member_name}' below threshold: "
+                    f"'{best['rm_name']}' score={best['score']:.2f} < {match_threshold}"
+                )
+        else:
+            result["skip_reason"] = "surname_mismatch"
+
+        return result
 
     async def _extract_page_data(
         self, page: Page, target_ark: str | None = None, rmtree_person_id: int | None = None

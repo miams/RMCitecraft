@@ -89,6 +89,11 @@ class CensusBatchTranscriptionTab:
                             on_click=lambda: self._batch_select_next(25),
                         ).props("size=sm outline")
                         ui.button(
+                            "Select Next 100",
+                            icon="add",
+                            on_click=lambda: self._batch_select_next(100),
+                        ).props("size=sm outline color=purple")
+                        ui.button(
                             "Select All", icon="select_all", on_click=self._batch_select_all
                         ).props("size=sm outline")
                         ui.button(
@@ -98,6 +103,19 @@ class CensusBatchTranscriptionTab:
                         self._selected_label = ui.label("0 selected").classes(
                             "text-sm font-medium ml-auto"
                         )
+
+                    # Offset controls for selecting records starting at an offset
+                    with ui.row().classes("w-full items-center gap-2 mb-2"):
+                        ui.label("Skip first:").classes("text-sm")
+                        self._offset_input = ui.number(
+                            value=0, min=0, step=10
+                        ).props("dense outlined size=sm").classes("w-24")
+                        ui.label("records").classes("text-sm text-gray-500")
+                        ui.button(
+                            "Apply Offset & Select 100",
+                            icon="skip_next",
+                            on_click=self._batch_select_with_offset,
+                        ).props("size=sm outline color=secondary")
 
                     # Queue table
                     with ui.scroll_area().classes("h-[450px] w-full border rounded"):
@@ -194,6 +212,32 @@ class CensusBatchTranscriptionTab:
         self._refresh_queue_display()
         if added > 0:
             ui.notify(f"Selected {added} sources", type="info")
+
+    def _batch_select_with_offset(self) -> None:
+        """Select 100 items starting from the offset position."""
+        offset = int(self._offset_input.value or 0)
+        count = 100
+
+        # Clear current selection
+        self.batch_selected.clear()
+
+        # Skip the first 'offset' items, then select 'count' items
+        skipped = 0
+        added = 0
+        for item in self.batch_queue:
+            if skipped < offset:
+                skipped += 1
+                continue
+            self.batch_selected.add(item.rmtree_citation_id)
+            added += 1
+            if added >= count:
+                break
+
+        self._refresh_queue_display()
+        if added > 0:
+            ui.notify(f"Selected {added} sources starting at position {offset}", type="info")
+        else:
+            ui.notify(f"No sources found at offset {offset}", type="warning")
 
     def _batch_select_all(self) -> None:
         """Select all items in the queue."""

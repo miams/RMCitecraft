@@ -175,6 +175,123 @@ class FieldHistory:
     created_by: str = ""  # User who made the edit (blank for system imports)
 
 
+@dataclass
+class MatchAttempt:
+    """Record of a match attempt (successful or failed) between FS and RM persons.
+
+    Stores ALL match attempts to enable iterative improvement of matching algorithms.
+    Even failed matches are recorded with diagnostic information.
+    """
+
+    attempt_id: int | None = None
+    batch_id: int | None = None
+    page_id: int | None = None
+    source_id: int | None = None  # RootsMagic SourceID being processed
+
+    # FamilySearch data (always captured)
+    fs_full_name: str = ""
+    fs_given_name: str = ""
+    fs_surname: str = ""
+    fs_ark: str = ""
+    fs_line_number: int | None = None
+    fs_relationship: str = ""  # "Head", "Wife", "Son", etc.
+    fs_age: str = ""
+    fs_birthplace: str = ""
+    fs_household_head_name: str = ""  # Critical for married name matching
+
+    # Match result
+    match_status: str = ""  # 'matched', 'skipped', 'review_needed'
+    matched_rm_person_id: int | None = None
+    matched_census_person_id: int | None = None  # If saved to census_person
+
+    # Diagnostic data (WHY it failed or succeeded)
+    skip_reason: str = ""  # 'surname_mismatch', 'no_first_match', 'below_threshold', etc.
+    best_candidate_rm_id: int | None = None  # Best match even if rejected
+    best_candidate_name: str = ""
+    best_candidate_score: float = 0.0
+    best_match_method: str = ""  # 'exact', 'initial', 'nickname', 'married_name', etc.
+    candidates_json: str = ""  # All candidates: [{"rm_id":123,"score":0.72,"reason":"prefix"}]
+
+    attempted_at: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class ExtractionGap:
+    """Record of missing or incomplete extraction data requiring analysis.
+
+    Used to track:
+    1. Expected RM persons not found in extraction (missing persons)
+    2. Extracted persons with missing field data (incomplete data)
+    3. Patterns in failures that may indicate systemic bugs
+    """
+
+    gap_id: int | None = None
+    batch_id: int | None = None
+    source_id: int | None = None  # RootsMagic SourceID
+
+    # Gap type and classification
+    gap_type: str = ""  # 'missing_person', 'missing_field', 'match_failure'
+    gap_category: str = ""  # 'married_name', 'ocr_error', 'middle_name', 'fs_data_missing', etc.
+    severity: str = "medium"  # 'high', 'medium', 'low'
+
+    # Expected data (what we expected to find)
+    expected_rm_person_id: int | None = None
+    expected_rm_name: str = ""
+    expected_field_name: str = ""  # For missing_field gaps
+    expected_field_value: str = ""
+
+    # Actual data (what we found, if anything)
+    actual_fs_name: str = ""
+    actual_fs_ark: str = ""
+    actual_census_person_id: int | None = None
+    actual_field_value: str = ""
+
+    # Analysis
+    root_cause: str = ""  # Identified root cause after analysis
+    root_cause_pattern: str = ""  # Pattern ID for grouping similar gaps
+    fs_data_verified: bool = False  # True if manually verified FS data exists/doesn't exist
+    fs_data_exists: bool | None = None  # True=exists in FS, False=doesn't exist, None=unknown
+
+    # Resolution
+    resolution_status: str = "open"  # 'open', 'in_progress', 'resolved', 'wont_fix'
+    resolution_notes: str = ""
+    resolved_at: datetime | None = None
+
+    # Timestamps
+    detected_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class GapPattern:
+    """Aggregated pattern of extraction gaps for prioritized fixing.
+
+    Groups similar gaps to identify high-impact bugs that affect many records.
+    """
+
+    pattern_id: int | None = None
+    pattern_name: str = ""  # e.g., "married_name_surname_mismatch"
+    pattern_description: str = ""
+
+    # Pattern matching criteria (JSON)
+    match_criteria_json: str = ""  # {"gap_type": "match_failure", "skip_reason": "surname_mismatch", ...}
+
+    # Impact metrics
+    affected_count: int = 0  # Number of gaps matching this pattern
+    affected_sources: int = 0  # Number of unique sources affected
+    affected_batches: int = 0  # Number of unique batches affected
+
+    # Suggested fix
+    suggested_fix: str = ""  # Description of code change needed
+    fix_complexity: str = "medium"  # 'trivial', 'easy', 'medium', 'hard', 'complex'
+
+    # Status
+    status: str = "identified"  # 'identified', 'analyzing', 'fix_planned', 'fix_implemented', 'verified'
+
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+
+
 # =============================================================================
 # Database Schema
 # =============================================================================
@@ -332,13 +449,127 @@ CREATE TABLE IF NOT EXISTS field_history (
 CREATE INDEX IF NOT EXISTS idx_field_history_person ON field_history(person_id);
 CREATE INDEX IF NOT EXISTS idx_field_history_field ON field_history(person_id, field_name);
 
+-- Match attempt tracking (stores ALL match attempts for analysis)
+CREATE TABLE IF NOT EXISTS match_attempt (
+    attempt_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id INTEGER REFERENCES extraction_batch(batch_id),
+    page_id INTEGER REFERENCES census_page(page_id),
+    source_id INTEGER,  -- RootsMagic SourceID being processed
+
+    -- FamilySearch data (always captured)
+    fs_full_name TEXT NOT NULL,
+    fs_given_name TEXT DEFAULT '',
+    fs_surname TEXT DEFAULT '',
+    fs_ark TEXT DEFAULT '',
+    fs_line_number INTEGER,
+    fs_relationship TEXT DEFAULT '',
+    fs_age TEXT DEFAULT '',
+    fs_birthplace TEXT DEFAULT '',
+    fs_household_head_name TEXT DEFAULT '',
+
+    -- Match result
+    match_status TEXT NOT NULL,  -- 'matched', 'skipped', 'review_needed'
+    matched_rm_person_id INTEGER,
+    matched_census_person_id INTEGER REFERENCES census_person(person_id),
+
+    -- Diagnostic data
+    skip_reason TEXT DEFAULT '',
+    best_candidate_rm_id INTEGER,
+    best_candidate_name TEXT DEFAULT '',
+    best_candidate_score REAL DEFAULT 0.0,
+    best_match_method TEXT DEFAULT '',
+    candidates_json TEXT DEFAULT '[]',
+
+    attempted_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_match_attempt_status ON match_attempt(match_status);
+CREATE INDEX IF NOT EXISTS idx_match_attempt_source ON match_attempt(source_id);
+CREATE INDEX IF NOT EXISTS idx_match_attempt_fs_ark ON match_attempt(fs_ark);
+CREATE INDEX IF NOT EXISTS idx_match_attempt_batch ON match_attempt(batch_id);
+CREATE INDEX IF NOT EXISTS idx_match_attempt_skip_reason ON match_attempt(skip_reason);
+
+-- Extraction gaps (missing/incomplete data for analysis)
+CREATE TABLE IF NOT EXISTS extraction_gap (
+    gap_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id INTEGER REFERENCES extraction_batch(batch_id),
+    source_id INTEGER,
+
+    -- Gap classification
+    gap_type TEXT NOT NULL,  -- 'missing_person', 'missing_field', 'match_failure'
+    gap_category TEXT DEFAULT '',  -- 'married_name', 'ocr_error', 'middle_name', 'fs_data_missing'
+    severity TEXT DEFAULT 'medium',  -- 'high', 'medium', 'low'
+
+    -- Expected data
+    expected_rm_person_id INTEGER,
+    expected_rm_name TEXT DEFAULT '',
+    expected_field_name TEXT DEFAULT '',
+    expected_field_value TEXT DEFAULT '',
+
+    -- Actual data found
+    actual_fs_name TEXT DEFAULT '',
+    actual_fs_ark TEXT DEFAULT '',
+    actual_census_person_id INTEGER REFERENCES census_person(person_id),
+    actual_field_value TEXT DEFAULT '',
+
+    -- Analysis
+    root_cause TEXT DEFAULT '',
+    root_cause_pattern TEXT DEFAULT '',
+    fs_data_verified INTEGER DEFAULT 0,
+    fs_data_exists INTEGER,  -- NULL=unknown, 0=doesn't exist, 1=exists
+
+    -- Resolution
+    resolution_status TEXT DEFAULT 'open',  -- 'open', 'in_progress', 'resolved', 'wont_fix'
+    resolution_notes TEXT DEFAULT '',
+    resolved_at TEXT,
+
+    -- Timestamps
+    detected_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_extraction_gap_type ON extraction_gap(gap_type);
+CREATE INDEX IF NOT EXISTS idx_extraction_gap_category ON extraction_gap(gap_category);
+CREATE INDEX IF NOT EXISTS idx_extraction_gap_source ON extraction_gap(source_id);
+CREATE INDEX IF NOT EXISTS idx_extraction_gap_status ON extraction_gap(resolution_status);
+CREATE INDEX IF NOT EXISTS idx_extraction_gap_pattern ON extraction_gap(root_cause_pattern);
+CREATE INDEX IF NOT EXISTS idx_extraction_gap_severity ON extraction_gap(severity);
+
+-- Gap patterns (aggregated patterns for prioritized fixing)
+CREATE TABLE IF NOT EXISTS gap_pattern (
+    pattern_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern_name TEXT NOT NULL UNIQUE,
+    pattern_description TEXT DEFAULT '',
+
+    -- Pattern matching criteria
+    match_criteria_json TEXT DEFAULT '{}',
+
+    -- Impact metrics
+    affected_count INTEGER DEFAULT 0,
+    affected_sources INTEGER DEFAULT 0,
+    affected_batches INTEGER DEFAULT 0,
+
+    -- Suggested fix
+    suggested_fix TEXT DEFAULT '',
+    fix_complexity TEXT DEFAULT 'medium',  -- 'trivial', 'easy', 'medium', 'hard', 'complex'
+
+    -- Status
+    status TEXT DEFAULT 'identified',  -- 'identified', 'analyzing', 'fix_planned', 'fix_implemented', 'verified'
+
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_gap_pattern_status ON gap_pattern(status);
+CREATE INDEX IF NOT EXISTS idx_gap_pattern_complexity ON gap_pattern(fix_complexity);
+
 -- Schema version tracking
 CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER PRIMARY KEY,
     applied_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-INSERT OR IGNORE INTO schema_version (version) VALUES (2);
+INSERT OR IGNORE INTO schema_version (version) VALUES (3);
 """
 
 
@@ -453,6 +684,16 @@ class CensusExtractionRepository:
                 (census_year, state, county, ed, sheet_or_page, sheet_or_page, sheet_or_page),
             ).fetchone()
 
+            if row:
+                return self._row_to_page(row)
+            return None
+
+    def get_page(self, page_id: int) -> CensusPage | None:
+        """Get a census page by ID."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM census_page WHERE page_id = ?", (page_id,)
+            ).fetchone()
             if row:
                 return self._row_to_page(row)
             return None
@@ -1084,6 +1325,622 @@ class CensusExtractionRepository:
             ).fetchone()[0]
 
             return stats
+
+    # -------------------------------------------------------------------------
+    # Match Attempt Operations
+    # -------------------------------------------------------------------------
+
+    def insert_match_attempt(self, attempt: MatchAttempt) -> int:
+        """Insert a match attempt record (successful or failed)."""
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO match_attempt (
+                    batch_id, page_id, source_id,
+                    fs_full_name, fs_given_name, fs_surname, fs_ark,
+                    fs_line_number, fs_relationship, fs_age, fs_birthplace,
+                    fs_household_head_name,
+                    match_status, matched_rm_person_id, matched_census_person_id,
+                    skip_reason, best_candidate_rm_id, best_candidate_name,
+                    best_candidate_score, best_match_method, candidates_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    attempt.batch_id,
+                    attempt.page_id,
+                    attempt.source_id,
+                    attempt.fs_full_name,
+                    attempt.fs_given_name,
+                    attempt.fs_surname,
+                    attempt.fs_ark,
+                    attempt.fs_line_number,
+                    attempt.fs_relationship,
+                    attempt.fs_age,
+                    attempt.fs_birthplace,
+                    attempt.fs_household_head_name,
+                    attempt.match_status,
+                    attempt.matched_rm_person_id,
+                    attempt.matched_census_person_id,
+                    attempt.skip_reason,
+                    attempt.best_candidate_rm_id,
+                    attempt.best_candidate_name,
+                    attempt.best_candidate_score,
+                    attempt.best_match_method,
+                    attempt.candidates_json,
+                ),
+            )
+            return cursor.lastrowid
+
+    def get_match_attempts_by_status(
+        self, status: str, batch_id: int | None = None, limit: int = 100
+    ) -> list[MatchAttempt]:
+        """Get match attempts filtered by status."""
+        with self._connect() as conn:
+            if batch_id:
+                rows = conn.execute(
+                    """SELECT * FROM match_attempt
+                       WHERE match_status = ? AND batch_id = ?
+                       ORDER BY attempted_at DESC LIMIT ?""",
+                    (status, batch_id, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """SELECT * FROM match_attempt
+                       WHERE match_status = ?
+                       ORDER BY attempted_at DESC LIMIT ?""",
+                    (status, limit),
+                ).fetchall()
+            return [self._row_to_match_attempt(row) for row in rows]
+
+    def get_match_attempts_by_skip_reason(
+        self, skip_reason: str, limit: int = 100
+    ) -> list[MatchAttempt]:
+        """Get failed match attempts by skip reason."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT * FROM match_attempt
+                   WHERE skip_reason = ?
+                   ORDER BY attempted_at DESC LIMIT ?""",
+                (skip_reason, limit),
+            ).fetchall()
+            return [self._row_to_match_attempt(row) for row in rows]
+
+    def get_match_attempt_stats(self, batch_id: int | None = None) -> dict[str, Any]:
+        """Get statistics about match attempts."""
+        with self._connect() as conn:
+            batch_filter = "WHERE batch_id = ?" if batch_id else ""
+            params = (batch_id,) if batch_id else ()
+
+            stats = {}
+
+            # Status counts
+            status_rows = conn.execute(
+                f"""SELECT match_status, COUNT(*) as count
+                    FROM match_attempt {batch_filter}
+                    GROUP BY match_status""",
+                params,
+            ).fetchall()
+            stats["by_status"] = {row["match_status"]: row["count"] for row in status_rows}
+
+            # Skip reason counts
+            reason_rows = conn.execute(
+                f"""SELECT skip_reason, COUNT(*) as count
+                    FROM match_attempt
+                    WHERE match_status = 'skipped' {' AND batch_id = ?' if batch_id else ''}
+                    GROUP BY skip_reason
+                    ORDER BY count DESC""",
+                params if batch_id else (),
+            ).fetchall()
+            stats["by_skip_reason"] = {row["skip_reason"]: row["count"] for row in reason_rows}
+
+            # Match rate
+            total = sum(stats["by_status"].values())
+            matched = stats["by_status"].get("matched", 0)
+            stats["total_attempts"] = total
+            stats["match_rate"] = matched / total if total > 0 else 0.0
+
+            return stats
+
+    def _row_to_match_attempt(self, row: sqlite3.Row) -> MatchAttempt:
+        """Convert database row to MatchAttempt dataclass."""
+        return MatchAttempt(
+            attempt_id=row["attempt_id"],
+            batch_id=row["batch_id"],
+            page_id=row["page_id"],
+            source_id=row["source_id"],
+            fs_full_name=row["fs_full_name"],
+            fs_given_name=row["fs_given_name"],
+            fs_surname=row["fs_surname"],
+            fs_ark=row["fs_ark"],
+            fs_line_number=row["fs_line_number"],
+            fs_relationship=row["fs_relationship"],
+            fs_age=row["fs_age"],
+            fs_birthplace=row["fs_birthplace"],
+            fs_household_head_name=row["fs_household_head_name"],
+            match_status=row["match_status"],
+            matched_rm_person_id=row["matched_rm_person_id"],
+            matched_census_person_id=row["matched_census_person_id"],
+            skip_reason=row["skip_reason"],
+            best_candidate_rm_id=row["best_candidate_rm_id"],
+            best_candidate_name=row["best_candidate_name"],
+            best_candidate_score=row["best_candidate_score"],
+            best_match_method=row["best_match_method"],
+            candidates_json=row["candidates_json"],
+        )
+
+    # -------------------------------------------------------------------------
+    # Extraction Gap Operations
+    # -------------------------------------------------------------------------
+
+    def insert_extraction_gap(self, gap: ExtractionGap) -> int:
+        """Insert an extraction gap record."""
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO extraction_gap (
+                    batch_id, source_id, gap_type, gap_category, severity,
+                    expected_rm_person_id, expected_rm_name,
+                    expected_field_name, expected_field_value,
+                    actual_fs_name, actual_fs_ark, actual_census_person_id, actual_field_value,
+                    root_cause, root_cause_pattern, fs_data_verified, fs_data_exists,
+                    resolution_status, resolution_notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    gap.batch_id,
+                    gap.source_id,
+                    gap.gap_type,
+                    gap.gap_category,
+                    gap.severity,
+                    gap.expected_rm_person_id,
+                    gap.expected_rm_name,
+                    gap.expected_field_name,
+                    gap.expected_field_value,
+                    gap.actual_fs_name,
+                    gap.actual_fs_ark,
+                    gap.actual_census_person_id,
+                    gap.actual_field_value,
+                    gap.root_cause,
+                    gap.root_cause_pattern,
+                    1 if gap.fs_data_verified else 0,
+                    1 if gap.fs_data_exists else (0 if gap.fs_data_exists is False else None),
+                    gap.resolution_status,
+                    gap.resolution_notes,
+                ),
+            )
+            return cursor.lastrowid
+
+    def get_extraction_gaps(
+        self,
+        gap_type: str | None = None,
+        resolution_status: str | None = None,
+        batch_id: int | None = None,
+        limit: int = 100,
+    ) -> list[ExtractionGap]:
+        """Get extraction gaps with optional filters."""
+        conditions = []
+        params = []
+
+        if gap_type:
+            conditions.append("gap_type = ?")
+            params.append(gap_type)
+        if resolution_status:
+            conditions.append("resolution_status = ?")
+            params.append(resolution_status)
+        if batch_id:
+            conditions.append("batch_id = ?")
+            params.append(batch_id)
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        params.append(limit)
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""SELECT * FROM extraction_gap
+                    WHERE {where_clause}
+                    ORDER BY severity DESC, detected_at DESC
+                    LIMIT ?""",
+                params,
+            ).fetchall()
+            return [self._row_to_extraction_gap(row) for row in rows]
+
+    def update_extraction_gap(
+        self,
+        gap_id: int,
+        root_cause: str | None = None,
+        root_cause_pattern: str | None = None,
+        fs_data_verified: bool | None = None,
+        fs_data_exists: bool | None = None,
+        resolution_status: str | None = None,
+        resolution_notes: str | None = None,
+    ) -> None:
+        """Update extraction gap analysis fields."""
+        updates = []
+        params = []
+
+        if root_cause is not None:
+            updates.append("root_cause = ?")
+            params.append(root_cause)
+        if root_cause_pattern is not None:
+            updates.append("root_cause_pattern = ?")
+            params.append(root_cause_pattern)
+        if fs_data_verified is not None:
+            updates.append("fs_data_verified = ?")
+            params.append(1 if fs_data_verified else 0)
+        if fs_data_exists is not None:
+            updates.append("fs_data_exists = ?")
+            params.append(1 if fs_data_exists else 0)
+        if resolution_status is not None:
+            updates.append("resolution_status = ?")
+            params.append(resolution_status)
+            if resolution_status == "resolved":
+                updates.append("resolved_at = datetime('now')")
+        if resolution_notes is not None:
+            updates.append("resolution_notes = ?")
+            params.append(resolution_notes)
+
+        if not updates:
+            return
+
+        updates.append("updated_at = datetime('now')")
+        params.append(gap_id)
+
+        with self._connect() as conn:
+            conn.execute(
+                f"UPDATE extraction_gap SET {', '.join(updates)} WHERE gap_id = ?",
+                params,
+            )
+
+    def get_gap_summary_by_category(self, batch_id: int | None = None) -> list[dict[str, Any]]:
+        """Get gap counts grouped by category for prioritization."""
+        with self._connect() as conn:
+            batch_filter = "WHERE batch_id = ?" if batch_id else ""
+            params = (batch_id,) if batch_id else ()
+
+            rows = conn.execute(
+                f"""SELECT
+                        gap_category,
+                        gap_type,
+                        COUNT(*) as count,
+                        COUNT(DISTINCT source_id) as affected_sources,
+                        SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high_severity,
+                        SUM(CASE WHEN resolution_status = 'open' THEN 1 ELSE 0 END) as open_count
+                    FROM extraction_gap
+                    {batch_filter}
+                    GROUP BY gap_category, gap_type
+                    ORDER BY count DESC""",
+                params,
+            ).fetchall()
+
+            return [
+                {
+                    "gap_category": row["gap_category"],
+                    "gap_type": row["gap_type"],
+                    "count": row["count"],
+                    "affected_sources": row["affected_sources"],
+                    "high_severity": row["high_severity"],
+                    "open_count": row["open_count"],
+                    "priority_score": row["count"] * (2 if row["high_severity"] > 0 else 1),
+                }
+                for row in rows
+            ]
+
+    def _row_to_extraction_gap(self, row: sqlite3.Row) -> ExtractionGap:
+        """Convert database row to ExtractionGap dataclass."""
+        return ExtractionGap(
+            gap_id=row["gap_id"],
+            batch_id=row["batch_id"],
+            source_id=row["source_id"],
+            gap_type=row["gap_type"],
+            gap_category=row["gap_category"],
+            severity=row["severity"],
+            expected_rm_person_id=row["expected_rm_person_id"],
+            expected_rm_name=row["expected_rm_name"],
+            expected_field_name=row["expected_field_name"],
+            expected_field_value=row["expected_field_value"],
+            actual_fs_name=row["actual_fs_name"],
+            actual_fs_ark=row["actual_fs_ark"],
+            actual_census_person_id=row["actual_census_person_id"],
+            actual_field_value=row["actual_field_value"],
+            root_cause=row["root_cause"],
+            root_cause_pattern=row["root_cause_pattern"],
+            fs_data_verified=bool(row["fs_data_verified"]),
+            fs_data_exists=None if row["fs_data_exists"] is None else bool(row["fs_data_exists"]),
+            resolution_status=row["resolution_status"],
+            resolution_notes=row["resolution_notes"],
+            resolved_at=datetime.fromisoformat(row["resolved_at"]) if row["resolved_at"] else None,
+        )
+
+    # -------------------------------------------------------------------------
+    # Gap Pattern Operations
+    # -------------------------------------------------------------------------
+
+    def upsert_gap_pattern(self, pattern: GapPattern) -> int:
+        """Insert or update a gap pattern."""
+        with self._connect() as conn:
+            # Try to find existing pattern
+            existing = conn.execute(
+                "SELECT pattern_id FROM gap_pattern WHERE pattern_name = ?",
+                (pattern.pattern_name,),
+            ).fetchone()
+
+            if existing:
+                conn.execute(
+                    """UPDATE gap_pattern SET
+                        pattern_description = ?,
+                        match_criteria_json = ?,
+                        affected_count = ?,
+                        affected_sources = ?,
+                        affected_batches = ?,
+                        suggested_fix = ?,
+                        fix_complexity = ?,
+                        status = ?,
+                        updated_at = datetime('now')
+                    WHERE pattern_id = ?""",
+                    (
+                        pattern.pattern_description,
+                        pattern.match_criteria_json,
+                        pattern.affected_count,
+                        pattern.affected_sources,
+                        pattern.affected_batches,
+                        pattern.suggested_fix,
+                        pattern.fix_complexity,
+                        pattern.status,
+                        existing["pattern_id"],
+                    ),
+                )
+                return existing["pattern_id"]
+            else:
+                cursor = conn.execute(
+                    """INSERT INTO gap_pattern (
+                        pattern_name, pattern_description, match_criteria_json,
+                        affected_count, affected_sources, affected_batches,
+                        suggested_fix, fix_complexity, status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        pattern.pattern_name,
+                        pattern.pattern_description,
+                        pattern.match_criteria_json,
+                        pattern.affected_count,
+                        pattern.affected_sources,
+                        pattern.affected_batches,
+                        pattern.suggested_fix,
+                        pattern.fix_complexity,
+                        pattern.status,
+                    ),
+                )
+                return cursor.lastrowid
+
+    def get_gap_patterns_prioritized(self, status: str | None = None) -> list[GapPattern]:
+        """Get gap patterns ordered by impact (affected_count * severity factor)."""
+        with self._connect() as conn:
+            status_filter = "WHERE status = ?" if status else ""
+            params = (status,) if status else ()
+
+            rows = conn.execute(
+                f"""SELECT * FROM gap_pattern
+                    {status_filter}
+                    ORDER BY affected_count DESC, affected_sources DESC""",
+                params,
+            ).fetchall()
+
+            return [
+                GapPattern(
+                    pattern_id=row["pattern_id"],
+                    pattern_name=row["pattern_name"],
+                    pattern_description=row["pattern_description"],
+                    match_criteria_json=row["match_criteria_json"],
+                    affected_count=row["affected_count"],
+                    affected_sources=row["affected_sources"],
+                    affected_batches=row["affected_batches"],
+                    suggested_fix=row["suggested_fix"],
+                    fix_complexity=row["fix_complexity"],
+                    status=row["status"],
+                )
+                for row in rows
+            ]
+
+
+    # -------------------------------------------------------------------------
+    # Validation Queue Operations
+    # -------------------------------------------------------------------------
+
+    def get_validation_queue(
+        self,
+        include_skipped: bool = True,
+        include_low_confidence: bool = True,
+        confidence_threshold: float = 0.80,
+        limit: int = 500,
+    ) -> list[MatchAttempt]:
+        """Get match attempts needing manual validation.
+
+        Returns skipped matches and low-confidence matches (below threshold)
+        ordered by priority (skipped first, then by score ascending).
+
+        Args:
+            include_skipped: Include records with match_status='skipped'
+            include_low_confidence: Include matched records below confidence threshold
+            confidence_threshold: Score below which matched records need review (default 0.80)
+            limit: Maximum records to return
+
+        Returns:
+            List of MatchAttempt records needing validation
+        """
+        conditions = []
+        if include_skipped:
+            conditions.append("match_status = 'skipped'")
+        if include_low_confidence:
+            conditions.append(
+                f"(match_status = 'matched' AND best_candidate_score < {confidence_threshold})"
+            )
+
+        if not conditions:
+            return []
+
+        where_clause = " OR ".join(conditions)
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""SELECT * FROM match_attempt
+                    WHERE ({where_clause})
+                    ORDER BY
+                        CASE WHEN match_status = 'skipped' THEN 0 ELSE 1 END,
+                        best_candidate_score ASC
+                    LIMIT ?""",
+                (limit,),
+            ).fetchall()
+            return [self._row_to_match_attempt(row) for row in rows]
+
+    def get_validation_stats(self, confidence_threshold: float = 0.80) -> dict[str, Any]:
+        """Get statistics for validation queue.
+
+        Returns counts of:
+        - skipped: Records that couldn't be matched
+        - low_confidence: Matched records below threshold
+        - validated: Records that have been manually validated
+        - total_queue: Total records needing validation
+        """
+        with self._connect() as conn:
+            # Skipped count
+            skipped = conn.execute(
+                "SELECT COUNT(*) as count FROM match_attempt WHERE match_status = 'skipped'"
+            ).fetchone()["count"]
+
+            # Low confidence count (matched but below threshold)
+            low_conf = conn.execute(
+                """SELECT COUNT(*) as count FROM match_attempt
+                   WHERE match_status = 'matched' AND best_candidate_score < ?""",
+                (confidence_threshold,),
+            ).fetchone()["count"]
+
+            # Validated count (manually confirmed)
+            validated = conn.execute(
+                "SELECT COUNT(*) as count FROM match_attempt WHERE match_status = 'validated'"
+            ).fetchone()["count"]
+
+            # Rejected count
+            rejected = conn.execute(
+                "SELECT COUNT(*) as count FROM match_attempt WHERE match_status = 'rejected'"
+            ).fetchone()["count"]
+
+            return {
+                "skipped": skipped,
+                "low_confidence": low_conf,
+                "validated": validated,
+                "rejected": rejected,
+                "total_queue": skipped + low_conf,
+            }
+
+    def update_match_attempt_validation(
+        self,
+        attempt_id: int,
+        new_status: str,
+        confirmed_rm_person_id: int | None = None,
+        validation_note: str = "",
+    ) -> None:
+        """Update a match attempt after manual validation.
+
+        Args:
+            attempt_id: The match attempt to update
+            new_status: 'validated', 'rejected', or 'review_needed'
+            confirmed_rm_person_id: The RIN if confirming a match
+            validation_note: Optional note about the decision
+        """
+        with self._connect() as conn:
+            if confirmed_rm_person_id:
+                conn.execute(
+                    """UPDATE match_attempt SET
+                        match_status = ?,
+                        matched_rm_person_id = ?,
+                        skip_reason = ?
+                    WHERE attempt_id = ?""",
+                    (new_status, confirmed_rm_person_id, validation_note, attempt_id),
+                )
+            else:
+                conn.execute(
+                    """UPDATE match_attempt SET
+                        match_status = ?,
+                        skip_reason = ?
+                    WHERE attempt_id = ?""",
+                    (new_status, validation_note, attempt_id),
+                )
+
+    def get_match_attempt_by_id(self, attempt_id: int) -> MatchAttempt | None:
+        """Get a single match attempt by ID."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM match_attempt WHERE attempt_id = ?", (attempt_id,)
+            ).fetchone()
+            if row:
+                return self._row_to_match_attempt(row)
+            return None
+
+    def get_household_by_head_name(
+        self, page_id: int, household_head_name: str
+    ) -> list[CensusPerson]:
+        """Get all census persons in a household by head name.
+
+        Args:
+            page_id: The census page ID
+            household_head_name: Name of the household head from FamilySearch
+
+        Returns:
+            List of CensusPerson records in the same household
+        """
+        with self._connect() as conn:
+            # First try to find household_id by head name
+            head_row = conn.execute(
+                """SELECT household_id FROM census_person
+                   WHERE page_id = ?
+                   AND (relationship_to_head = 'Head' OR relationship_to_head = 'Self')
+                   AND full_name LIKE ?
+                   LIMIT 1""",
+                (page_id, f"%{household_head_name.split()[-1]}%"),  # Match by surname
+            ).fetchone()
+
+            if head_row and head_row["household_id"]:
+                # Get all persons with same household_id
+                rows = conn.execute(
+                    """SELECT * FROM census_person
+                       WHERE page_id = ? AND household_id = ?
+                       ORDER BY line_number""",
+                    (page_id, head_row["household_id"]),
+                ).fetchall()
+            else:
+                # Fall back to getting persons near the head's line number
+                rows = conn.execute(
+                    """SELECT * FROM census_person
+                       WHERE page_id = ?
+                       ORDER BY line_number""",
+                    (page_id,),
+                ).fetchall()
+
+            return [self._row_to_person(row) for row in rows]
+
+    def get_validated_needing_extraction(self) -> list[MatchAttempt]:
+        """Get validated match attempts that need data extraction.
+
+        Returns match attempts that have been validated but don't have
+        census_person records created yet (matched_census_person_id is NULL).
+        """
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT * FROM match_attempt
+                   WHERE match_status = 'validated'
+                   AND matched_census_person_id IS NULL
+                   ORDER BY attempted_at"""
+            ).fetchall()
+            return [self._row_to_match_attempt(row) for row in rows]
+
+    def get_validated_count(self) -> int:
+        """Get count of validated matches needing extraction."""
+        with self._connect() as conn:
+            row = conn.execute(
+                """SELECT COUNT(*) as count FROM match_attempt
+                   WHERE match_status = 'validated'
+                   AND matched_census_person_id IS NULL"""
+            ).fetchone()
+            return row["count"] if row else 0
 
 
 # =============================================================================
