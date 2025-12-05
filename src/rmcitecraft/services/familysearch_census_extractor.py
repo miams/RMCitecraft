@@ -1261,36 +1261,35 @@ class FamilySearchCensusExtractor:
             else:
                 logger.warning("Could not navigate to detail view, using person page data only")
 
-        # Step 1.5: Check if detail panel is already open, if not click to open it
-        # The detail panel contains div[data-dense] elements with "Label: Value" data
-        # If panel is already open (from manual click or previous navigation), skip clicking
-        #
-        # Key insight: If URL contains personArk=, the page should auto-select that person
-        # and the detail panel should open automatically after a short wait
+        # Step 1.5: Check if detail panel is already open
+        # Key insight: If URL contains personArk=, the page will auto-open that person's panel
+        # We should NEVER click in this case - clicking risks selecting the wrong person
+        # We already have good data from the person page table extraction
         has_person_ark = "personArk=" in page.url
 
-        # Wait a bit longer if personArk is in URL, as the page may be loading the person
-        if has_person_ark:
-            await page.wait_for_timeout(500)
-
         dense_check = page.locator("div[data-dense]")
-        dense_count = await dense_check.count()
-        if dense_count > 5:  # Panel is already open with data
-            logger.info(f"Detail panel already open with {dense_count} data fields")
-        elif has_person_ark and dense_count > 0:
-            # PersonArk in URL but not many dense elements - wait a bit more
-            logger.debug(f"PersonArk in URL, waiting for panel to populate (found {dense_count} dense elements)")
-            await page.wait_for_timeout(1000)
+
+        if has_person_ark:
+            # URL has personArk - wait for panel to load, but NEVER click
+            # The panel will load eventually, and we already have person page data
+            logger.info("URL contains personArk - waiting for panel to auto-load (no clicking)")
+            for _ in range(5):  # Wait up to 2.5 seconds
+                await page.wait_for_timeout(500)
+                dense_count = await dense_check.count()
+                if dense_count > 5:
+                    logger.info(f"Detail panel loaded with {dense_count} data fields")
+                    break
+            else:
+                dense_count = await dense_check.count()
+                logger.info(f"Panel has {dense_count} fields after waiting - proceeding without clicking")
+        else:
+            # No personArk in URL - need to click to open panel
             dense_count = await dense_check.count()
             if dense_count > 5:
-                logger.info(f"Detail panel now open with {dense_count} data fields")
+                logger.info(f"Detail panel already open with {dense_count} data fields")
             else:
-                logger.debug("Panel still not fully populated, clicking to open...")
+                logger.info("Detail panel not open, clicking person row...")
                 await self._click_selected_person(page, target_ark)
-        else:
-            # Need to click a person row to open the detail panel
-            logger.info("Detail panel not open, clicking person row...")
-            await self._click_selected_person(page, target_ark)
 
         # Step 2: Wait for content to load
         await page.wait_for_load_state("domcontentloaded")
