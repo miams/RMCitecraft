@@ -166,13 +166,14 @@ class CensusTranscriptionBatchService:
 
             logger.debug(f"Found {len(source_rows)} census sources in RootsMagic")
 
-            # Query 2: Get person names for all sources in one query
-            # Group by SourceID, take first match
+            # Query 2: Get person names and RINs for all sources in one query
+            # Group by SourceID, take first match (the primary target person)
             person_query = """
                 SELECT
                     c.SourceID,
                     TRIM(COALESCE(n.Given, '') || ' ' || COALESCE(n.Surname, '')) as person_name,
-                    n.Surname
+                    n.Surname,
+                    n.OwnerID as person_id
                 FROM CitationTable c
                 JOIN CitationLinkTable cl ON c.CitationID = cl.CitationID
                 JOIN EventTable e ON cl.OwnerID = e.EventID AND cl.OwnerType = 2
@@ -183,17 +184,18 @@ class CensusTranscriptionBatchService:
             person_rows = cursor.fetchall()
             conn.close()
 
-            # Build lookup dict for person names
-            person_lookup: dict[int, tuple[str, str]] = {}
+            # Build lookup dict for person names and RINs
+            # Key: SourceID, Value: (person_name, surname, person_id/RIN)
+            person_lookup: dict[int, tuple[str, str, int | None]] = {}
             for prow in person_rows:
-                person_lookup[prow[0]] = (prow[1] or "", prow[2] or "")
+                person_lookup[prow[0]] = (prow[1] or "", prow[2] or "", prow[3])
 
             # Combine into rows format
             rows = []
             for srow in source_rows:
                 source_id = srow[0]
-                pname, surname = person_lookup.get(source_id, ("", ""))
-                rows.append((source_id, srow[1], srow[2], pname, surname))
+                pname, surname, person_id = person_lookup.get(source_id, ("", "", None))
+                rows.append((source_id, srow[1], srow[2], pname, surname, person_id))
 
             # Pre-load all processed ARKs from census.db into a set for O(1) lookup
             from rmcitecraft.database.census_extraction_db import get_census_repository
@@ -216,6 +218,7 @@ class CensusTranscriptionBatchService:
                 source_fields = row[2]
                 person_name = row[3] or source_name
                 surname = row[4] or ""
+                person_id = row[5]  # RIN from RootsMagic (primary target)
 
                 # Extract year, state, county from source name
                 name_match = re.match(
@@ -264,7 +267,7 @@ class CensusTranscriptionBatchService:
                 queue.append(
                     QueueItem(
                         rmtree_citation_id=source_id,
-                        rmtree_person_id=None,
+                        rmtree_person_id=person_id,  # RIN from RootsMagic for primary target
                         person_name=person_name,
                         census_year=year,
                         state=state,
