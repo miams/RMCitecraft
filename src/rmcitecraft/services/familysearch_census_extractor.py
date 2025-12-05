@@ -22,7 +22,7 @@ Usage:
 import re
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
 from loguru import logger
 from playwright.async_api import Page
@@ -133,14 +133,299 @@ def normalize_name(name: str) -> str:
     return normalized
 
 
-def names_match_fuzzy(name1: str, name2: str, threshold: float = 0.8) -> bool:
+# Common nicknames and their formal equivalents
+# Maps nickname -> list of possible formal names
+NICKNAME_MAP: dict[str, list[str]] = {
+    # Male names
+    "mel": ["melbourne", "melvin", "melville"],
+    "chas": ["charles"],
+    "charlie": ["charles"],
+    "chuck": ["charles"],
+    "larry": ["lawrence", "laurence"],
+    "les": ["leslie", "lester"],
+    "will": ["william", "willard"],
+    "bill": ["william"],
+    "billy": ["william"],
+    "bob": ["robert"],
+    "bobby": ["robert"],
+    "rob": ["robert"],
+    "dick": ["richard"],
+    "rick": ["richard", "frederick"],
+    "jim": ["james"],
+    "jimmy": ["james"],
+    "jack": ["john", "jackson"],
+    "joe": ["joseph"],
+    "joey": ["joseph"],
+    "mike": ["michael"],
+    "al": ["albert", "alfred", "alan", "allen"],
+    "ed": ["edward", "edgar", "edwin"],
+    "eddie": ["edward"],
+    "ted": ["theodore", "edward"],
+    "teddy": ["theodore"],
+    "tom": ["thomas"],
+    "tommy": ["thomas"],
+    "tony": ["anthony"],
+    "dan": ["daniel"],
+    "danny": ["daniel"],
+    "dave": ["david"],
+    "ben": ["benjamin"],
+    "benny": ["benjamin"],
+    "sam": ["samuel"],
+    "sammy": ["samuel"],
+    "ray": ["raymond"],
+    "fred": ["frederick", "alfred"],
+    "frankie": ["francis", "franklin"],
+    "frank": ["francis", "franklin"],
+    "hank": ["henry"],
+    "harry": ["harold", "henry", "harrison"],
+    "hal": ["harold", "henry"],
+    "herb": ["herbert"],
+    "gus": ["gustave", "augustus"],
+    "leo": ["leonard", "leopold"],
+    "lew": ["lewis", "louis"],
+    "lou": ["louis", "lewis"],
+    "nate": ["nathan", "nathaniel"],
+    "nat": ["nathan", "nathaniel"],
+    "nick": ["nicholas"],
+    "pat": ["patrick", "patricia"],
+    "pete": ["peter"],
+    "phil": ["philip", "phillip"],
+    "ron": ["ronald"],
+    "ronnie": ["ronald"],
+    "roy": ["leroy"],
+    "russ": ["russell"],
+    "steve": ["steven", "stephen"],
+    "walt": ["walter"],
+    "wes": ["wesley"],
+    # Female names
+    "liz": ["elizabeth"],
+    "lizzie": ["elizabeth"],
+    "beth": ["elizabeth", "bethany"],
+    "betty": ["elizabeth"],
+    "bess": ["elizabeth"],
+    "kate": ["katherine", "catherine"],
+    "katie": ["katherine", "catherine"],
+    "kathy": ["katherine", "catherine", "kathleen"],
+    "meg": ["margaret"],
+    "maggie": ["margaret"],
+    "madge": ["margaret"],
+    "peg": ["margaret"],
+    "peggy": ["margaret"],
+    "sue": ["susan", "suzanne"],
+    "susie": ["susan", "suzanne"],
+    "sally": ["sarah"],
+    "sadie": ["sarah"],
+    "jenny": ["jennifer", "jane"],
+    "jen": ["jennifer"],
+    "dot": ["dorothy"],
+    "dottie": ["dorothy"],
+    "dolly": ["dorothy"],
+    "fanny": ["frances"],
+    "frannie": ["frances"],
+    "ginny": ["virginia"],
+    "ginger": ["virginia"],
+    "helen": ["helena", "ellen"],
+    "nell": ["helen", "eleanor", "ellen"],
+    "nellie": ["helen", "eleanor", "ellen"],
+    "jo": ["josephine", "joanna", "joan"],
+    "josie": ["josephine"],
+    "polly": ["mary"],
+    "molly": ["mary"],
+    "mae": ["mary"],
+    "mamie": ["mary"],
+    "minnie": ["wilhelmina", "minerva"],
+    "nan": ["nancy", "ann"],
+    "patsy": ["patricia", "martha"],
+    "patty": ["patricia"],
+    "tina": ["christina", "christine"],
+    "chris": ["christina", "christine", "christopher"],
+}
+
+# Build reverse map: formal name -> list of nicknames
+FORMAL_TO_NICKNAMES: dict[str, list[str]] = {}
+for nick, formals in NICKNAME_MAP.items():
+    for formal in formals:
+        if formal not in FORMAL_TO_NICKNAMES:
+            FORMAL_TO_NICKNAMES[formal] = []
+        FORMAL_TO_NICKNAMES[formal].append(nick)
+
+
+def get_name_variations(name: str) -> set[str]:
+    """Get all variations of a name (nicknames and formal versions)."""
+    name_lower = name.lower()
+    variations = {name_lower}
+
+    # Add nicknames if this is a formal name
+    if name_lower in FORMAL_TO_NICKNAMES:
+        variations.update(FORMAL_TO_NICKNAMES[name_lower])
+
+    # Add formal names if this is a nickname
+    if name_lower in NICKNAME_MAP:
+        variations.update(NICKNAME_MAP[name_lower])
+
+    return variations
+
+
+def names_match_score(name1: str, name2: str) -> tuple[float, str]:
+    """Calculate a match score between two names.
+
+    Returns:
+        Tuple of (score 0.0-1.0, match_reason)
+        Higher scores indicate better matches.
+    """
+    if not name1 or not name2:
+        return 0.0, "empty"
+
+    n1 = normalize_name(name1)
+    n2 = normalize_name(name2)
+
+    # Exact match
+    if n1 == n2:
+        return 1.0, "exact"
+
+    tokens1 = n1.split()
+    tokens2 = n2.split()
+
+    if not tokens1 or not tokens2:
+        return 0.0, "no_tokens"
+
+    # Extract surname (last token) and given names
+    surname1 = tokens1[-1]
+    surname2 = tokens2[-1]
+    given1 = tokens1[:-1] if len(tokens1) > 1 else []
+    given2 = tokens2[:-1] if len(tokens2) > 1 else []
+
+    # Surname must match (or be very similar)
+    if surname1 != surname2:
+        # Allow minor spelling variations in surname
+        if len(surname1) > 3 and len(surname2) > 3:
+            if surname1[:3] == surname2[:3] or surname1[-3:] == surname2[-3:]:
+                pass  # Close enough
+            else:
+                return 0.0, "surname_mismatch"
+        else:
+            return 0.0, "surname_mismatch"
+
+    # Surname only match
+    if not given1 or not given2:
+        return 0.5, "surname_only"
+
+    # Get first given name
+    first1 = given1[0]
+    first2 = given2[0]
+
+    # Get variations for both first names
+    vars1 = get_name_variations(first1)
+    vars2 = get_name_variations(first2)
+
+    # Check for exact first name match
+    if first1 == first2:
+        # Count matching middle names/initials
+        middle_matches = 0
+        for g1 in given1[1:]:
+            for g2 in given2[1:]:
+                if g1 == g2 or (len(g1) == 1 and g2.startswith(g1)) or (len(g2) == 1 and g1.startswith(g2)):
+                    middle_matches += 1
+                    break
+        return 0.95 + (0.05 * min(middle_matches, 1)), "first_name_exact"
+
+    # Check for initial match (first letter)
+    if len(first1) == 1 and first2.startswith(first1):
+        return 0.85, "initial_match"
+    if len(first2) == 1 and first1.startswith(first2):
+        return 0.85, "initial_match"
+
+    # Check for nickname/formal name match
+    if vars1 & vars2:  # Sets have common elements
+        return 0.80, "nickname_match"
+
+    # Check for prefix match (Mel matches Melbourne)
+    if first1.startswith(first2) or first2.startswith(first1):
+        min_len = min(len(first1), len(first2))
+        if min_len >= 3:  # At least 3 chars must match
+            return 0.75, "prefix_match"
+
+    # No good first name match
+    return 0.3, "surname_match_only"
+
+
+@dataclass
+class MatchCandidate:
+    """A potential match between a census person and an RM person."""
+    rm_person: Any  # RMPersonData
+    score: float
+    match_reason: str
+    factors: dict[str, Any]  # Additional matching factors
+
+
+def find_match_candidates(
+    census_name: str,
+    census_age: int | None,
+    census_sex: str | None,
+    census_relationship: str | None,
+    rm_persons: list[Any],
+) -> list[MatchCandidate]:
+    """Find all potential RM matches for a census person, ranked by score.
+
+    Uses multiple factors:
+    - Name similarity (primary)
+    - Age match (if available)
+    - Sex match
+    - Relationship to head
+
+    Returns:
+        List of MatchCandidate sorted by score (highest first)
+    """
+    candidates = []
+
+    for rm_person in rm_persons:
+        rm_name = getattr(rm_person, 'full_name', '')
+        rm_sex = getattr(rm_person, 'sex', None)
+
+        # Calculate name score
+        name_score, match_reason = names_match_score(census_name, rm_name)
+
+        # Skip if no surname match at all
+        if name_score < 0.3:
+            continue
+
+        factors = {"name_score": name_score, "name_reason": match_reason}
+        total_score = name_score
+
+        # Factor in sex match (if both known)
+        if census_sex and rm_sex:
+            census_sex_norm = census_sex[0].upper() if census_sex else None
+            rm_sex_norm = rm_sex[0].upper() if rm_sex else None
+            if census_sex_norm == rm_sex_norm:
+                total_score += 0.05  # Small boost for sex match
+                factors["sex_match"] = True
+            else:
+                total_score -= 0.1  # Penalty for sex mismatch
+                factors["sex_match"] = False
+
+        # Cap at 1.0
+        total_score = min(1.0, total_score)
+
+        candidates.append(MatchCandidate(
+            rm_person=rm_person,
+            score=total_score,
+            match_reason=match_reason,
+            factors=factors,
+        ))
+
+    # Sort by score (highest first)
+    candidates.sort(key=lambda c: c.score, reverse=True)
+    return candidates
+
+
+def names_match_fuzzy(name1: str, name2: str, threshold: float = 0.75) -> bool:
     """Check if two names match using fuzzy comparison.
 
-    Uses a combination of techniques:
-    1. Exact match after normalization
-    2. One name contains the other (handles middle names)
-    3. Token-based similarity (handles name order differences)
-    4. Initial matching (L matches Larry, W matches Wayne)
+    Uses the names_match_score function which supports:
+    - Exact match
+    - Initial matching (L matches Larry)
+    - Nickname matching (Mel matches Melbourne, Chas matches Charles)
+    - Prefix matching (Mel is prefix of Melbourne)
 
     Args:
         name1: First name to compare
@@ -150,72 +435,8 @@ def names_match_fuzzy(name1: str, name2: str, threshold: float = 0.8) -> bool:
     Returns:
         True if names are considered a match
     """
-    if not name1 or not name2:
-        return False
-
-    n1 = normalize_name(name1)
-    n2 = normalize_name(name2)
-
-    # Exact match after normalization
-    if n1 == n2:
-        return True
-
-    # One contains the other (handles "Larry W Ijams" vs "Larry Ijams")
-    if n1 in n2 or n2 in n1:
-        return True
-
-    # Token-based comparison
-    tokens1 = list(n1.split())
-    tokens2 = list(n2.split())
-
-    if not tokens1 or not tokens2:
-        return False
-
-    # Assume last token is surname for both
-    surname1 = tokens1[-1] if tokens1 else ""
-    surname2 = tokens2[-1] if tokens2 else ""
-
-    # Surnames must match for a positive match
-    if surname1 != surname2:
-        return False
-
-    # Get given name tokens (everything except surname)
-    given1 = tokens1[:-1] if len(tokens1) > 1 else []
-    given2 = tokens2[:-1] if len(tokens2) > 1 else []
-
-    # If either has no given names, match on surname alone
-    if not given1 or not given2:
-        return True
-
-    # Check if given names match (handles initials)
-    # Each token from one name should match at least one token from the other
-    def tokens_match(t1: str, t2: str) -> bool:
-        """Check if two name tokens match, including initial matching."""
-        if t1 == t2:
-            return True
-        # Single letter (initial) matches first letter of other token
-        if len(t1) == 1 and t2.startswith(t1):
-            return True
-        return len(t2) == 1 and t1.startswith(t2)
-
-    # Count how many tokens from the shorter list match the longer list
-    shorter, longer = (given1, given2) if len(given1) <= len(given2) else (given2, given1)
-    matches = 0
-    for t_short in shorter:
-        for t_long in longer:
-            if tokens_match(t_short, t_long):
-                matches += 1
-                break
-
-    # At least half of the shorter name's tokens should match
-    min_matches = max(1, len(shorter) // 2)
-    if matches >= min_matches:
-        return True
-
-    # Also check if all first letters match (for initials like "L W" vs "Larry Wayne")
-    initials1 = [t[0] for t in given1 if t]
-    initials2 = [t[0] for t in given2 if t]
-    return set(initials1) == set(initials2)
+    score, _ = names_match_score(name1, name2)
+    return score >= threshold
 
 
 @dataclass
@@ -524,8 +745,21 @@ class FamilySearchCensusExtractor:
             logger.info(f"Navigating to: {ark_url}")
             await self._navigate_to_url(page, ark_url)
 
+            # IMPORTANT: Extract family members NOW while we're on the person detail page
+            # The family table (Spouses/Children, Parents/Siblings) is only visible here
+            # _extract_page_data() will navigate away to the census image view
+            family_members_from_table: list[dict] = []
+            if extract_household:
+                logger.info("Extracting family from person detail page table (before navigating to census image)")
+                family_members_from_table = await self._extract_family_from_detail_page(page)
+                if family_members_from_table:
+                    logger.info(f"Found {len(family_members_from_table)} family members in table")
+                else:
+                    logger.info("No family members found in table")
+
             # Extract data from the page (locator waits handle any remaining load)
             # Pass ark_url to ensure we click the correct person in the detail view
+            # NOTE: This navigates away from the person page to the census image view
             raw_data = await self._extract_page_data(page, target_ark=ark_url)
             if not raw_data:
                 result.error_message = "Failed to extract data from page"
@@ -581,34 +815,55 @@ class FamilySearchCensusExtractor:
 
             # Create RootsMagic link if provided
             if rmtree_citation_id or rmtree_person_id:
+                # If rmtree_person_id not provided but we have rm_persons_filter,
+                # try to match the extracted person's name to find the correct RM person
+                matched_rm_person_id = rmtree_person_id
+                match_method = "url_match"
+                match_confidence = 1.0
+
+                if not matched_rm_person_id and rm_persons_filter:
+                    # Match primary person's name to RM persons filter
+                    _, matched_rm = self._matches_any_rm_person(
+                        person_data.full_name, rm_persons_filter
+                    )
+                    if matched_rm:
+                        matched_rm_person_id = getattr(matched_rm, 'person_id', None)
+                        match_method = "name_match"
+                        match_confidence = 0.9
+                        logger.info(
+                            f"Primary person matched to RM: {person_data.full_name} -> "
+                            f"{matched_rm.full_name} (RIN {matched_rm_person_id})"
+                        )
+
                 link = RMTreeLink(
                     census_person_id=person_id,
-                    rmtree_person_id=rmtree_person_id,
+                    rmtree_person_id=matched_rm_person_id,
                     rmtree_citation_id=rmtree_citation_id,
                     rmtree_database=rmtree_database,
-                    match_confidence=1.0,
-                    match_method="url_match",
+                    match_confidence=match_confidence,
+                    match_method=match_method,
                 )
                 self.repository.insert_rmtree_link(link)
 
             # Extract household members if requested
             if extract_household:
-                # When filtering to RM persons, we need names for matching
-                # The API extraction only gets ARKs without names, so use DOM-based extraction
-                if rm_persons_filter:
-                    logger.info("Using DOM-based extraction for RM filtering (needs names)")
-                    household_members = raw_data.get("_household_members", [])
-                    if not household_members:
-                        # Fallback to navigating and parsing DOM
-                        household_members = await self._extract_household_index(page)
-                else:
-                    # Use API-based extraction (more complete - gets ALL people on page)
-                    # The DOM-based extraction in _extract_page_data only finds visible links
-                    household_members = await self._extract_household_index(page)
+                # PRIMARY: Use family members already extracted from the person detail page table
+                # (extracted earlier before navigating to census image view)
+                household_members = family_members_from_table
 
-                    # Fallback to DOM-based extraction if API failed
-                    if not household_members:
-                        household_members = raw_data.get("_household_members", [])
+                # FALLBACK: If no family found in table, try the index approach
+                if not household_members:
+                    logger.info("No family in table, falling back to index extraction")
+                    if rm_persons_filter:
+                        # require_names=True forces DOM extraction for RM person matching
+                        household_members = await self._extract_household_index(page, require_names=True)
+                    else:
+                        household_members = await self._extract_household_index(page)
+
+                # Final fallback to raw_data
+                if not household_members:
+                    logger.warning("All extraction methods failed, using raw_data")
+                    household_members = raw_data.get("_household_members", [])
 
                 logger.info(f"Found {len(household_members)} household members on page")
 
@@ -686,7 +941,8 @@ class FamilySearchCensusExtractor:
                             full_name=member_name,
                             given_name=given_name,
                             surname=surname,
-                            is_target_person=False,
+                            # Household members share the same Census event as the primary
+                            is_target_person=True,
                             # Include any extra data from the index if available
                             relationship_to_head=member.get("relationship", ""),
                             sex=member.get("sex", ""),
@@ -694,14 +950,36 @@ class FamilySearchCensusExtractor:
                             birthplace=member.get("birthplace", ""),
                         )
 
+                        # Check if this member matches an RM person (for rmtree_link)
+                        matched_rm_person_id = None
+                        if rm_persons_filter:
+                            _, matched_rm = self._matches_any_rm_person(member_name, rm_persons_filter)
+                            if matched_rm:
+                                matched_rm_person_id = getattr(matched_rm, 'person_id', None)
+
                         # Insert the household member
                         try:
                             member_person_id = self.repository.insert_person(member_person)
                             logger.debug(f"Inserted household member {member_name} with person_id={member_person_id}")
+
+                            # Create rmtree_link if we found a matching RM person
+                            if matched_rm_person_id and rmtree_citation_id:
+                                link = RMTreeLink(
+                                    census_person_id=member_person_id,
+                                    rmtree_person_id=matched_rm_person_id,
+                                    rmtree_citation_id=rmtree_citation_id,
+                                    rmtree_database=rmtree_database,
+                                    match_method="name_match",
+                                    match_confidence=0.8,  # Lower confidence for name-only match
+                                )
+                                self.repository.insert_rmtree_link(link)
+                                logger.info(f"Created rmtree_link for {member_name} -> RM person {matched_rm_person_id}")
+
                             result.related_persons.append({
                                 "name": member_name,
                                 "ark": None,
                                 "person_id": member_person_id,
+                                "rmtree_person_id": matched_rm_person_id,
                                 "extracted": True,
                                 "note": "Limited data from index (no ARK)",
                             })
@@ -2018,13 +2296,21 @@ class FamilySearchCensusExtractor:
 
         return person_arks
 
-    async def _extract_household_index(self, page: Page) -> list[dict[str, Any]]:
+    async def _extract_household_index(
+        self, page: Page, require_names: bool = False
+    ) -> list[dict[str, Any]]:
         """
         Extract household members from the page index.
 
-        This method uses TWO strategies:
-        1. PRIMARY: Intercept the SLS API to get all person ARKs directly
-        2. FALLBACK: Parse the DOM for person names and links
+        This method uses multiple strategies:
+        1. API interception (when names not required)
+        2. Click-based extraction (clicks each person row to get ARK)
+        3. Static DOM extraction (fallback)
+
+        Args:
+            page: Playwright page instance
+            require_names: If True, skip API extraction and use DOM-based extraction
+                          to ensure names are available for matching
 
         Uses Playwright's Locator API for robust element detection.
         """
@@ -2034,7 +2320,9 @@ class FamilySearchCensusExtractor:
             current_url = page.url
             image_ark_match = re.search(r"/ark:/61903/(3:1:[A-Z0-9-]+)", current_url)
 
-            if image_ark_match:
+            # Only use API extraction if we don't need names
+            # API returns ARKs but not names, so can't be used for RM person matching
+            if image_ark_match and not require_names:
                 image_ark = image_ark_match.group(1)
                 logger.info(f"Extracted image ARK: {image_ark}")
 
@@ -2055,8 +2343,11 @@ class FamilySearchCensusExtractor:
                         })
                     return household
 
-            # FALLBACK: Navigate to index and parse DOM
-            logger.info("Falling back to DOM-based extraction")
+            # Navigate to index view for DOM-based extraction
+            if require_names:
+                logger.info("Using DOM-based extraction to get names for RM matching")
+            else:
+                logger.info("Falling back to DOM-based extraction")
             await self._navigate_to_household_index(page)
 
             # Wait for household members to be visible
@@ -2067,7 +2358,16 @@ class FamilySearchCensusExtractor:
             except Exception:
                 logger.debug("No clickable person elements found")
 
-            # Extract household members using JavaScript (fallback)
+            # CLICK-BASED EXTRACTION: Click each person row to extract ARKs
+            # FamilySearch only shows ARK links for the currently selected person
+            household = await self._extract_household_by_clicking(page)
+
+            if household:
+                logger.info(f"Click-based extraction: {len(household)} household members with ARKs")
+                return household
+
+            # FALLBACK: Static DOM extraction (may miss ARKs)
+            logger.info("Falling back to static DOM extraction")
             household = await page.evaluate("""
                 () => {
                     const members = [];
@@ -2108,6 +2408,237 @@ class FamilySearchCensusExtractor:
         except Exception as e:
             logger.warning(f"Failed to extract household index: {e}")
             return []
+
+    async def _extract_family_from_detail_page(self, page: Page) -> list[dict[str, Any]]:
+        """
+        Extract family members from the person detail page's family table.
+
+        This extracts family members from the "Spouses and Children" or "Parents and Siblings"
+        sections on the person detail page. These sections contain direct links to each
+        family member's ARK, along with their relationship.
+
+        This approach is cleaner than navigating the full page index because:
+        1. It only returns actual family members, not all people on the census page
+        2. The ARK links are directly available as href attributes (no clicking needed)
+        3. Relationship information (Wife, Daughter, Son, etc.) is included
+
+        Returns:
+            List of dicts with 'name', 'ark', and 'relationship' keys
+        """
+        family_members: list[dict[str, Any]] = []
+
+        try:
+            # Make sure we're on a person detail page (1:1: ARK)
+            current_url = page.url
+            if "/ark:/61903/1:1:" not in current_url:
+                logger.warning("Not on a person detail page, cannot extract family")
+                return []
+
+            # Click "OPEN ALL" if available to expand family sections
+            try:
+                open_all_btn = page.locator('button:has-text("OPEN ALL")')
+                if await open_all_btn.count() > 0 and await open_all_btn.first.is_visible():
+                    await open_all_btn.first.click()
+                    await page.wait_for_timeout(1500)
+                    logger.debug("Clicked OPEN ALL to expand family sections")
+            except Exception as e:
+                logger.debug(f"No OPEN ALL button or error clicking: {e}")
+
+            # Get the page title (main person's name) to exclude from results
+            page_title = await page.evaluate("document.querySelector('h1')?.textContent?.trim() || ''")
+
+            # Extract family members using JavaScript evaluation
+            family_data = await page.evaluate("""
+                () => {
+                    const familyMembers = [];
+                    const seen = new Set();
+
+                    // Find all person ARK links (format: /ark:/61903/1:1:XXXX)
+                    const allPersonLinks = document.querySelectorAll('a[href*="/ark:/61903/1:1:"]');
+
+                    allPersonLinks.forEach(link => {
+                        const href = link.getAttribute('href');
+                        const name = link.textContent?.trim();
+
+                        // Skip empty names or if already seen
+                        if (!name || name.length < 2 || seen.has(href)) return;
+                        seen.add(href);
+
+                        // Try to find relationship from container
+                        const container = link.closest('div, tr, li');
+                        let relationship = '';
+                        if (container) {
+                            const containerText = container.textContent || '';
+                            const relMatch = containerText.match(/(Father|Mother|Spouse|Wife|Husband|Son|Daughter|Child|Sibling|Brother|Sister)/i);
+                            if (relMatch) {
+                                relationship = relMatch[1];
+                            }
+                        }
+
+                        familyMembers.push({
+                            name: name,
+                            href: href,
+                            relationship: relationship
+                        });
+                    });
+
+                    return familyMembers;
+                }
+            """)
+
+            # Process extracted data and filter out the main person
+            for member in family_data:
+                name = member.get("name", "")
+                href = member.get("href", "")
+                relationship = member.get("relationship", "")
+
+                # Skip if this is the main person (same name as page title)
+                if name == page_title:
+                    continue
+
+                # Build full ARK URL
+                if href and not href.startswith("http"):
+                    ark_url = f"https://www.familysearch.org{href}"
+                else:
+                    ark_url = href
+
+                family_members.append({
+                    "name": name,
+                    "ark": ark_url,
+                    "relationship": relationship,
+                })
+
+            logger.info(f"Extracted {len(family_members)} family members from detail page")
+            for fm in family_members:
+                logger.debug(f"  - {fm['name']} ({fm.get('relationship', 'unknown')}) -> {fm['ark']}")
+
+            return family_members
+
+        except Exception as e:
+            logger.warning(f"Failed to extract family from detail page: {e}")
+            return []
+
+    async def _extract_household_by_clicking(self, page: Page) -> list[dict[str, Any]]:
+        """
+        Extract household members by clicking each person row to reveal their ARK.
+
+        FamilySearch only shows the ARK link for the currently selected person.
+        This method re-navigates to the clean index URL between each extraction
+        because clicking a person row changes the page state and removes other rows.
+
+        Returns:
+            List of dicts with 'name' and 'ark' keys
+        """
+        household: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+
+        try:
+            # Get the clean index URL (without personArk parameter)
+            current_url = page.url
+            parsed = urlparse(current_url)
+            # Remove personArk and action parameters to get clean index URL
+            query_params = parse_qs(parsed.query)
+            query_params.pop("personArk", None)
+            query_params.pop("action", None)
+            clean_query = urlencode(query_params, doseq=True)
+            clean_index_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{clean_query}"
+            logger.debug(f"Clean index URL: {clean_index_url}")
+
+            # First pass: navigate to index and count rows
+            await page.goto(clean_index_url, wait_until="domcontentloaded", timeout=30000)
+            await page.wait_for_timeout(2000)
+
+            # Click NAMES button to expand index
+            names_button = page.locator('[data-testid="names-button"]')
+            if await names_button.is_visible():
+                await names_button.click()
+                await page.wait_for_timeout(1000)
+
+            # Count total person rows
+            row_count = await page.locator('div[role="button"][interactable]').count()
+            logger.info(f"Found {row_count} person rows to extract")
+
+            if row_count == 0:
+                return household
+
+            # Extract each row by re-navigating between extractions
+            # This is necessary because clicking a person changes the page state
+            for i in range(row_count):
+                try:
+                    # Re-navigate to clean index (page state changes after each click)
+                    if i > 0:
+                        await page.goto(
+                            clean_index_url, wait_until="domcontentloaded", timeout=30000
+                        )
+                        await page.wait_for_timeout(1500)
+
+                        # Re-click NAMES button
+                        names_button = page.locator('[data-testid="names-button"]')
+                        if await names_button.is_visible():
+                            await names_button.click()
+                            await page.wait_for_timeout(800)
+
+                    # Get the row at index i
+                    row = page.locator('div[role="button"][interactable]').nth(i)
+
+                    # Get name from data-testid
+                    test_id = await row.get_attribute("data-testid", timeout=2000)
+                    if not test_id or not test_id.strip():
+                        continue
+
+                    # Clean the name - remove relationship prefixes
+                    name = test_id.strip()
+                    for prefix in [
+                        "Census | Primary",
+                        "Census|Primary",
+                        "Census | ",
+                        "Census|",
+                    ]:
+                        if name.startswith(prefix):
+                            name = name[len(prefix) :].strip()
+                            break
+
+                    if not name or len(name) < 2:
+                        continue
+
+                    # Skip duplicates
+                    if name.lower() in seen_names:
+                        continue
+
+                    # Click the row
+                    await row.click(timeout=5000)
+                    await page.wait_for_timeout(500)
+
+                    # Extract ARK from URL parameter
+                    ark_url = None
+                    result_url = page.url
+                    result_parsed = urlparse(result_url)
+                    result_params = parse_qs(result_parsed.query)
+                    if "personArk" in result_params:
+                        ark_path = unquote(result_params["personArk"][0])
+                        ark_url = f"https://www.familysearch.org{ark_path}"
+
+                    household.append({"name": name, "ark": ark_url})
+                    seen_names.add(name.lower())
+
+                    if ark_url:
+                        logger.debug(f"Extracted [{i}]: {name} -> {ark_url}")
+                    else:
+                        logger.debug(f"Extracted [{i}]: {name} (no ARK)")
+
+                except Exception as e:
+                    logger.debug(f"Error extracting row {i}: {e}")
+                    continue
+
+            logger.info(
+                f"Click-based extraction complete: {len(household)} persons, "
+                f"{sum(1 for h in household if h.get('ark'))} with ARKs"
+            )
+
+        except Exception as e:
+            logger.warning(f"Click-based extraction failed: {e}")
+
+        return household
 
     def _parse_extracted_data(
         self, raw_data: dict[str, Any], census_year: int, ark_url: str
