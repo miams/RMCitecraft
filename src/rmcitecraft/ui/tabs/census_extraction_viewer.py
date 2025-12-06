@@ -2018,6 +2018,20 @@ class CensusExtractionViewerTab:
                         on_click=lambda a=attempt, rid=alt.get("rm_id"): self._confirm_match(a, rid),
                     ).props("size=xs flat color=purple")
 
+        # Manual RIN entry
+        ui.separator().classes("my-3")
+        ui.label("Manual Match").classes("font-bold text-sm mb-1")
+        with ui.row().classes("items-center gap-2"):
+            manual_rin_input = ui.number(
+                label="Enter RIN",
+                value=None,
+            ).props("dense outlined").classes("w-32")
+            ui.button(
+                "Confirm RIN",
+                icon="check",
+                on_click=lambda a=attempt: self._confirm_manual_rin(a, manual_rin_input),
+            ).props("size=sm color=purple outline")
+
         # RootsMagic household context
         if attempt.source_id:
             ui.label("RootsMagic Household").classes("font-bold text-sm mt-4 mb-2")
@@ -2074,6 +2088,28 @@ class CensusExtractionViewerTab:
 
         except Exception as e:
             logger.error(f"Failed to confirm match: {e}")
+            ui.notify(f"Error: {e}", type="negative")
+
+    def _confirm_manual_rin(self, attempt: MatchAttempt, rin_input: ui.number) -> None:
+        """Confirm a manually entered RIN and advance to next record."""
+        rin_value = rin_input.value
+        if not rin_value:
+            ui.notify("Please enter a RIN", type="warning")
+            return
+
+        rm_person_id = int(rin_value)
+        try:
+            self.repository.update_match_attempt_validation(
+                attempt_id=attempt.attempt_id,
+                new_status="validated",
+                confirmed_rm_person_id=rm_person_id,
+                validation_note="manual_rin_entry",
+            )
+            ui.notify(f"Match confirmed: RIN {rm_person_id}", type="positive")
+            self._next_validation_record()
+
+        except Exception as e:
+            logger.error(f"Failed to confirm manual RIN: {e}")
             ui.notify(f"Error: {e}", type="negative")
 
     def _reject_match(self, attempt: MatchAttempt) -> None:
