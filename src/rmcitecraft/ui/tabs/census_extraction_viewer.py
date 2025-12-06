@@ -1979,68 +1979,40 @@ class CensusExtractionViewerTab:
                         ui.label(str(p.age) if p.age else "-").classes("w-8 text-gray-500")
 
     def _render_rm_candidates(self, attempt: MatchAttempt) -> None:
-        """Render RootsMagic candidates and household context."""
-        import json
-
-        # Parse candidates from JSON
-        candidates = []
-        if attempt.candidates_json:
-            try:
-                candidates = json.loads(attempt.candidates_json)
-            except json.JSONDecodeError:
-                pass
-
-        # Show best candidate prominently
+        """Render RootsMagic candidates ranked by match score."""
+        # Show original algorithm's best match for reference (if any)
         if attempt.best_candidate_rm_id:
-            with ui.card().classes("w-full p-2 bg-purple-50 border-purple-200"):
-                with ui.row().classes("items-center gap-2"):
-                    ui.icon("star", size="sm").classes("text-purple-500")
-                    ui.label("Best Match").classes("text-sm font-bold text-purple-700")
+            with ui.row().classes("items-center gap-2 text-sm mb-2 p-2 bg-purple-50 rounded"):
+                ui.icon("auto_awesome", size="xs").classes("text-purple-500")
+                ui.label("Algorithm suggested:").classes("text-purple-700")
+                ui.label(f"{attempt.best_candidate_name}").classes("font-medium")
+                ui.label(f"(score: {attempt.best_candidate_score:.2f}, {attempt.best_match_method})").classes("text-gray-500")
 
-                ui.label(attempt.best_candidate_name or "Unknown").classes("text-lg font-medium")
+        # RootsMagic household ranked by match score - this is the main selection UI
+        if attempt.source_id:
+            ui.label("Select from Household (ranked by match score)").classes("font-bold text-sm mb-2")
+            self._render_rm_household_ranked(attempt)
+        else:
+            ui.label("No source ID - cannot load household").classes("text-sm text-gray-400 italic")
 
-                with ui.row().classes("gap-4 text-sm"):
-                    ui.label(f"Score: {attempt.best_candidate_score:.2f}").classes("text-purple-600")
-                    ui.label(f"Method: {attempt.best_match_method}").classes("text-gray-500")
-                    ui.label(f"RIN: {attempt.best_candidate_rm_id}").classes("text-gray-400")
-
-        # Show alternates (up to 3)
-        alternates = [c for c in candidates if c.get("rm_id") != attempt.best_candidate_rm_id][:3]
-
-        if alternates:
-            ui.label("Alternates").classes("font-bold text-sm mt-3 mb-1")
-            for alt in alternates:
-                with ui.row().classes("items-center gap-2 text-sm py-1 border-b"):
-                    ui.label(alt.get("name", "Unknown")).classes("w-40")
-                    ui.label(f"{alt.get('score', 0):.2f}").classes("text-gray-500")
-                    ui.button(
-                        "Select",
-                        on_click=lambda a=attempt, rid=alt.get("rm_id"): self._confirm_match(a, rid),
-                    ).props("size=xs flat color=purple")
-
-        # Manual RIN entry
+        # Manual RIN entry as fallback
         ui.separator().classes("my-3")
-        ui.label("Manual Match").classes("font-bold text-sm mb-1")
         with ui.row().classes("items-center gap-2"):
+            ui.label("Or enter RIN:").classes("text-sm")
             manual_rin_input = ui.number(
-                label="Enter RIN",
                 value=None,
-            ).props("dense outlined").classes("w-32")
+            ).props("dense outlined").classes("w-24")
             ui.button(
-                "Confirm RIN",
+                "Confirm",
                 icon="check",
                 on_click=lambda a=attempt: self._confirm_manual_rin(a, manual_rin_input),
             ).props("size=sm color=purple outline")
 
-        # RootsMagic household context
-        if attempt.source_id:
-            ui.label("RootsMagic Household").classes("font-bold text-sm mt-4 mb-2")
-            self._render_rm_household(attempt.source_id)
-
-    def _render_rm_household(self, source_id: int) -> None:
-        """Render RootsMagic household members for a source."""
+    def _render_rm_household_ranked(self, attempt: MatchAttempt) -> None:
+        """Render RootsMagic household members ranked by match score."""
         try:
             from rmcitecraft.config.settings import get_settings
+            from rmcitecraft.services.familysearch_census_extractor import names_match_score
 
             settings = get_settings()
             matcher = CensusRMTreeMatcher(
@@ -2049,26 +2021,69 @@ class CensusExtractionViewerTab:
             )
 
             # Get RM persons for this source
-            rm_persons, event_id, census_year = matcher.get_rm_persons_for_source(source_id)
+            rm_persons, event_id, census_year = matcher.get_rm_persons_for_source(attempt.source_id)
 
             if not rm_persons:
                 ui.label("No RootsMagic household data").classes("text-sm text-gray-400 italic")
                 return
 
-            with ui.scroll_area().classes("h-48"):
-                with ui.column().classes("gap-1"):
-                    for p in rm_persons:
+            # Calculate match scores for each RM person
+            scored_persons = []
+            for p in rm_persons:
+                # Calculate name match score
+                score, match_reason = names_match_score(attempt.fs_full_name, p.full_name)
+
+                # Bonus for matching sex
+                if attempt.fs_relationship:
+                    fs_sex = "F" if attempt.fs_relationship.lower() in ("wife", "daughter", "mother", "sister") else "M"
+                    if p.sex == fs_sex:
+                        score = min(1.0, score + 0.05)
+
+                # Bonus for matching age (within 2 years)
+                if attempt.fs_age and p.birth_year and census_year:
+                    try:
+                        fs_age = int(attempt.fs_age)
+                        rm_age = census_year - p.birth_year
+                        if abs(fs_age - rm_age) <= 2:
+                            score = min(1.0, score + 0.1)
+                    except ValueError:
+                        pass
+
+                scored_persons.append((p, score, match_reason, census_year))
+
+            # Sort by score descending
+            scored_persons.sort(key=lambda x: x[1], reverse=True)
+
+            with ui.scroll_area().classes("h-56"):
+                with ui.column().classes("gap-1 w-full"):
+                    for p, score, reason, census_year in scored_persons:
                         # Calculate age at census time
                         age_at_census = ""
                         if p.birth_year and census_year:
                             age_at_census = str(census_year - p.birth_year)
 
-                        with ui.row().classes("gap-2 text-sm"):
-                            ui.label(p.full_name).classes("w-40 truncate")
-                            ui.label(p.relationship or "-").classes("w-20 text-gray-500")
-                            ui.label(p.sex or "-").classes("w-6 text-gray-500")
-                            ui.label(age_at_census or "-").classes("w-8 text-gray-500")
-                            ui.label(f"RIN {p.person_id}").classes("w-16 text-gray-400")
+                        # Color based on score
+                        if score >= 0.8:
+                            score_color = "text-green-600 font-bold"
+                            row_bg = "bg-green-50"
+                        elif score >= 0.5:
+                            score_color = "text-yellow-600"
+                            row_bg = "bg-yellow-50"
+                        else:
+                            score_color = "text-gray-400"
+                            row_bg = ""
+
+                        with ui.row().classes(f"gap-2 text-sm items-center py-1 px-2 rounded {row_bg} w-full"):
+                            ui.label(f"{score:.2f}").classes(f"w-10 {score_color}")
+                            ui.label(p.full_name).classes("w-36 truncate")
+                            ui.label(p.relationship or "-").classes("w-16 text-gray-500")
+                            ui.label(p.sex or "-").classes("w-4 text-gray-500")
+                            ui.label(age_at_census or "-").classes("w-6 text-gray-500")
+                            ui.label(f"{p.person_id}").classes("w-12 text-gray-400")
+                            ui.button(
+                                "Select",
+                                on_click=lambda a=attempt, rid=p.person_id: self._confirm_match(a, rid),
+                            ).props("size=xs flat color=purple dense")
 
         except Exception as e:
             logger.error(f"Failed to load RM household: {e}")
