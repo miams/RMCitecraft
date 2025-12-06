@@ -150,58 +150,68 @@ class CensusExtractionViewerTab:
         # Validation workflow state
         self.validation_queue: list[MatchAttempt] = []
         self.validation_index: int = 0
-        self.validation_dialog: ui.dialog | None = None
-        self.validation_content: ui.column | None = None
+        self.validation_mode: bool = False
+        self.validation_container: ui.column | None = None
+        self.main_container: ui.column | None = None
+        self.root_container: ui.column | None = None
 
     def render(self) -> None:
         """Render the census extraction viewer tab."""
-        with ui.column().classes("w-full p-4 gap-4"):
-            # Header
-            self._render_header()
+        self.root_container = ui.column().classes("w-full p-4 gap-4")
+        with self.root_container:
+            if self.validation_mode:
+                self._render_validation_page()
+            else:
+                self._render_main_view()
 
-            # Stats bar
-            self._render_stats_bar()
+    def _render_main_view(self) -> None:
+        """Render the main extraction viewer."""
+        # Header
+        self._render_header()
 
-            # Search/Filter controls
-            self._render_search_controls()
+        # Stats bar
+        self._render_stats_bar()
 
-            # Main content area - three columns
-            with ui.row().classes("w-full gap-4"):
-                # Left: Person list (25%)
-                with ui.card().classes("w-1/4 p-2"):
-                    ui.label("Extracted Persons").classes("font-bold mb-2")
-                    with ui.scroll_area().classes("h-[550px]"):
-                        self.person_list_column = ui.column().classes("w-full gap-1")
+        # Search/Filter controls
+        self._render_search_controls()
 
-                # Center: Person details (50%)
-                with ui.card().classes("w-1/2 p-2"):
-                    with ui.scroll_area().classes("h-[550px]"):
-                        self.detail_column = ui.column().classes("w-full gap-3")
-                        with self.detail_column:
-                            self._render_empty_detail_state()
+        # Main content area - three columns
+        with ui.row().classes("w-full gap-4"):
+            # Left: Person list (25%)
+            with ui.card().classes("w-1/4 p-2"):
+                ui.label("Extracted Persons").classes("font-bold mb-2")
+                with ui.scroll_area().classes("h-[550px]"):
+                    self.person_list_column = ui.column().classes("w-full gap-1")
 
-                # Right: Secondary panel (25%) - Tabbed
-                with ui.card().classes("w-1/4 p-2"):
-                    self.secondary_tabs = ui.tabs().classes("w-full")
-                    with self.secondary_tabs:
-                        quality_tab = ui.tab("Quality", icon="verified")
-                        metadata_tab = ui.tab("Metadata", icon="info")
+            # Center: Person details (50%)
+            with ui.card().classes("w-1/2 p-2"):
+                with ui.scroll_area().classes("h-[550px]"):
+                    self.detail_column = ui.column().classes("w-full gap-3")
+                    with self.detail_column:
+                        self._render_empty_detail_state()
 
-                    with ui.tab_panels(self.secondary_tabs, value=quality_tab).classes("w-full"):
-                        with ui.tab_panel(quality_tab):
-                            with ui.scroll_area().classes("h-[480px]"):
-                                self.quality_panel = ui.column().classes("w-full gap-2")
-                                with self.quality_panel:
-                                    ui.label("Select a person").classes("text-gray-400 italic text-sm")
+            # Right: Secondary panel (25%) - Tabbed
+            with ui.card().classes("w-1/4 p-2"):
+                self.secondary_tabs = ui.tabs().classes("w-full")
+                with self.secondary_tabs:
+                    quality_tab = ui.tab("Quality", icon="verified")
+                    metadata_tab = ui.tab("Metadata", icon="info")
 
-                        with ui.tab_panel(metadata_tab):
-                            with ui.scroll_area().classes("h-[480px]"):
-                                self.metadata_panel = ui.column().classes("w-full gap-2")
-                                with self.metadata_panel:
-                                    ui.label("Select a person").classes("text-gray-400 italic text-sm")
+                with ui.tab_panels(self.secondary_tabs, value=quality_tab).classes("w-full"):
+                    with ui.tab_panel(quality_tab):
+                        with ui.scroll_area().classes("h-[480px]"):
+                            self.quality_panel = ui.column().classes("w-full gap-2")
+                            with self.quality_panel:
+                                ui.label("Select a person").classes("text-gray-400 italic text-sm")
 
-            # Load initial data
-            self._search_persons()
+                    with ui.tab_panel(metadata_tab):
+                        with ui.scroll_area().classes("h-[480px]"):
+                            self.metadata_panel = ui.column().classes("w-full gap-2")
+                            with self.metadata_panel:
+                                ui.label("Select a person").classes("text-gray-400 italic text-sm")
+
+        # Load initial data
+        self._search_persons()
 
     def _render_header(self) -> None:
         """Render page header."""
@@ -1752,11 +1762,11 @@ class CensusExtractionViewerTab:
             ui.notify(f"Failed: {e}", type="negative")
 
     # =========================================================================
-    # Validation Workflow
+    # Validation Workflow (Full Page)
     # =========================================================================
 
     def _start_validation_workflow(self) -> None:
-        """Start the validation workflow dialog."""
+        """Start the validation workflow - switch to full page view."""
         # Load validation queue
         self.validation_queue = self.repository.get_validation_queue(
             include_skipped=True,
@@ -1770,99 +1780,138 @@ class CensusExtractionViewerTab:
             ui.notify("No records need validation", type="info")
             return
 
-        # Create and open the validation dialog
-        self.validation_dialog = ui.dialog().classes("w-full max-w-6xl")
-        with self.validation_dialog, ui.card().classes("w-full p-4"):
-            # Header
-            with ui.row().classes("w-full items-center gap-4 mb-4"):
-                ui.icon("fact_check", size="2rem").classes("text-yellow-600")
-                ui.label("Match Validation").classes("text-xl font-bold")
-                self._validation_progress_label = ui.label(
-                    f"Record 1 of {len(self.validation_queue)}"
-                ).classes("text-sm text-gray-500 ml-auto")
-                ui.button(icon="close", on_click=self._close_validation).props("flat round")
-
-            # Content area (will be dynamically updated)
-            self.validation_content = ui.column().classes("w-full gap-4")
-
-        self.validation_dialog.open()
-        self._render_validation_record()
+        # Switch to validation mode and re-render
+        self.validation_mode = True
+        if self.root_container:
+            self.root_container.clear()
+            with self.root_container:
+                self._render_validation_page()
 
     def _close_validation(self) -> None:
-        """Close validation dialog and refresh stats."""
-        if self.validation_dialog:
-            self.validation_dialog.close()
-        # Refresh the stats bar to show updated counts
-        # This would require re-rendering the stats bar which is complex
-        # For now, just notify the user
-        ui.notify("Validation complete. Refresh page to see updated stats.", type="info")
+        """Exit validation mode and return to main view."""
+        self.validation_mode = False
+        self.validation_queue = []
+        self.validation_index = 0
 
-    def _render_validation_record(self) -> None:
-        """Render the current validation record."""
-        if not self.validation_content:
-            return
+        # Re-render main view
+        if self.root_container:
+            self.root_container.clear()
+            with self.root_container:
+                self._render_main_view()
 
-        self.validation_content.clear()
+    def _render_validation_page(self) -> None:
+        """Render the full-page validation view."""
+        # Header with back button
+        with ui.row().classes("w-full items-center gap-4 mb-4"):
+            ui.button(icon="arrow_back", on_click=self._close_validation).props("flat round")
+            ui.icon("fact_check", size="2rem").classes("text-yellow-600")
+            ui.label("Match Validation").classes("text-2xl font-bold")
 
+            # Progress indicator
+            if self.validation_queue:
+                self._validation_progress_label = ui.label(
+                    f"Record {self.validation_index + 1} of {len(self.validation_queue)}"
+                ).classes("text-sm text-gray-500 ml-4")
+
+                # Progress bar
+                progress = (self.validation_index + 1) / len(self.validation_queue)
+                ui.linear_progress(value=progress).classes("w-48 ml-4")
+
+            ui.button("Exit Validation", icon="close", on_click=self._close_validation).props(
+                "flat color=grey"
+            ).classes("ml-auto")
+
+        # Validation content container
+        self.validation_container = ui.column().classes("w-full gap-4")
+        with self.validation_container:
+            self._render_validation_record_content()
+
+    def _render_validation_record_content(self) -> None:
+        """Render the current validation record content."""
         if self.validation_index >= len(self.validation_queue):
-            with self.validation_content:
-                with ui.column().classes("w-full items-center py-8"):
-                    ui.icon("check_circle", size="4rem").classes("text-green-500")
-                    ui.label("All records validated!").classes("text-xl font-bold text-green-600")
-                    ui.button("Close", on_click=self._close_validation).props("color=primary")
+            # All done
+            with ui.column().classes("w-full items-center py-16"):
+                ui.icon("check_circle", size="6rem").classes("text-green-500")
+                ui.label("All records validated!").classes("text-2xl font-bold text-green-600 mt-4")
+
+                # Show summary
+                validation_stats = self.repository.get_validation_stats()
+                with ui.row().classes("gap-8 mt-6"):
+                    with ui.column().classes("items-center"):
+                        ui.label(str(validation_stats.get("validated", 0))).classes(
+                            "text-3xl font-bold text-green-600"
+                        )
+                        ui.label("Validated").classes("text-sm text-gray-500")
+                    with ui.column().classes("items-center"):
+                        ui.label(str(validation_stats.get("rejected", 0))).classes(
+                            "text-3xl font-bold text-red-600"
+                        )
+                        ui.label("Rejected").classes("text-sm text-gray-500")
+
+                ui.button(
+                    "Return to Viewer", icon="arrow_back", on_click=self._close_validation
+                ).props("color=primary").classes("mt-8")
             return
 
         attempt = self.validation_queue[self.validation_index]
-        self._validation_progress_label.set_text(
-            f"Record {self.validation_index + 1} of {len(self.validation_queue)}"
+
+        # Update progress label if it exists
+        if hasattr(self, "_validation_progress_label") and self._validation_progress_label:
+            self._validation_progress_label.set_text(
+                f"Record {self.validation_index + 1} of {len(self.validation_queue)}"
+            )
+
+        # Status indicator row
+        status_color = "red" if attempt.match_status == "skipped" else "orange"
+        status_text = (
+            "Skipped (No Match Found)"
+            if attempt.match_status == "skipped"
+            else f"Low Confidence ({attempt.best_candidate_score:.2f})"
         )
 
-        with self.validation_content:
-            # Status indicator
-            status_color = "red" if attempt.match_status == "skipped" else "orange"
-            status_text = "Skipped (No Match Found)" if attempt.match_status == "skipped" else f"Low Confidence ({attempt.best_candidate_score:.2f})"
+        with ui.row().classes("w-full items-center gap-2 mb-2"):
+            ui.badge(status_text, color=status_color)
+            if attempt.skip_reason:
+                ui.label(f"Reason: {attempt.skip_reason}").classes("text-sm text-gray-500")
 
-            with ui.row().classes("w-full items-center gap-2"):
-                ui.badge(status_text, color=status_color)
-                if attempt.skip_reason:
-                    ui.label(f"Reason: {attempt.skip_reason}").classes("text-sm text-gray-500")
+        # Two-column layout: FamilySearch left, RootsMagic right
+        with ui.row().classes("w-full gap-6"):
+            # Left: FamilySearch Data (slightly larger)
+            with ui.card().classes("w-1/2 p-4"):
+                ui.label("FamilySearch Census Record").classes("font-bold text-lg text-blue-600 mb-3")
+                self._render_fs_person_card(attempt)
 
-            # Two-column layout: FamilySearch left, RootsMagic right
-            with ui.row().classes("w-full gap-4"):
-                # Left: FamilySearch Data
-                with ui.card().classes("w-1/2 p-3"):
-                    ui.label("FamilySearch Census Record").classes("font-bold text-blue-600 mb-2")
-                    self._render_fs_person_card(attempt)
+                # FS Household context
+                ui.separator().classes("my-4")
+                ui.label("Household on This Page").classes("font-bold text-sm mb-2")
+                self._render_fs_household(attempt)
 
-                    # FS Household context
-                    ui.label("Household on This Page").classes("font-bold text-sm mt-4 mb-2")
-                    self._render_fs_household(attempt)
+            # Right: RootsMagic Data
+            with ui.card().classes("w-1/2 p-4"):
+                ui.label("RootsMagic Candidates").classes("font-bold text-lg text-purple-600 mb-3")
+                self._render_rm_candidates(attempt)
 
-                # Right: RootsMagic Data
-                with ui.card().classes("w-1/2 p-3"):
-                    ui.label("RootsMagic Candidates").classes("font-bold text-purple-600 mb-2")
-                    self._render_rm_candidates(attempt)
-
-            # Decision buttons
-            with ui.row().classes("w-full justify-center gap-4 mt-4"):
+        # Decision buttons - larger and more prominent
+        with ui.card().classes("w-full p-4 mt-4 bg-gray-50"):
+            with ui.row().classes("w-full justify-center gap-6"):
                 if attempt.best_candidate_rm_id:
                     ui.button(
                         f"Confirm: {attempt.best_candidate_name}",
                         icon="check",
                         on_click=lambda a=attempt: self._confirm_match(a, a.best_candidate_rm_id),
-                    ).props("color=positive")
+                    ).props("color=positive size=lg")
 
                 ui.button(
                     "Skip / No Match",
                     icon="skip_next",
                     on_click=lambda a=attempt: self._reject_match(a),
-                ).props("color=negative outline")
+                ).props("color=negative outline size=lg")
 
                 ui.button(
-                    "Next",
+                    "Next Without Decision",
                     icon="arrow_forward",
                     on_click=self._next_validation_record,
-                ).props("color=primary outline")
+                ).props("color=grey outline size=lg")
 
     def _render_fs_person_card(self, attempt: MatchAttempt) -> None:
         """Render FamilySearch person details from match attempt."""
@@ -2045,7 +2094,12 @@ class CensusExtractionViewerTab:
     def _next_validation_record(self) -> None:
         """Advance to the next validation record."""
         self.validation_index += 1
-        self._render_validation_record()
+
+        # Re-render the validation content
+        if self.validation_container:
+            self.validation_container.clear()
+            with self.validation_container:
+                self._render_validation_record_content()
 
     async def _extract_validated_matches(self) -> None:
         """Extract data for validated matches that need it.
