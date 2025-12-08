@@ -134,9 +134,16 @@ class CensusExtractionViewerTab:
         self.quality_panel: ui.column | None = None
         self.metadata_panel: ui.column | None = None
         self.search_input: ui.input | None = None
+        self.given_name_input: ui.input | None = None
+        self.rin_input: ui.input | None = None
         self.year_select: ui.select | None = None
         self.unlinked_filter: ui.checkbox | None = None
         self.status_label: ui.label | None = None
+
+        # View mode: "persons" or "pages"
+        self.view_mode: str = "persons"
+        self.page_sort_select: ui.select | None = None
+        self.page_list_column: ui.column | None = None
 
         # Expansion states
         self.sample_expanded: bool = True
@@ -177,11 +184,16 @@ class CensusExtractionViewerTab:
 
         # Main content area - three columns
         with ui.row().classes("w-full gap-4"):
-            # Left: Person list (25%)
+            # Left: Person/Page list (25%)
             with ui.card().classes("w-1/4 p-2"):
-                ui.label("Extracted Persons").classes("font-bold mb-2")
-                with ui.scroll_area().classes("h-[550px]"):
-                    self.person_list_column = ui.column().classes("w-full gap-1")
+                if self.view_mode == "pages":
+                    ui.label("Census Pages").classes("font-bold mb-2")
+                    with ui.scroll_area().classes("h-[550px]"):
+                        self.page_list_column = ui.column().classes("w-full gap-1")
+                else:
+                    ui.label("Extracted Persons").classes("font-bold mb-2")
+                    with ui.scroll_area().classes("h-[550px]"):
+                        self.person_list_column = ui.column().classes("w-full gap-1")
 
             # Center: Person details (50%)
             with ui.card().classes("w-1/2 p-2"):
@@ -210,8 +222,8 @@ class CensusExtractionViewerTab:
                             with self.metadata_panel:
                                 ui.label("Select a person").classes("text-gray-400 italic text-sm")
 
-        # Load initial data
-        self._search_persons()
+        # Load initial data based on view mode
+        self._do_search()
 
     def _render_header(self) -> None:
         """Render page header."""
@@ -221,18 +233,26 @@ class CensusExtractionViewerTab:
             ui.label("View and verify FamilySearch census extractions").classes("text-gray-500")
 
     def _render_stats_bar(self) -> None:
-        """Render statistics bar."""
+        """Render statistics bar with clickable view mode toggles."""
         stats = self.repository.get_extraction_stats()
         validation_stats = self.repository.get_validation_stats()
 
         with ui.column().classes("w-full gap-2"):
             # Main stats row
             with ui.row().classes("w-full items-center gap-6 bg-gray-100 p-2 rounded"):
-                with ui.row().classes("items-center gap-2"):
+                # Persons toggle - clickable
+                with ui.row().classes(
+                    f"items-center gap-2 cursor-pointer px-2 py-1 rounded "
+                    f"{'bg-blue-200 font-bold' if self.view_mode == 'persons' else 'hover:bg-blue-100'}"
+                ).on("click", lambda: self._switch_view_mode("persons")):
                     ui.icon("people", size="sm").classes("text-blue-500")
                     ui.label(f"{stats.get('total_persons', 0)} Persons").classes("text-sm")
 
-                with ui.row().classes("items-center gap-2"):
+                # Pages toggle - clickable
+                with ui.row().classes(
+                    f"items-center gap-2 cursor-pointer px-2 py-1 rounded "
+                    f"{'bg-green-200 font-bold' if self.view_mode == 'pages' else 'hover:bg-green-100'}"
+                ).on("click", lambda: self._switch_view_mode("pages")):
                     ui.icon("description", size="sm").classes("text-green-500")
                     ui.label(f"{stats.get('total_pages', 0)} Pages").classes("text-sm")
 
@@ -299,12 +319,26 @@ class CensusExtractionViewerTab:
 
     def _render_search_controls(self) -> None:
         """Render search and filter controls."""
-        with ui.row().classes("w-full items-center gap-4"):
+        with ui.row().classes("w-full items-center gap-4 flex-wrap"):
+            # Name search inputs
             self.search_input = ui.input(
-                label="Search by name",
+                label="Surname",
                 placeholder="Enter surname...",
-                on_change=lambda e: self._search_persons(),
-            ).classes("w-64")
+                on_change=lambda e: self._do_search(),
+            ).classes("w-40")
+
+            self.given_name_input = ui.input(
+                label="Given Name",
+                placeholder="First name...",
+                on_change=lambda e: self._do_search(),
+            ).classes("w-40")
+
+            # RIN search
+            self.rin_input = ui.input(
+                label="RIN",
+                placeholder="RootsMagic ID...",
+                on_change=lambda e: self._do_search(),
+            ).classes("w-28").tooltip("Search by RootsMagic Person ID")
 
             self.year_select = ui.select(
                 options={
@@ -318,17 +352,29 @@ class CensusExtractionViewerTab:
                 },
                 value=None,
                 label="Census Year",
-                on_change=lambda e: self._search_persons(),
+                on_change=lambda e: self._do_search(),
             ).classes("w-32")
+
+            # Sort order for page view (only visible in page mode)
+            self.page_sort_select = ui.select(
+                options={
+                    "location": "State, County, Page",
+                    "extraction": "Extraction Order",
+                },
+                value="location",
+                label="Sort By",
+                on_change=lambda e: self._do_search(),
+            ).classes("w-44")
+            self.page_sort_select.set_visibility(self.view_mode == "pages")
 
             # Filter for unlinked persons (need manual review)
             self.unlinked_filter = ui.checkbox(
                 "Needs Review",
                 value=False,
-                on_change=lambda e: self._search_persons(),
+                on_change=lambda e: self._do_search(),
             ).tooltip("Show only persons without RootsMagic links")
 
-            ui.button("Search", icon="search", on_click=self._search_persons).props("color=primary")
+            ui.button("Search", icon="search", on_click=self._do_search).props("color=primary")
 
             ui.button(
                 "Import from URL", icon="cloud_download", on_click=self._show_import_dialog
@@ -343,18 +389,54 @@ class CensusExtractionViewerTab:
             ui.label("Select a person to view details").classes("text-gray-400 italic")
 
     # =========================================================================
-    # Person List
+    # View Mode and Search
     # =========================================================================
+
+    def _switch_view_mode(self, mode: str) -> None:
+        """Switch between persons and pages view mode."""
+        if self.view_mode == mode:
+            return
+
+        self.view_mode = mode
+
+        # Update sort select visibility
+        if self.page_sort_select:
+            self.page_sort_select.set_visibility(mode == "pages")
+
+        # Re-render the main view
+        if self.root_container:
+            self.root_container.clear()
+            with self.root_container:
+                self._render_main_view()
+
+    def _do_search(self) -> None:
+        """Route search to appropriate handler based on view mode."""
+        if self.view_mode == "pages":
+            self._search_pages()
+        else:
+            self._search_persons()
 
     def _search_persons(self) -> None:
         """Search for persons based on current filters."""
         surname = self.search_input.value if self.search_input else None
+        given_name = self.given_name_input.value if self.given_name_input else None
+        rin_str = self.rin_input.value if self.rin_input else None
         year = self.year_select.value if self.year_select else None
         unlinked_only = self.unlinked_filter.value if self.unlinked_filter else False
 
+        # Parse RIN if provided
+        rin = None
+        if rin_str:
+            try:
+                rin = int(rin_str)
+            except ValueError:
+                pass
+
         persons = self.repository.search_persons(
             surname=surname if surname else None,
+            given_name=given_name if given_name else None,
             census_year=year,
+            rmtree_person_id=rin,
         )
 
         # Filter to unlinked persons if requested
@@ -373,6 +455,21 @@ class CensusExtractionViewerTab:
             status_text += " (needs review)"
         if self.status_label:
             self.status_label.set_text(status_text)
+
+    def _search_pages(self) -> None:
+        """Search for pages based on current filters (page view mode)."""
+        year = self.year_select.value if self.year_select else None
+        sort_by = self.page_sort_select.value if self.page_sort_select else "location"
+
+        pages_with_persons = self.repository.get_pages_with_persons(
+            census_year=year,
+            sort_by=sort_by,
+        )
+
+        self._refresh_page_list(pages_with_persons)
+        total_persons = sum(len(persons) for _, persons in pages_with_persons)
+        if self.status_label:
+            self.status_label.set_text(f"Found {len(pages_with_persons)} pages, {total_persons} persons")
 
     def _refresh_person_list(self, persons: list[CensusPerson]) -> None:
         """Refresh the person list display."""
@@ -404,6 +501,89 @@ class CensusExtractionViewerTab:
             for page_id, person_page_list in persons_by_page.items():
                 for person, page in person_page_list:
                     self._render_person_list_item(person, page)
+
+    def _refresh_page_list(self, pages_with_persons: list[tuple[CensusPage, list[CensusPerson]]]) -> None:
+        """Refresh the page-grouped list display."""
+        if not self.page_list_column:
+            return
+
+        self.page_list_column.clear()
+
+        with self.page_list_column:
+            if not pages_with_persons:
+                ui.label("No pages found").classes("text-gray-400 italic text-sm")
+                return
+
+            for page, persons in pages_with_persons:
+                self._render_page_group(page, persons)
+
+    def _render_page_group(self, page: CensusPage, persons: list[CensusPerson]) -> None:
+        """Render a page with its persons grouped together."""
+        # Page header
+        state_abbrev = get_state_abbrev(page.state) if page.state else ""
+        location = f"{page.county}, {state_abbrev}" if page.county else state_abbrev
+
+        with ui.expansion(
+            text=f"{page.census_year} - {location}",
+            icon="description",
+            value=True,  # Start expanded
+        ).classes("w-full border border-gray-200 rounded mb-2"):
+            # Page info row
+            with ui.row().classes("w-full items-center gap-2 px-2 py-1 bg-gray-50"):
+                if page.enumeration_district:
+                    ui.badge(f"ED {page.enumeration_district}", color="blue").classes("text-xs")
+                if page.sheet_number:
+                    ui.badge(f"Sheet {page.sheet_number}", color="green").classes("text-xs")
+                ui.label(f"{len(persons)} persons").classes("text-xs text-gray-500 ml-auto")
+
+            # Persons list, sorted by line number
+            with ui.column().classes("w-full gap-1 p-2"):
+                for person in sorted(persons, key=lambda p: (p.line_number or 999, p.person_id)):
+                    self._render_page_person_item(person, page)
+
+    def _render_page_person_item(self, person: CensusPerson, page: CensusPage) -> None:
+        """Render a person item within a page group."""
+        is_selected = (
+            self.selected_person and self.selected_person.person_id == person.person_id
+        )
+
+        # Check if person has an rmtree_link
+        has_link = False
+        rmtree_rin = None
+        with self.repository._connect() as conn:
+            link_row = conn.execute(
+                "SELECT rmtree_person_id FROM rmtree_link WHERE census_person_id = ? LIMIT 1",
+                (person.person_id,),
+            ).fetchone()
+            if link_row:
+                has_link = True
+                rmtree_rin = link_row[0]
+
+        with ui.row().classes(
+            f"w-full items-center gap-2 p-2 rounded cursor-pointer hover:bg-blue-50 "
+            f"{'bg-blue-100 border-blue-500 border' if is_selected else 'bg-white border border-gray-100'}"
+        ).on("click", lambda p=person: self._select_person(p)):
+            # Line number
+            if person.line_number:
+                ui.label(f"L{person.line_number}").classes("text-xs text-gray-500 w-8")
+            else:
+                ui.label("-").classes("text-xs text-gray-300 w-8")
+
+            # RootsMagic link indicator
+            if has_link:
+                ui.icon("link", size="xs").classes("text-purple-500").tooltip(
+                    f"Linked to RootsMagic RIN {rmtree_rin}"
+                )
+
+            # Name
+            name = person.full_name or f"{person.given_name} {person.surname}"
+            ui.label(name).classes("text-sm font-medium flex-1 truncate")
+
+            # Relationship and Age
+            if person.relationship_to_head:
+                ui.label(person.relationship_to_head).classes("text-xs text-gray-500")
+            if person.age:
+                ui.label(f"Age {person.age}").classes("text-xs text-gray-500")
 
     def _render_person_list_item(self, person: CensusPerson, page: CensusPage | None) -> None:
         """Render enhanced person list item."""

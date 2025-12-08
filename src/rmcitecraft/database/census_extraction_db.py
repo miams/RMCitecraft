@@ -1230,10 +1230,23 @@ class CensusExtractionRepository:
         census_year: int | None = None,
         state: str | None = None,
         county: str | None = None,
+        rmtree_person_id: int | None = None,
+        limit: int = 100,
     ) -> list[CensusPerson]:
-        """Search for persons with optional filters."""
+        """Search for persons with optional filters.
+
+        Args:
+            surname: Filter by surname (partial match)
+            given_name: Filter by given name (partial match)
+            census_year: Filter by census year
+            state: Filter by state
+            county: Filter by county (partial match)
+            rmtree_person_id: Filter by RootsMagic person ID (RIN)
+            limit: Maximum results to return
+        """
         conditions = []
         params = []
+        joins = ["JOIN census_page pg ON cp.page_id = pg.page_id"]
 
         if surname:
             conditions.append("cp.surname LIKE ?")
@@ -1250,21 +1263,88 @@ class CensusExtractionRepository:
         if county:
             conditions.append("pg.county LIKE ?")
             params.append(f"%{county}%")
+        if rmtree_person_id:
+            joins.append("JOIN rmtree_link rl ON cp.person_id = rl.census_person_id")
+            conditions.append("rl.rmtree_person_id = ?")
+            params.append(rmtree_person_id)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
+        join_clause = " ".join(joins)
 
         with self._connect() as conn:
             rows = conn.execute(
                 f"""
-                SELECT cp.* FROM census_person cp
-                JOIN census_page pg ON cp.page_id = pg.page_id
+                SELECT DISTINCT cp.* FROM census_person cp
+                {join_clause}
                 WHERE {where_clause}
                 ORDER BY pg.census_year, cp.surname, cp.given_name
-                LIMIT 100
+                LIMIT ?
                 """,
-                params,
+                params + [limit],
             ).fetchall()
             return [self._row_to_person(row) for row in rows]
+
+    def get_pages_with_persons(
+        self,
+        census_year: int | None = None,
+        sort_by: str = "location",
+        limit: int = 100,
+    ) -> list[tuple[CensusPage, list[CensusPerson]]]:
+        """Get census pages with their persons for page-grouped view.
+
+        Args:
+            census_year: Filter by census year
+            sort_by: Sort order - "location" (State, County, page) or "extraction" (page_id)
+            limit: Maximum pages to return
+
+        Returns:
+            List of (page, persons) tuples
+        """
+        conditions = []
+        params = []
+
+        if census_year:
+            conditions.append("pg.census_year = ?")
+            params.append(census_year)
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+
+        # Determine sort order
+        if sort_by == "location":
+            order_by = "pg.state, pg.county, pg.sheet_number, pg.page_number"
+        else:  # extraction order
+            order_by = "pg.page_id"
+
+        with self._connect() as conn:
+            # Get pages
+            page_rows = conn.execute(
+                f"""
+                SELECT pg.* FROM census_page pg
+                WHERE {where_clause}
+                ORDER BY {order_by}
+                LIMIT ?
+                """,
+                params + [limit],
+            ).fetchall()
+
+            results = []
+            for page_row in page_rows:
+                page = self._row_to_page(page_row)
+
+                # Get persons for this page, sorted by line number
+                person_rows = conn.execute(
+                    """
+                    SELECT * FROM census_person
+                    WHERE page_id = ?
+                    ORDER BY line_number, person_id
+                    """,
+                    (page.page_id,),
+                ).fetchall()
+
+                persons = [self._row_to_person(row) for row in person_rows]
+                results.append((page, persons))
+
+            return results
 
     def get_extraction_stats(self) -> dict[str, Any]:
         """Get statistics about extracted data."""
