@@ -2098,6 +2098,20 @@ class CensusExtractionViewerTab:
                 confirmed_rm_person_id=rm_person_id,
                 validation_note="manual_confirmation",
             )
+
+            # Create rmtree_link if we have census_person_id
+            if attempt.matched_census_person_id and attempt.page_id:
+                link_id = self.repository.create_rmtree_link_for_validation(
+                    census_person_id=attempt.matched_census_person_id,
+                    rmtree_person_id=rm_person_id,
+                    page_id=attempt.page_id,
+                    match_method="manual_confirmation",
+                )
+                if link_id:
+                    logger.info(f"Created rmtree_link {link_id} for validation")
+                else:
+                    logger.warning(f"Could not create rmtree_link - no citation_id found for page {attempt.page_id}")
+
             ui.notify(f"Match confirmed: RIN {rm_person_id}", type="positive")
             self._next_validation_record()
 
@@ -2120,6 +2134,20 @@ class CensusExtractionViewerTab:
                 confirmed_rm_person_id=rm_person_id,
                 validation_note="manual_rin_entry",
             )
+
+            # Create rmtree_link if we have census_person_id
+            if attempt.matched_census_person_id and attempt.page_id:
+                link_id = self.repository.create_rmtree_link_for_validation(
+                    census_person_id=attempt.matched_census_person_id,
+                    rmtree_person_id=rm_person_id,
+                    page_id=attempt.page_id,
+                    match_method="manual_rin_entry",
+                )
+                if link_id:
+                    logger.info(f"Created rmtree_link {link_id} for manual RIN validation")
+                else:
+                    logger.warning(f"Could not create rmtree_link - no citation_id found for page {attempt.page_id}")
+
             ui.notify(f"Match confirmed: RIN {rm_person_id}", type="positive")
             self._next_validation_record()
 

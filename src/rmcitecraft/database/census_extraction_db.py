@@ -1865,6 +1865,25 @@ class CensusExtractionRepository:
                     (new_status, validation_note, attempt_id),
                 )
 
+    def update_match_attempt_census_person(
+        self,
+        attempt_id: int,
+        census_person_id: int,
+    ) -> None:
+        """Update match attempt with the census_person_id after person creation.
+
+        Args:
+            attempt_id: The match attempt to update
+            census_person_id: The newly created census_person_id
+        """
+        with self._connect() as conn:
+            conn.execute(
+                """UPDATE match_attempt SET
+                    matched_census_person_id = ?
+                WHERE attempt_id = ?""",
+                (census_person_id, attempt_id),
+            )
+
     def get_match_attempt_by_id(self, attempt_id: int) -> MatchAttempt | None:
         """Get a single match attempt by ID."""
         with self._connect() as conn:
@@ -1941,6 +1960,70 @@ class CensusExtractionRepository:
                    AND matched_census_person_id IS NULL"""
             ).fetchone()
             return row["count"] if row else 0
+
+    def get_rmtree_citation_id_for_page(self, page_id: int) -> int | None:
+        """Get the RootsMagic citation ID for a census page.
+
+        Finds the citation_id from existing rmtree_links on the same page.
+
+        Args:
+            page_id: The census page ID
+
+        Returns:
+            The rmtree_citation_id if found, None otherwise
+        """
+        with self._connect() as conn:
+            row = conn.execute(
+                """SELECT DISTINCT rl.rmtree_citation_id
+                   FROM rmtree_link rl
+                   JOIN census_person cp ON rl.census_person_id = cp.person_id
+                   WHERE cp.page_id = ?
+                   AND rl.rmtree_citation_id IS NOT NULL
+                   LIMIT 1""",
+                (page_id,),
+            ).fetchone()
+            return row["rmtree_citation_id"] if row else None
+
+    def create_rmtree_link_for_validation(
+        self,
+        census_person_id: int,
+        rmtree_person_id: int,
+        page_id: int,
+        match_method: str = "manual_validation",
+        match_confidence: float = 1.0,
+    ) -> int | None:
+        """Create an rmtree_link for a validated match.
+
+        Args:
+            census_person_id: The census_person to link
+            rmtree_person_id: The RootsMagic person ID (RIN)
+            page_id: The census page ID (to find citation_id)
+            match_method: How the match was made (default: manual_validation)
+            match_confidence: Confidence score (default: 1.0 for manual)
+
+        Returns:
+            The new link_id, or None if citation_id not found
+        """
+        # Get the citation_id from the page
+        rmtree_citation_id = self.get_rmtree_citation_id_for_page(page_id)
+        if not rmtree_citation_id:
+            return None
+
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """INSERT INTO rmtree_link (
+                    census_person_id, rmtree_person_id, rmtree_citation_id,
+                    match_confidence, match_method
+                ) VALUES (?, ?, ?, ?, ?)""",
+                (
+                    census_person_id,
+                    rmtree_person_id,
+                    rmtree_citation_id,
+                    match_confidence,
+                    match_method,
+                ),
+            )
+            return cursor.lastrowid
 
 
 # =============================================================================

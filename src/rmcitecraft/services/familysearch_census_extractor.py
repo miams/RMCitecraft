@@ -1116,7 +1116,12 @@ class FamilySearchCensusExtractor:
                         extracted_count += 1
                         continue
 
-                    # If RM filter is active, only extract members who match a RootsMagic person
+                    # Check for RM match and record attempt (but extract ALL members)
+                    matches_rm = False
+                    matched_rm = None
+                    matched_rm_person_id = None
+                    match_attempt_id = None
+
                     if rm_persons_filter:
                         # Use enhanced matching with full candidate diagnostics
                         match_result = self._find_rm_match_candidates(
@@ -1124,6 +1129,8 @@ class FamilySearchCensusExtractor:
                         )
                         matches_rm = match_result["matched"]
                         matched_rm = match_result["best_match"]
+                        if matched_rm:
+                            matched_rm_person_id = getattr(matched_rm, 'person_id', None)
 
                         # Parse member name for MatchAttempt
                         member_tokens = normalize_name(member_name).split() if member_name else []
@@ -1131,6 +1138,7 @@ class FamilySearchCensusExtractor:
                         fs_surname = member_tokens[-1] if len(member_tokens) > 1 else ""
 
                         # Save match attempt to database for analysis
+                        # Note: matched_census_person_id will be updated after person is created
                         match_attempt = MatchAttempt(
                             batch_id=getattr(result, '_batch_id', None),
                             page_id=page_id,
@@ -1145,7 +1153,7 @@ class FamilySearchCensusExtractor:
                             fs_birthplace=member.get("birthplace", ""),
                             fs_household_head_name=target_name or "",
                             match_status="matched" if matches_rm else "skipped",
-                            matched_rm_person_id=getattr(matched_rm, 'person_id', None) if matched_rm else None,
+                            matched_rm_person_id=matched_rm_person_id,
                             skip_reason=match_result["skip_reason"],
                             best_candidate_rm_id=match_result["candidates"][0]["rm_id"] if match_result["candidates"] else None,
                             best_candidate_name=match_result["candidates"][0]["rm_name"] if match_result["candidates"] else "",
@@ -1154,30 +1162,23 @@ class FamilySearchCensusExtractor:
                             candidates_json=json.dumps(match_result["candidates"][:5]),  # Top 5 candidates
                         )
                         try:
-                            self.repository.insert_match_attempt(match_attempt)
+                            match_attempt_id = self.repository.insert_match_attempt(match_attempt)
                         except Exception as e:
                             logger.warning(f"Failed to save match attempt: {e}")
 
-                        if not matches_rm:
-                            logger.debug(
-                                f"Skipping '{member_name}' - no RootsMagic match "
-                                f"(reason={match_result['skip_reason']}, best_score={match_result['best_score']:.2f})"
-                            )
-                            skipped_count += 1
-                            result.related_persons.append({
-                                "name": member_name,
-                                "ark": member_ark_normalized,
-                                "skipped": True,
-                                "reason": f"No RootsMagic match ({match_result['skip_reason']})",
-                                "best_candidate": match_result["candidates"][0] if match_result["candidates"] else None,
-                            })
-                            continue
-                        else:
+                        # Log match status (but continue extracting either way)
+                        if matches_rm:
                             rm_name = getattr(matched_rm, 'full_name', 'Unknown')
-                            rm_id = getattr(matched_rm, 'person_id', 0)
+                            rm_id = matched_rm_person_id or 0
                             logger.info(
                                 f"Extracting '{member_name}' - matches RM person '{rm_name}' (RIN {rm_id}) "
                                 f"[score={match_result['best_score']:.2f}, method={match_result['best_method']}]"
+                            )
+                        else:
+                            logger.info(
+                                f"Extracting '{member_name}' - no RootsMagic match "
+                                f"(reason={match_result['skip_reason']}, best_score={match_result['best_score']:.2f}) "
+                                f"- will be available for manual validation"
                             )
 
                     # If no ARK, create a basic record with available data from the index
@@ -1205,22 +1206,22 @@ class FamilySearchCensusExtractor:
                             birthplace=member.get("birthplace", ""),
                         )
 
-                        # Check if this member matches an RM person (for rmtree_link)
-                        matched_rm_person_id = None
-                        if rm_persons_filter:
-                            _, matched_rm = self._matches_any_rm_person(
-                                member_name, rm_persons_filter, head_surname=head_surname
-                            )
-                            if matched_rm:
-                                matched_rm_person_id = getattr(matched_rm, 'person_id', None)
-
                         # Insert the household member
                         try:
                             member_person_id = self.repository.insert_person(member_person)
                             logger.debug(f"Inserted household member {member_name} with person_id={member_person_id}")
 
-                            # Create rmtree_link if we found a matching RM person
-                            if matched_rm_person_id and rmtree_citation_id:
+                            # Update match_attempt with census_person_id (for validation workflow)
+                            if match_attempt_id:
+                                try:
+                                    self.repository.update_match_attempt_census_person(
+                                        match_attempt_id, member_person_id
+                                    )
+                                except Exception as e:
+                                    logger.warning(f"Failed to update match_attempt census_person_id: {e}")
+
+                            # Create rmtree_link only if we found a matching RM person
+                            if matches_rm and matched_rm_person_id and rmtree_citation_id:
                                 link = RMTreeLink(
                                     census_person_id=member_person_id,
                                     rmtree_person_id=matched_rm_person_id,
@@ -1236,8 +1237,9 @@ class FamilySearchCensusExtractor:
                                 "name": member_name,
                                 "ark": None,
                                 "person_id": member_person_id,
-                                "rmtree_person_id": matched_rm_person_id,
+                                "rmtree_person_id": matched_rm_person_id if matches_rm else None,
                                 "extracted": True,
+                                "matched_rm": matches_rm,
                                 "note": "Limited data from index (no ARK)",
                             })
                             extracted_count += 1
@@ -1254,42 +1256,56 @@ class FamilySearchCensusExtractor:
                     existing = self.repository.get_person_by_ark(member_ark_normalized)
                     if existing:
                         logger.info(f"Household member already extracted: {member_name}")
+
+                        # Update match_attempt with existing census_person_id
+                        if match_attempt_id:
+                            try:
+                                self.repository.update_match_attempt_census_person(
+                                    match_attempt_id, existing.person_id
+                                )
+                            except Exception as e:
+                                logger.warning(f"Failed to update match_attempt census_person_id: {e}")
+
                         result.related_persons.append({
                             "name": member_name,
                             "ark": member_ark_normalized,
                             "person_id": existing.person_id,
                             "already_extracted": True,
+                            "matched_rm": matches_rm,
                         })
                         extracted_count += 1
                     else:
                         # Extract full data for this household member
                         logger.info(f"Extracting household member: {member_name} ({member_ark_normalized})")
 
-                        # Get matched RM person ID if available (for creating rmtree_link)
-                        matched_rm_person_id = None
-                        if rm_persons_filter:
-                            _, matched_rm = self._matches_any_rm_person(
-                                member_name, rm_persons_filter, head_surname=head_surname
-                            )
-                            if matched_rm:
-                                matched_rm_person_id = getattr(matched_rm, 'person_id', None)
-
+                        # Only pass rmtree_person_id if there's a confirmed match
+                        # (this controls whether rmtree_link is created inside extract_from_ark)
                         member_result = await self.extract_from_ark(
                             member_ark_normalized,  # Use normalized URL
                             census_year,
                             rmtree_citation_id=rmtree_citation_id,  # Same source
-                            rmtree_person_id=matched_rm_person_id,  # Matched RM person
+                            rmtree_person_id=matched_rm_person_id if matches_rm else None,
                             extract_household=False,  # Don't recurse
                             is_primary_target=True,  # Household members share the same Census event
                             line_number=member.get("line_number"),  # Census form line number from SLS API
                         )
                         if member_result.success:
+                            # Update match_attempt with census_person_id (for validation workflow)
+                            if match_attempt_id and member_result.person_id:
+                                try:
+                                    self.repository.update_match_attempt_census_person(
+                                        match_attempt_id, member_result.person_id
+                                    )
+                                except Exception as e:
+                                    logger.warning(f"Failed to update match_attempt census_person_id: {e}")
+
                             result.related_persons.append({
                                 "name": member.get("name"),
                                 "ark": member_ark_normalized,
                                 "person_id": member_result.person_id,
-                                "rmtree_person_id": matched_rm_person_id,
+                                "rmtree_person_id": matched_rm_person_id if matches_rm else None,
                                 "extracted": True,
+                                "matched_rm": matches_rm,
                             })
                             extracted_count += 1
                         else:
@@ -1306,8 +1322,8 @@ class FamilySearchCensusExtractor:
                 # Log extraction summary
                 if rm_persons_filter:
                     logger.info(
-                        f"Household extraction complete: {extracted_count} extracted, "
-                        f"{skipped_count} skipped (not in RootsMagic)"
+                        f"Household extraction complete: {extracted_count} extracted "
+                        f"(all members now saved for validation)"
                     )
 
             # Fix sample line offset for 1950 census
