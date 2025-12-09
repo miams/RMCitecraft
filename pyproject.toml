@@ -39,6 +39,7 @@ dependencies = [
     "pyobjc-core>=10.0",
     "pyobjc-framework-Cocoa>=10.0",
     "playwright>=1.55.0",
+    "scipy>=1.16.3",
 ]
 
 [project.scripts]
