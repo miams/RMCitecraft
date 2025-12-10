@@ -911,6 +911,124 @@ class CensusRMTreeMatcher:
         finally:
             conn.close()
 
+    def find_citation_for_page(
+        self,
+        page_id: int,
+        stored_citation_id: int | None = None,
+        state: str | None = None,
+        county: str | None = None,
+        enumeration_district: str | None = None,
+    ) -> tuple[int | None, str]:
+        """Find a valid citation ID for a census page using hybrid lookup.
+
+        This method attempts to find a citation using multiple strategies:
+        1. Try stored citation_id (if provided and valid in RootsMagic)
+        2. Try to find citation via linked RINs on the same page
+        3. Try to find citation via state/county/ED location lookup
+
+        Args:
+            page_id: The census.db page ID
+            stored_citation_id: Previously stored citation ID (may be stale)
+            state: Census state (for location lookup)
+            county: Census county (for location lookup)
+            enumeration_district: Census ED (for location lookup)
+
+        Returns:
+            Tuple of (citation_id or None, method_used string)
+        """
+        conn = connect_rmtree(self.rmtree_path, self.icu_extension_path)
+        try:
+            cursor = conn.cursor()
+
+            # Strategy 1: Try stored citation_id if provided
+            if stored_citation_id:
+                cursor.execute(
+                    "SELECT CitationID FROM CitationTable WHERE CitationID = ?",
+                    (stored_citation_id,),
+                )
+                if cursor.fetchone():
+                    return stored_citation_id, "stored_citation"
+
+            # Strategy 2: Find citation via linked RINs on the same page
+            # Get RINs from census.db for this page
+            if self.census_repo:
+                with self.census_repo._connect() as census_conn:
+                    rin_rows = census_conn.execute(
+                        """
+                        SELECT DISTINCT rl.rmtree_person_id
+                        FROM census_person cp
+                        JOIN rmtree_link rl ON rl.census_person_id = cp.person_id
+                        WHERE cp.page_id = ? AND rl.rmtree_person_id IS NOT NULL
+                        """,
+                        (page_id,),
+                    ).fetchall()
+
+                for rin_row in rin_rows:
+                    rin = rin_row[0]
+                    # Find this RIN's 1950 census citation (as event owner)
+                    cursor.execute(
+                        """
+                        SELECT c.CitationID
+                        FROM EventTable e
+                        JOIN CitationLinkTable cl ON cl.OwnerID = e.EventID AND cl.OwnerType = 2
+                        JOIN CitationTable c ON cl.CitationID = c.CitationID
+                        JOIN SourceTable s ON c.SourceID = s.SourceID
+                        WHERE e.OwnerID = ?
+                          AND e.EventType = 18
+                          AND s.Name LIKE '%1950%'
+                        LIMIT 1
+                        """,
+                        (rin,),
+                    )
+                    result = cursor.fetchone()
+                    if result:
+                        return result[0], "rin_event_owner"
+
+                    # Try as witness
+                    cursor.execute(
+                        """
+                        SELECT c.CitationID
+                        FROM WitnessTable w
+                        JOIN EventTable e ON w.EventID = e.EventID
+                        JOIN CitationLinkTable cl ON cl.OwnerID = e.EventID AND cl.OwnerType = 2
+                        JOIN CitationTable c ON cl.CitationID = c.CitationID
+                        JOIN SourceTable s ON c.SourceID = s.SourceID
+                        WHERE w.PersonID = ?
+                          AND e.EventType = 18
+                          AND s.Name LIKE '%1950%'
+                        LIMIT 1
+                        """,
+                        (rin,),
+                    )
+                    result = cursor.fetchone()
+                    if result:
+                        return result[0], "rin_witness"
+
+            # Strategy 3: Find citation via state/county/ED location lookup
+            if state and county and enumeration_district:
+                # Search for a 1950 census source matching this location
+                # Source names look like: "Fed Census: 1950, State, County [citing ... (ED) XX-XX..."
+                search_pattern = f"%1950%{state}%{county}%{enumeration_district}%"
+                cursor.execute(
+                    """
+                    SELECT c.CitationID, s.Name
+                    FROM SourceTable s
+                    JOIN CitationTable c ON c.SourceID = s.SourceID
+                    WHERE s.Name LIKE ?
+                      AND s.Name LIKE '%Fed Census%'
+                    LIMIT 1
+                    """,
+                    (search_pattern,),
+                )
+                result = cursor.fetchone()
+                if result:
+                    return result[0], "location_lookup"
+
+            return None, "not_found"
+
+        finally:
+            conn.close()
+
     # =========================================================================
     # CENSUS DATA RETRIEVAL
     # =========================================================================

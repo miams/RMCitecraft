@@ -548,16 +548,21 @@ class CensusExtractionViewerTab:
         )
 
         # Check if person has an rmtree_link
-        has_link = False
+        has_rin_link = False
+        has_citation_only = False
         rmtree_rin = None
         with self.repository._connect() as conn:
             link_row = conn.execute(
-                "SELECT rmtree_person_id FROM rmtree_link WHERE census_person_id = ? LIMIT 1",
+                "SELECT rmtree_person_id, rmtree_citation_id FROM rmtree_link WHERE census_person_id = ? LIMIT 1",
                 (person.person_id,),
             ).fetchone()
             if link_row:
-                has_link = True
                 rmtree_rin = link_row[0]
+                rmtree_citation_id = link_row[1]
+                if rmtree_rin:
+                    has_rin_link = True
+                elif rmtree_citation_id:
+                    has_citation_only = True
 
         with ui.row().classes(
             f"w-full items-center gap-2 p-2 rounded cursor-pointer hover:bg-blue-50 "
@@ -570,9 +575,13 @@ class CensusExtractionViewerTab:
                 ui.label("-").classes("text-xs text-gray-300 w-8")
 
             # RootsMagic link indicator
-            if has_link:
+            if has_rin_link:
                 ui.icon("link", size="xs").classes("text-purple-500").tooltip(
                     f"Linked to RootsMagic RIN {rmtree_rin}"
+                )
+            elif has_citation_only:
+                ui.icon("link", size="xs").classes("text-gray-400").tooltip(
+                    "On census page with citation, but not matched to a RootsMagic person"
                 )
 
             # Name
@@ -591,14 +600,22 @@ class CensusExtractionViewerTab:
             self.selected_person and self.selected_person.person_id == person.person_id
         )
 
-        # Check if person has an rmtree_link
-        has_link = False
+        # Check if person has an rmtree_link with RIN or citation-only
+        has_rin_link = False
+        has_citation_only = False
+        rmtree_rin = None
         with self.repository._connect() as conn:
             link_row = conn.execute(
-                "SELECT 1 FROM rmtree_link WHERE census_person_id = ? LIMIT 1",
+                "SELECT rmtree_person_id, rmtree_citation_id FROM rmtree_link WHERE census_person_id = ? LIMIT 1",
                 (person.person_id,),
             ).fetchone()
-            has_link = link_row is not None
+            if link_row:
+                rmtree_rin = link_row[0]
+                rmtree_citation_id = link_row[1]
+                if rmtree_rin:
+                    has_rin_link = True
+                elif rmtree_citation_id:
+                    has_citation_only = True
 
         # Check if person has sample line data
         has_sample_data = False
@@ -613,9 +630,13 @@ class CensusExtractionViewerTab:
             # Top row: Line#, Name, Year badge
             with ui.row().classes("w-full items-center gap-2"):
                 # RootsMagic link indicator
-                if has_link:
+                if has_rin_link:
                     ui.icon("link", size="xs").classes("text-purple-500").tooltip(
-                        "Linked to RootsMagic - this person is connected to a citation in your database"
+                        f"Linked to RootsMagic RIN {rmtree_rin}"
+                    )
+                elif has_citation_only:
+                    ui.icon("link", size="xs").classes("text-gray-400").tooltip(
+                        "On census page with citation, but not matched to a RootsMagic person"
                     )
 
                 # Sample line indicator (gold star) - person was on a sample line with extra questions
@@ -892,11 +913,11 @@ class CensusExtractionViewerTab:
         # Check if person has a confirmed link (rmtree_person_id is set)
         has_confirmed_link = any(row["rmtree_person_id"] for row in link_rows)
 
-        # Get citation ID for finding match candidates
-        citation_id = None
+        # Get stored citation ID (may be stale)
+        stored_citation_id = None
         for row in link_rows:
             if row["rmtree_citation_id"]:
-                citation_id = row["rmtree_citation_id"]
+                stored_citation_id = row["rmtree_citation_id"]
                 break
 
         # Show existing links (flat display - no collapsible)
@@ -910,16 +931,13 @@ class CensusExtractionViewerTab:
                         ui.label(f"(Citation #{row['rmtree_citation_id']})").classes("text-sm text-gray-600")
                     ui.badge(f"{row['match_confidence']:.0%}", color="purple").classes("text-xs")
 
-        # Show match suggestions for unlinked persons
-        if not has_confirmed_link and citation_id:
-            self._render_match_suggestions_card(person, citation_id)
-        elif not has_confirmed_link and not citation_id:
-            # No link record - try to find citation by ARK
-            found_source_id = self._find_source_by_ark(person.familysearch_ark)
-            if found_source_id:
-                self._render_match_suggestions_card(person, found_source_id)
+        # Show match suggestions for unlinked persons using hybrid citation lookup
+        if not has_confirmed_link:
+            citation_id = self._find_citation_hybrid(person, stored_citation_id)
+            if citation_id:
+                self._render_match_suggestions_card(person, citation_id)
             else:
-                # No citation found for this ARK - show warning
+                # No citation found - show warning
                 with ui.card().classes("w-full p-3 bg-yellow-50 border-yellow-200"):
                     with ui.row().classes("w-full items-center gap-2"):
                         ui.icon("warning", size="sm").classes("text-yellow-600")
@@ -943,9 +961,17 @@ class CensusExtractionViewerTab:
             return
 
         # Find match candidates
+        # person.age may be int or string depending on source
+        age_value = None
+        if person.age is not None:
+            if isinstance(person.age, int):
+                age_value = person.age
+            elif isinstance(person.age, str) and person.age.isdigit():
+                age_value = int(person.age)
+
         candidates = find_match_candidates(
             census_name=person.full_name or "",
-            census_age=int(person.age) if person.age and person.age.isdigit() else None,
+            census_age=age_value,
             census_sex=person.sex,
             census_relationship=person.relationship_to_head,
             rm_persons=rm_persons,
@@ -1068,11 +1094,12 @@ class CensusExtractionViewerTab:
             return None
 
         try:
-            from rmcitecraft.config.settings import settings
+            from rmcitecraft.config.settings import get_config
             from rmcitecraft.database.connection import connect_rmtree
 
-            rmtree_path = settings.rm_database_path
-            icu_path = settings.sqlite_icu_extension
+            config = get_config()
+            rmtree_path = Path(config.rm_database_path) if config.rm_database_path else None
+            icu_path = Path(config.sqlite_icu_extension) if config.sqlite_icu_extension else None
 
             if not rmtree_path or not rmtree_path.exists():
                 return None
@@ -1103,23 +1130,75 @@ class CensusExtractionViewerTab:
             logger.error(f"Failed to find source for ARK {ark_url}: {e}")
             return None
 
+    def _find_citation_hybrid(self, person: CensusPerson, stored_citation_id: int | None) -> int | None:
+        """Find a valid citation ID using hybrid lookup strategy.
+
+        Attempts to find a citation using:
+        1. Stored citation_id (if valid in RootsMagic)
+        2. Via linked RINs on the same census page
+        3. Via state/county/ED location lookup
+
+        Args:
+            person: The census person to find suggestions for
+            stored_citation_id: Previously stored citation ID (may be stale)
+
+        Returns:
+            Valid citation ID or None
+        """
+        try:
+            from rmcitecraft.config.settings import get_config
+            from rmcitecraft.services.census_rmtree_matcher import CensusRMTreeMatcher
+
+            config = get_config()
+            rmtree_path = Path(config.rm_database_path) if config.rm_database_path else None
+            icu_path = Path(config.sqlite_icu_extension) if config.sqlite_icu_extension else None
+
+            if not rmtree_path or not rmtree_path.exists():
+                logger.warning(f"RootsMagic database not found: {rmtree_path}")
+                return None
+
+            # Get page info for location lookup
+            page = self.repository.get_page(person.page_id) if person.page_id else None
+
+            matcher = CensusRMTreeMatcher(rmtree_path, icu_path, census_repo=self.repository)
+
+            citation_id, method = matcher.find_citation_for_page(
+                page_id=person.page_id,
+                stored_citation_id=stored_citation_id,
+                state=page.state if page else None,
+                county=page.county if page else None,
+                enumeration_district=page.enumeration_district if page else None,
+            )
+
+            if citation_id:
+                logger.debug(f"Found citation {citation_id} for person {person.person_id} via {method}")
+            else:
+                logger.debug(f"No citation found for person {person.person_id}")
+
+            return citation_id
+
+        except Exception as e:
+            logger.error(f"Failed to find citation for person {person.person_id}: {e}")
+            return None
+
     def _get_rm_persons_for_citation(self, citation_id: int) -> list[Any]:
         """Get RM persons that share the same census source as this citation."""
         try:
-            from rmcitecraft.config.settings import settings
+            from rmcitecraft.config.settings import get_config
             from rmcitecraft.services.census_rmtree_matcher import CensusRMTreeMatcher
 
-            rmtree_path = settings.rm_database_path
-            icu_path = settings.sqlite_icu_extension
+            config = get_config()
+            rmtree_path = Path(config.rm_database_path) if config.rm_database_path else None
+            icu_path = Path(config.sqlite_icu_extension) if config.sqlite_icu_extension else None
 
             if not rmtree_path or not rmtree_path.exists():
+                logger.warning(f"RootsMagic database not found: {rmtree_path}")
                 return []
 
             matcher = CensusRMTreeMatcher(rmtree_path, icu_path)
 
-            # Get SourceID for this citation
-            # The rmtree_citation_id in census.db is actually a SourceID
-            rm_persons, _, _ = matcher.get_rm_persons_for_source(citation_id)
+            # Get RM persons for this citation
+            rm_persons, _, _, _ = matcher.get_rm_persons_for_citation(citation_id)
             return rm_persons
 
         except Exception as e:

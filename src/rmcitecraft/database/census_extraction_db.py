@@ -1375,9 +1375,14 @@ class CensusExtractionRepository:
             ).fetchall()
             stats["by_year"] = {row["census_year"]: {"pages": row["pages"], "persons": row["persons"]} for row in year_counts}
 
-            # Links to RootsMagic
+            # Links to RootsMagic - count only records with actual RIN links
             stats["rmtree_links"] = conn.execute(
-                "SELECT COUNT(*) FROM rmtree_link"
+                "SELECT COUNT(*) FROM rmtree_link WHERE rmtree_person_id IS NOT NULL"
+            ).fetchone()[0]
+
+            # Citation-only links (have citation but no RIN - household members)
+            stats["citation_only_links"] = conn.execute(
+                "SELECT COUNT(*) FROM rmtree_link WHERE rmtree_person_id IS NULL AND rmtree_citation_id IS NOT NULL"
             ).fetchone()[0]
 
             # Sample line persons (1950 census with sample data)
