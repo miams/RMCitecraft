@@ -985,23 +985,46 @@ class CensusExtractionViewerTab:
                 with ui.column().classes("gap-2 mt-2 w-full"):
                     ui.label(f"'{person.full_name}' does not match any expected person:").classes("text-sm text-gray-600")
 
-                    # Show manual linking dropdown
-                    rm_options = {rm.person_id: f"{rm.full_name} (RIN {rm.person_id})" for rm in rm_persons}
-                    with ui.row().classes("w-full items-center gap-2 mt-2"):
-                        manual_select = ui.select(
-                            options=rm_options,
-                            label="Manual link to:",
-                            with_input=True,
-                        ).classes("flex-1")
+                    # Show manual linking dropdown (from RM persons on same citation)
+                    if rm_persons:
+                        rm_options = {rm.person_id: f"{rm.full_name} (RIN {rm.person_id})" for rm in rm_persons}
+                        with ui.row().classes("w-full items-center gap-2 mt-2"):
+                            manual_select = ui.select(
+                                options=rm_options,
+                                label="Select from household:",
+                                with_input=True,
+                            ).classes("flex-1")
 
-                        async def confirm_manual(ps=person, sel=manual_select, cid=citation_id):
-                            if sel.value:
-                                await self._confirm_manual_match(ps, sel.value, cid)
+                            async def confirm_manual(ps=person, sel=manual_select, cid=citation_id):
+                                if sel.value:
+                                    await self._confirm_manual_match(ps, sel.value, cid)
+
+                            ui.button(
+                                "Link",
+                                icon="link",
+                                on_click=confirm_manual,
+                            ).props("color=primary size=sm")
+
+                    # Manual RIN entry (for linking to any person in RM)
+                    ui.separator().classes("my-2")
+                    ui.label("Or enter RIN directly:").classes("text-sm text-gray-600")
+                    with ui.row().classes("w-full items-center gap-2"):
+                        rin_input = ui.input(
+                            label="RIN",
+                            placeholder="Enter RootsMagic RIN",
+                        ).props("dense outlined type=number").classes("flex-1")
+
+                        async def link_manual_rin(p=person, cid=citation_id):
+                            try:
+                                rin = int(rin_input.value)
+                                await self._confirm_manual_match(p, rin, cid)
+                            except (ValueError, TypeError):
+                                ui.notify("Please enter a valid RIN number", type="warning")
 
                         ui.button(
                             "Link",
                             icon="link",
-                            on_click=confirm_manual,
+                            on_click=link_manual_rin,
                         ).props("color=primary size=sm")
             return
 
@@ -1064,7 +1087,7 @@ class CensusExtractionViewerTab:
                             ui.badge(f"{alt.score * 100:.0f}%", color="gray").classes("text-xs")
                             ui.button(
                                 icon="check",
-                                on_click=lambda a=alt, cid=citation_id: self._confirm_match(person, a, cid),
+                                on_click=lambda a=alt, cid=citation_id: self._confirm_person_match(person, a, cid),
                             ).props("color=green size=xs flat dense").tooltip("Confirm this match")
 
             # Action buttons
@@ -1072,14 +1095,35 @@ class CensusExtractionViewerTab:
                 ui.button(
                     "Confirm Match",
                     icon="check",
-                    on_click=lambda cid=citation_id: self._confirm_match(person, best, cid),
+                    on_click=lambda cid=citation_id: self._confirm_person_match(person, best, cid),
                 ).props("color=green size=sm")
 
                 ui.button(
                     "Reject All",
                     icon="close",
-                    on_click=lambda: self._reject_match(person),
+                    on_click=lambda: self._reject_person_match(person),
                 ).props("color=red size=sm outline")
+
+            # Manual RIN entry
+            with ui.expansion("Enter RIN Manually", icon="edit").classes("w-full mt-2"):
+                with ui.row().classes("w-full items-center gap-2"):
+                    rin_input = ui.input(
+                        label="RIN",
+                        placeholder="Enter RootsMagic RIN",
+                    ).props("dense outlined type=number").classes("flex-1")
+
+                    async def link_manual_rin(p=person, cid=citation_id):
+                        try:
+                            rin = int(rin_input.value)
+                            await self._confirm_manual_match(p, rin, cid)
+                        except (ValueError, TypeError):
+                            ui.notify("Please enter a valid RIN number", type="warning")
+
+                    ui.button(
+                        "Link",
+                        icon="link",
+                        on_click=link_manual_rin,
+                    ).props("color=primary size=sm")
 
     def _find_source_by_ark(self, ark_url: str | None) -> int | None:
         """Find RootsMagic SourceID by searching for a FamilySearch ARK URL.
@@ -1205,7 +1249,7 @@ class CensusExtractionViewerTab:
             logger.error(f"Failed to get RM persons for citation {citation_id}: {e}")
             return []
 
-    def _confirm_match(
+    def _confirm_person_match(
         self, person: CensusPerson, candidate: MatchCandidate, source_id: int | None = None
     ) -> None:
         """Confirm a match and create/update the rmtree_link."""
@@ -1245,18 +1289,15 @@ class CensusExtractionViewerTab:
             rm_name = getattr(candidate.rm_person, 'full_name', 'Unknown')
             ui.notify(f"Linked to {rm_name} (RIN {rm_person_id})", type="positive")
 
-            # Refresh the detail panel
-            self._load_person_data(person.person_id)
-            if self.detail_column:
-                self.detail_column.clear()
-                with self.detail_column:
-                    self._render_detail_panel()
+            # Refresh the detail panel by re-selecting the person
+            self._select_person(person)
+            self._refresh_detail_view()
 
         except Exception as e:
             logger.error(f"Failed to confirm match: {e}")
             ui.notify(f"Failed to confirm match: {e}", type="negative")
 
-    def _reject_match(self, person: CensusPerson) -> None:
+    def _reject_person_match(self, person: CensusPerson) -> None:
         """Mark that user reviewed and rejected all matches."""
         try:
             # Update the existing link to mark as user-rejected
@@ -1272,10 +1313,7 @@ class CensusExtractionViewerTab:
             ui.notify("Matches rejected - this person will not be linked", type="warning")
 
             # Refresh the detail panel
-            if self.detail_column:
-                self.detail_column.clear()
-                with self.detail_column:
-                    self._render_detail_panel()
+            self._refresh_detail_view()
 
         except Exception as e:
             logger.error(f"Failed to reject match: {e}")
@@ -1323,12 +1361,9 @@ class CensusExtractionViewerTab:
 
             ui.notify(f"Manually linked to {rm_name} (RIN {rm_person_id})", type="positive")
 
-            # Refresh the detail panel
-            self._load_person_data(person.person_id)
-            if self.detail_column:
-                self.detail_column.clear()
-                with self.detail_column:
-                    self._render_detail_panel()
+            # Refresh the detail panel by re-selecting the person
+            self._select_person(person)
+            self._refresh_detail_view()
 
         except Exception as e:
             logger.error(f"Failed to confirm manual match: {e}")

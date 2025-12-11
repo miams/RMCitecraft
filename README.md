@@ -29,8 +29,9 @@ Genealogists using RootsMagic spend significant time manually formatting citatio
 - Playwright automation navigates FamilySearch census pages
 - AI (Claude/GPT) transcribes census images using schema-based prompts
 - Extracts all household members with line numbers, relationships, ages, birthplaces
-- Matches extracted persons to RootsMagic database with fuzzy name matching
-- Stores extracted data in separate `census.db` for review before import
+- Matches extracted persons to RootsMagic database with fuzzy name matching (Hungarian algorithm for optimal assignment)
+- Stores extracted data in `~/.rmcitecraft/census.db` using EAV (Entity-Attribute-Value) pattern for extensible fields
+- Achieves ~85% automatic matching coverage for 1950 census records
 
 **Citation Processing:**
 - Batch process multiple citations per session
@@ -38,10 +39,13 @@ Genealogists using RootsMagic spend significant time manually formatting citatio
 - *Evidence Explained* compliant output (footnote, short footnote, bibliography)
 - Prompts for missing data (e.g., enumeration district) with FamilySearch page displayed
 
-**Census Form Viewer:**
-- Renders extracted census data using Jinja2 templates
-- Displays 1950 census forms matching original document layout
-- Shows RootsMagic person links for each extracted household member
+**Census Extraction Viewer:**
+- **Page View Mode**: Browse extracted census pages with all household members
+- **Match Suggestions**: Confidence-scored candidate matches with fuzzy name matching
+- **Manual RIN Linking**: Enter RIN directly or select from household members
+- **Link Status Indicators**: Purple icon = linked to RIN, gray = citation only
+- **Hybrid Citation Lookup**: Automatically finds valid citations via stored ID, RIN lookup, or location matching
+- Renders extracted census data using Jinja2 templates matching original document layout
 
 **Image Management:**
 - Auto-rename: `YYYY, State, County - Surname, GivenName.ext`
@@ -65,6 +69,7 @@ Genealogists using RootsMagic spend significant time manually formatting citatio
 
 - **Real-time Progress**: Monitor batch processing status
 - **Session Management**: Pause, resume, and recover interrupted sessions
+- **Crash Recovery**: SQLite-based state persistence at `~/.rmcitecraft/batch_state.db` enables recovery from interruptions
 - **Error Analysis**: Track failures with categorized error reporting
 - **Performance Metrics**: Processing times, success rates, throughput
 
@@ -75,18 +80,18 @@ Genealogists using RootsMagic spend significant time manually formatting citatio
 3. **Find a Grave Integration**: Process burial records with photo downloads
 4. **New Record Import**: Format citations immediately after accepting FamilySearch hints
 5. **Image Standardization**: Organize scattered downloads into consistent folder structure
-6. **Quality Assurance**: Validate citations meet Evidence Explained standards
+6. **Quality Assurance**: Validate citations against Evidence Explained standards using 6-criterion validation (year format, census reference, sheet/stamp, ED for 1900+, unique footnote vs short footnote, all forms complete)
 
 ## Requirements
 
 ### System
 - **Platform**: macOS (Apple Silicon optimized)
 - **Python**: 3.11+
-- **Database**: RootsMagic 11 (tested), should work well for versions 9, 10, 11.
+- **Database**: RootsMagic 8, 9, 10, or 11
 
 ### Optional
-- **LLM API Key**: For citation parsing (Anthropic Claude, OpenAI, or local Ollama)
-- **Chrome Browser**: For FamilySearch/Find a Grave automation
+- **LLM API Key**: For census image transcription (Anthropic Claude or OpenAI)
+- **Chrome Browser**: For FamilySearch/Find a Grave automation (must be started with `--remote-debugging-port=9222` for Playwright CDP connection)
 
 ## Technology Stack
 
@@ -108,7 +113,7 @@ Genealogists using RootsMagic spend significant time manually formatting citatio
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Clone repository
-git clone https://github.com/yourusername/RMCitecraft.git
+git clone https://github.com/miams/RMCitecraft.git
 cd RMCitecraft
 
 # Install dependencies
