@@ -2,14 +2,14 @@
 
 > Complete documentation index for developers.
 > For LLM-optimized compact map, see `claude_code_docs_map.md` in repo root.
-> Last generated: 2025-12-05 12:04:29 UTC
+> Last generated: 2025-12-11 17:52:24 UTC
 
 ## Summary
 
 | Priority | Count | Included |
 |----------|-------|----------|
 | Essential | 17 | Yes |
-| Reference | 81 | Yes |
+| Reference | 80 | Yes |
 | Archive | 35 | No |
 
 ## Getting Started (2 docs)
@@ -1885,7 +1885,7 @@
   - Future Considerations
 - Documentation Status
 
-## Analysis (5 docs)
+## Analysis (4 docs)
 
 ### [Early Census Data Analysis (1790-1850)](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/analysis/CENSUS-1790-1850-ANALYSIS.md) 
 
@@ -2019,35 +2019,6 @@
   - Template Layer Updates Needed
 - Next Steps
 - Summary
-
-### [Census Extraction 100-Entry Test Run Analysis](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/analysis/CENSUS_EXTRACTION_100_TEST_ANALYSIS.md) 
-
-- Overview
-- Analysis Methodology
-  - 1. Database Comparison Approach
-  - 2. Key Queries Used
-    - Finding expected RM persons from processed sources:
-    - Finding extracted persons in census.db:
-    - Cross-referencing log for skipped persons:
-  - 3. Temporary Files Created During Analysis
-- Key Findings
-  - Extraction Statistics
-  - Critical Discovery: Name Matching Failures
-    - Category Breakdown of 149 Missing Persons
-  - Root Cause Analysis: Name Matching Failures
-    - 1. Middle Name/Initial Abbreviation Mismatch (~60+ cases)
-    - 2. Married vs Maiden Name (~40+ cases)
-    - 3. Spelling Variations (~20+ cases)
-    - 4. Combined Issues (~15 cases)
-  - Data Quality in census.db
-  - Issues Found
-- Specific Missing Persons (Sample)
-- Suggested Next Steps
-  - Investigation
-  - Program Improvements (Proposed, Not Agreed)
-- Commands to Reproduce Analysis
-- Files Referenced
-- Status
 
 ## Project Planning (6 docs)
 
