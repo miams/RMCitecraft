@@ -2,7 +2,7 @@
 
 > Complete documentation index for developers.
 > For LLM-optimized compact map, see `claude_code_docs_map.md` in repo root.
-> Last generated: 2025-12-11 17:52:24 UTC
+> Last generated: 2025-12-12 00:37:46 UTC
 
 ## Summary
 
@@ -298,6 +298,9 @@
   - `field_quality`
   - `field_history`
   - `schema_version`
+  - `match_attempt`
+  - `extraction_gap`
+  - `gap_pattern`
 - Features and Capabilities
   - 1. Multi-Source Extraction
   - 2. Household Extraction
@@ -324,6 +327,20 @@
   - Backup
   - Vacuum (Reclaim Space)
 - Python API Reference
+- Census Year YAML Schemas
+  - Schema Files
+  - Schema Structure
+  - Era Classifications
+  - Using Schemas Programmatically
+- Integration with RootsMagic
+  - Value Proposition
+  - Primary Use Cases
+    - 1. Census Citation Enhancement
+    - 2. Household Research
+    - 3. Cross-Census Migration Tracking
+    - 4. Data Quality Verification
+    - 5. RootsMagic Person Matching
+  - Cross-Database Query Examples
 - Related Documentation
 
 ### [Census Form Rendering Architecture](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/CENSUS_FORM_RENDERING.md) [essential]
