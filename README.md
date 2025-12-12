@@ -21,6 +21,9 @@ Genealogists using RootsMagic spend significant time manually formatting citatio
 | Image organization | Drag files to correct folders | Auto-routed by record type/year |
 | Database linking | Manual media record creation | Auto-linked to citations and events |
 
+![RMCitecraft Value Proposition](docs/reference/RMCiteCraft_Value.png)
+*RMCitecraft transforms the manual genealogy workflow into an automated, AI-assisted process with crash-proof sessions and intelligent file organization.*
+
 ## Key Features
 
 ### Census Records (1790-1950)
@@ -32,6 +35,9 @@ Genealogists using RootsMagic spend significant time manually formatting citatio
 - Matches extracted persons to RootsMagic database with fuzzy name matching (Hungarian algorithm for optimal assignment)
 - Stores extracted data in `~/.rmcitecraft/census.db` using EAV (Entity-Attribute-Value) pattern for extensible fields
 - Achieves ~85% automatic matching coverage for 1950 census records
+
+![Census Sidecar Database](docs/reference/RM_Census_Sidecar_DB.png)
+*The census sidecar database (`census.db`) stores comprehensive census transcriptions alongside your RootsMagic file, enabling household reconstruction, migration tracking, and data quality verification.*
 
 **Citation Processing:**
 - Batch process multiple citations per session
@@ -105,6 +111,9 @@ Genealogists using RootsMagic spend significant time manually formatting citatio
 | LLM Integration | LangChain (multi-provider) |
 | Testing | pytest |
 | Linting | Ruff, MyPy |
+
+![RMCitecraft Technology Stack](docs/reference/RMCiteCraft_Tech_Stack.png)
+*Under the hood: RMCitecraft combines AI-powered transcription, intelligent person matching, and robust crash recovery to transform manual genealogy drudgery into automated efficiency.*
 
 ## Installation
 

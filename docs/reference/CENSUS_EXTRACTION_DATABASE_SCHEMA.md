@@ -31,48 +31,54 @@ The Census Extraction Database (`~/.rmcitecraft/census.db`) stores detailed cens
 
 ## Schema Version
 
-Current schema version: **2**
+Current schema version: **3**
 
 The schema is auto-created on first use by `CensusExtractionRepository`.
 
 **Version History:**
 - v1: Initial schema with extraction, page, person, field, quality tables
 - v2: Added `field_history` table for version control of field edits
+- v3: Added `match_attempt`, `extraction_gap`, and `gap_pattern` tables for extraction analytics
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        census.db                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────────┐     ┌──────────────────┐                  │
-│  │ extraction_batch │────►│   census_page    │                  │
-│  │  (session info)  │     │ (page metadata)  │                  │
-│  └──────────────────┘     └────────┬─────────┘                  │
-│                                    │                             │
-│                                    │ 1:N                         │
-│                                    ▼                             │
-│                          ┌──────────────────┐                   │
-│                          │  census_person   │◄───┐              │
-│                          │ (core fields)    │    │              │
-│                          └────────┬─────────┘    │              │
-│                                   │              │              │
-│              ┌────────────────────┼──────────────┼───────┐      │
-│              │                    │              │       │      │
-│              ▼                    ▼              ▼       │      │
-│  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐│
-│  │census_person_field│ │census_relationship│ │   rmtree_link   ││
-│  │    (EAV store)    │ │(family connections)│ │(RootsMagic IDs) ││
-│  └──────────────────┘ └──────────────────┘ └──────────────────┘│
-│              │                                                   │
-│              ▼                                                   │
-│  ┌──────────────────┐       ┌──────────────────┐                │
-│  │  field_quality   │       │  field_history   │                │
-│  │(optional QA data)│       │(version control) │                │
-│  └──────────────────┘       └──────────────────┘                │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                census.db                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐     │
+│  │ extraction_batch │────►│   census_page    │◄────│  match_attempt   │     │
+│  │  (session info)  │     │ (page metadata)  │     │ (match tracking) │     │
+│  └────────┬─────────┘     └────────┬─────────┘     └──────────────────┘     │
+│           │                        │                                         │
+│           │                        │ 1:N                                     │
+│           │                        ▼                                         │
+│           │              ┌──────────────────┐                               │
+│           │              │  census_person   │◄───┐                          │
+│           │              │ (core fields)    │    │                          │
+│           │              └────────┬─────────┘    │                          │
+│           │                       │              │                          │
+│           │      ┌────────────────┼──────────────┼───────┐                  │
+│           │      │                │              │       │                  │
+│           │      ▼                ▼              ▼       │                  │
+│           │  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐│
+│           │  │census_person_field│ │census_relationship│ │   rmtree_link   ││
+│           │  │    (EAV store)    │ │(family connections)│ │(RootsMagic IDs) ││
+│           │  └──────────────────┘ └──────────────────┘ └──────────────────┘│
+│           │          │                                                       │
+│           │          ▼                                                       │
+│           │  ┌──────────────────┐       ┌──────────────────┐                │
+│           │  │  field_quality   │       │  field_history   │                │
+│           │  │(optional QA data)│       │(version control) │                │
+│           │  └──────────────────┘       └──────────────────┘                │
+│           │                                                                  │
+│           │  ┌──────────────────┐       ┌──────────────────┐                │
+│           └─►│  extraction_gap  │──────►│   gap_pattern    │                │
+│              │ (missing data)   │       │ (pattern catalog)│                │
+│              └──────────────────┘       └──────────────────┘                │
+│                                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Tables
@@ -236,9 +242,16 @@ Links between census extractions and RootsMagic database records.
 | `linked_at` | TEXT | NOT NULL | ISO timestamp of linking |
 
 **Match Methods:**
-- `url_match` - Matched via FamilySearch ARK URL in citation
-- `name_match` - Matched by name and census year
-- `manual` - User manually linked records
+- `url_match` - Matched via FamilySearch ARK URL in citation (most common)
+- `auto_fuzzy_v2` - Automatic fuzzy name matching using Hungarian algorithm
+- `migration_from_validation` - Migrated from legacy batch validation
+- `manual_link` - User manually linked records from suggestions
+- `user_confirmed` - User confirmed a suggested match
+- `user_rejected` - User explicitly rejected the person (not in family tree)
+- `not_in_rmtree` - Confirmed person does not exist in RootsMagic database
+- `manual_correction` - User manually corrected or updated the RIN
+- `unlinked_orphan` - Link previously existed but RIN removed
+- `name_match` (legacy) - Matched by name and census year
 
 **Indexes:**
 - `idx_rmtree_link_census` on `(census_person_id)` - Find links for extraction
@@ -313,6 +326,126 @@ Tracks schema version for migrations.
 |--------|------|-------------|-------------|
 | `version` | INTEGER | PRIMARY KEY | Schema version number |
 | `applied_at` | TEXT | NOT NULL | When version was applied |
+
+---
+
+### `match_attempt`
+
+Records each attempt to match FamilySearch persons to RootsMagic during batch processing. Used for analytics and debugging match algorithm performance.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `attempt_id` | INTEGER | PRIMARY KEY | Auto-increment ID |
+| `batch_id` | INTEGER | FK | References `extraction_batch` |
+| `page_id` | INTEGER | FK | References `census_page` |
+| `source_id` | INTEGER | | RootsMagic SourceID being processed |
+| `fs_full_name` | TEXT | NOT NULL | FamilySearch full name |
+| `fs_given_name` | TEXT | | FamilySearch given name |
+| `fs_surname` | TEXT | | FamilySearch surname |
+| `fs_ark` | TEXT | | FamilySearch ARK URL |
+| `fs_line_number` | INTEGER | | Line number on census form |
+| `fs_relationship` | TEXT | | Relationship to household head |
+| `fs_age` | TEXT | | Age as recorded |
+| `fs_birthplace` | TEXT | | Birthplace |
+| `fs_household_head_name` | TEXT | | Name of household head |
+| `match_status` | TEXT | NOT NULL | `matched`, `skipped`, `review_needed` |
+| `matched_rm_person_id` | INTEGER | | RootsMagic PersonID if matched |
+| `matched_census_person_id` | INTEGER | FK | References `census_person` if matched |
+| `skip_reason` | TEXT | | Why skipped (e.g., `no_rin_candidates`, `below_threshold`) |
+| `best_candidate_rm_id` | INTEGER | | Best candidate RIN even if not matched |
+| `best_candidate_name` | TEXT | | Name of best candidate |
+| `best_candidate_score` | REAL | | Score of best candidate (0.0-1.0) |
+| `best_match_method` | TEXT | | How best candidate was found |
+| `candidates_json` | TEXT | | JSON array of all candidates considered |
+| `attempted_at` | TEXT | NOT NULL | ISO timestamp of attempt |
+
+**Match Status Values:**
+- `matched` - Successfully matched to RootsMagic person
+- `skipped` - Skipped due to skip_reason (e.g., no candidates, low confidence)
+- `review_needed` - Multiple candidates or ambiguous match; needs manual review
+
+**Indexes:**
+- `idx_match_attempt_status` on `(match_status)` - Filter by result
+- `idx_match_attempt_source` on `(source_id)` - Find attempts by source
+- `idx_match_attempt_fs_ark` on `(fs_ark)` - Lookup by ARK
+- `idx_match_attempt_batch` on `(batch_id)` - Find attempts by batch
+- `idx_match_attempt_skip_reason` on `(skip_reason)` - Analyze skip patterns
+
+---
+
+### `extraction_gap`
+
+Tracks missing data, failed matches, and data quality issues detected during extraction. Used to identify systematic problems and prioritize improvements.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `gap_id` | INTEGER | PRIMARY KEY | Auto-increment ID |
+| `batch_id` | INTEGER | FK | References `extraction_batch` |
+| `source_id` | INTEGER | | RootsMagic SourceID |
+| `gap_type` | TEXT | NOT NULL | `missing_person`, `missing_field`, `match_failure` |
+| `gap_category` | TEXT | | Category: `married_name`, `ocr_error`, `middle_name`, `fs_data_missing` |
+| `severity` | TEXT | | `high`, `medium`, `low` |
+| `expected_rm_person_id` | INTEGER | | Expected RootsMagic PersonID |
+| `expected_rm_name` | TEXT | | Expected name from RootsMagic |
+| `expected_field_name` | TEXT | | Expected field name |
+| `expected_field_value` | TEXT | | Expected field value |
+| `actual_fs_name` | TEXT | | Actual FamilySearch name |
+| `actual_fs_ark` | TEXT | | Actual FamilySearch ARK |
+| `actual_census_person_id` | INTEGER | FK | References `census_person` |
+| `actual_field_value` | TEXT | | Actual field value found |
+| `root_cause` | TEXT | | Identified root cause |
+| `root_cause_pattern` | TEXT | | Pattern identifier (links to `gap_pattern`) |
+| `fs_data_verified` | INTEGER | | 1 if manually verified against FamilySearch |
+| `fs_data_exists` | INTEGER | | NULL=unknown, 0=doesn't exist, 1=exists |
+| `resolution_status` | TEXT | | `open`, `in_progress`, `resolved`, `wont_fix` |
+| `resolution_notes` | TEXT | | Notes about resolution |
+| `resolved_at` | TEXT | | ISO timestamp when resolved |
+| `detected_at` | TEXT | NOT NULL | ISO timestamp when detected |
+| `updated_at` | TEXT | NOT NULL | ISO timestamp of last update |
+
+**Gap Types:**
+- `missing_person` - Expected person not found in extraction
+- `missing_field` - Field value missing or empty
+- `match_failure` - Match algorithm failed to find correct match
+
+**Gap Categories:**
+- `married_name` - Name mismatch due to married name
+- `ocr_error` - FamilySearch OCR/transcription error
+- `middle_name` - Middle name mismatch (e.g., "John W" vs "John William")
+- `fs_data_missing` - Data missing from FamilySearch transcription
+
+**Indexes:**
+- `idx_extraction_gap_type` on `(gap_type)` - Filter by gap type
+- `idx_extraction_gap_category` on `(gap_category)` - Filter by category
+- `idx_extraction_gap_source` on `(source_id)` - Find gaps by source
+- `idx_extraction_gap_status` on `(resolution_status)` - Find open gaps
+- `idx_extraction_gap_pattern` on `(root_cause_pattern)` - Group by pattern
+- `idx_extraction_gap_severity` on `(severity)` - Prioritize by severity
+
+---
+
+### `gap_pattern`
+
+Catalog of identified gap patterns for systematic analysis and fix prioritization.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `pattern_id` | INTEGER | PRIMARY KEY | Auto-increment ID |
+| `pattern_name` | TEXT | NOT NULL, UNIQUE | Pattern identifier |
+| `pattern_description` | TEXT | | Human-readable description |
+| `match_criteria_json` | TEXT | | JSON criteria for auto-detecting this pattern |
+| `affected_count` | INTEGER | | Number of gaps matching this pattern |
+| `affected_sources` | INTEGER | | Number of unique sources affected |
+| `affected_batches` | INTEGER | | Number of batches affected |
+| `suggested_fix` | TEXT | | Recommended fix approach |
+| `fix_complexity` | TEXT | | `trivial`, `easy`, `medium`, `hard`, `complex` |
+| `status` | TEXT | | `identified`, `analyzing`, `fix_planned`, `fix_implemented`, `verified` |
+| `created_at` | TEXT | NOT NULL | ISO timestamp when pattern identified |
+| `updated_at` | TEXT | NOT NULL | ISO timestamp of last update |
+
+**Indexes:**
+- `idx_gap_pattern_status` on `(status)` - Filter by fix status
+- `idx_gap_pattern_complexity` on `(fix_complexity)` - Prioritize by complexity
 
 ---
 
@@ -698,6 +831,243 @@ repo.record_field_change(person_id, field_name, old_value, new_value, source, cr
 
 ---
 
+## Census Year YAML Schemas
+
+The `src/rmcitecraft/schemas/census/` directory contains YAML schema definitions for each US Federal Census year (1790-1950). These schemas define:
+
+1. **Form structure** - Physical layout of census forms
+2. **Column definitions** - Fields collected in that census year
+3. **Valid values** - Enumerated values for coded fields
+4. **Historical context** - Era-specific features and research tips
+
+### Schema Files
+
+| File | Census Year | Key Features |
+|------|-------------|--------------|
+| `1790.yaml` - `1840.yaml` | 1790-1840 | Statistical tallies only; heads of household named |
+| `1850.yaml` | 1850 | First census to name all persons; no ED |
+| `1860.yaml` | 1860 | Personal estate value added |
+| `1870.yaml` | 1870 | Post-Civil War; citizenship questions |
+| `1880.yaml` | 1880 | Enumeration districts (ED) introduced |
+| `1900.yaml` | 1900 | Birth month/year recorded (unique census) |
+| `1910.yaml` | 1910 | Civil War veteran questions |
+| `1920.yaml` | 1920 | Year of naturalization |
+| `1930.yaml` | 1930 | Radio ownership, veteran questions |
+| `1940.yaml` | 1940 | Social Security; supplemental sampling |
+| `1950.yaml` | 1950 | Last publicly available census |
+
+### Schema Structure
+
+Each YAML file follows this structure:
+
+```yaml
+year: 1950
+era: "individual_with_ed_sheet"  # Classification for form structure
+nara_publication: "T6"           # NARA microfilm publication number
+
+form_structure:
+  lines_per_side: 30             # Lines per page/sheet side
+  sides: ["A", "B"]              # Sheet sides (or null for pages)
+  supplemental_lines: [14, 29]   # Sample lines (1940, 1950)
+  uses_page: false               # Uses page numbers
+  uses_sheet: true               # Uses sheet numbers
+  uses_stamp: true               # Uses stamp numbers (1950)
+
+columns:
+  - name: line_number
+    data_type: integer
+    description: "Line number on census form"
+    required: false
+    is_metadata: true
+
+  - name: name
+    column_number: 1
+    data_type: string
+    description: "Name of person"
+    required: true
+
+  - name: sex
+    column_number: 3
+    data_type: string
+    description: "M=Male, F=Female"
+    valid_values: ["M", "F"]
+    required: true
+
+abbreviations:
+  "do": "same as above"
+  '"': "ditto - same as above"
+
+instructions: |
+  Historical context and reading tips...
+```
+
+### Era Classifications
+
+| Era | Census Years | Characteristics |
+|-----|--------------|-----------------|
+| `head_of_household` | 1790-1840 | Only head named; statistical tallies |
+| `individual_no_ed` | 1850-1870 | All persons named; no enumeration districts |
+| `individual_with_ed` | 1880 | Enumeration districts introduced |
+| `individual_with_ed_sheet` | 1900-1950 | Sheets with A/B sides; ED required |
+
+### Using Schemas Programmatically
+
+```python
+import yaml
+from pathlib import Path
+
+# Load schema for a census year
+schema_path = Path("src/rmcitecraft/schemas/census/1950.yaml")
+with open(schema_path) as f:
+    schema = yaml.safe_load(f)
+
+# Get form structure
+lines_per_side = schema["form_structure"]["lines_per_side"]
+uses_sheet = schema["form_structure"]["uses_sheet"]
+
+# Get required columns
+required_cols = [
+    col["name"] for col in schema["columns"]
+    if col.get("required", False)
+]
+
+# Get valid values for a field
+sex_values = next(
+    col["valid_values"]
+    for col in schema["columns"]
+    if col["name"] == "sex"
+)
+```
+
+---
+
+## Integration with RootsMagic
+
+The census.db database is designed to complement RootsMagic databases, providing enhanced census research capabilities that RootsMagic citations alone cannot offer.
+
+### Value Proposition
+
+| Capability | RootsMagic Only | RootsMagic + census.db |
+|------------|-----------------|------------------------|
+| **Citation text** | Free-form footnote/bibliography | Structured data + formatted citation |
+| **Household context** | Single person cited | All household members stored |
+| **Field granularity** | Embedded in citation text | Individual searchable fields |
+| **Multi-census analysis** | Manual comparison | Query across census years |
+| **Data quality tracking** | None | Confidence scores, verification status |
+| **Edit history** | Lost | Original + all changes preserved |
+| **Match diagnostics** | None | Algorithm performance analytics |
+
+### Primary Use Cases
+
+#### 1. Census Citation Enhancement
+
+Extract full transcription data to supplement RootsMagic free-form citations:
+
+```python
+# After extracting a census page
+person = repo.get_person_by_ark(ark_url)
+fields = repo.get_person_fields(person.person_id)
+
+# Build enhanced citation footnote
+footnote = f"{page.census_year} U.S. census, {page.county}, {page.state}, "
+footnote += f"E.D. {page.enumeration_district}, sheet {page.sheet_number}, "
+footnote += f"line {person.line_number}, {person.full_name}"
+if fields.get("occupation"):
+    footnote += f", {fields['occupation']}"
+```
+
+#### 2. Household Research
+
+Analyze complete households for family group reconstruction:
+
+```python
+# Get all persons on same census page
+household = repo.get_persons_on_page(page_id)
+
+print(f"Household of {household[0].full_name}:")
+for person in household:
+    rel = person.relationship_to_head or "Head"
+    print(f"  {rel}: {person.full_name}, age {person.age}")
+```
+
+#### 3. Cross-Census Migration Tracking
+
+Track family movement across census years:
+
+```python
+# Find all census records for a surname
+results = repo.search_persons(surname="Ijams")
+by_year = {}
+for p in results:
+    page = repo.get_page_by_id(p.page_id)
+    by_year.setdefault(page.census_year, []).append((p, page))
+
+for year in sorted(by_year.keys()):
+    print(f"\n{year} Census:")
+    for person, page in by_year[year]:
+        print(f"  {person.full_name} in {page.county}, {page.state}")
+```
+
+#### 4. Data Quality Verification
+
+Identify and track transcription issues:
+
+```python
+# Find fields with low confidence needing review
+with repo._connect() as conn:
+    issues = conn.execute("""
+        SELECT cp.full_name, fq.field_name,
+               fq.confidence_score, fq.transcription_note
+        FROM field_quality fq
+        JOIN census_person cp ON fq.person_id = cp.person_id
+        WHERE fq.confidence_score < 0.7
+          AND fq.human_verified = 0
+        ORDER BY fq.confidence_score
+    """).fetchall()
+```
+
+#### 5. RootsMagic Person Matching
+
+Find census extractions for RootsMagic persons:
+
+```python
+# Get all census extractions linked to a specific RIN
+rin = 2776  # RootsMagic PersonID
+with repo._connect() as conn:
+    extractions = conn.execute("""
+        SELECT cp.*, pg.census_year, pg.state, pg.county
+        FROM census_person cp
+        JOIN census_page pg ON cp.page_id = pg.page_id
+        JOIN rmtree_link rl ON cp.person_id = rl.census_person_id
+        WHERE rl.rmtree_person_id = ?
+        ORDER BY pg.census_year
+    """, (rin,)).fetchall()
+```
+
+### Cross-Database Query Examples
+
+When both databases are attached:
+
+```sql
+-- Attach databases
+ATTACH DATABASE 'data/Iiams.rmtree' AS rm;
+ATTACH DATABASE '~/.rmcitecraft/census.db' AS census;
+
+-- Find persons in RootsMagic missing census extractions
+SELECT rm.NameTable.Surname, rm.NameTable.Given, rm.PersonTable.PersonID
+FROM rm.PersonTable
+JOIN rm.NameTable ON rm.PersonTable.PersonID = rm.NameTable.OwnerID
+  AND rm.NameTable.IsPrimary = 1
+LEFT JOIN census.rmtree_link ON rm.PersonTable.PersonID = census.rmtree_link.rmtree_person_id
+WHERE census.rmtree_link.link_id IS NULL
+  AND rm.PersonTable.PersonID IN (
+      -- Persons with census events
+      SELECT DISTINCT OwnerID FROM rm.EventTable WHERE EventType = 18
+  );
+```
+
+---
+
 ## Related Documentation
 
 - [Census Batch Processing Architecture](../architecture/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md)
@@ -707,5 +1077,5 @@ repo.record_field_change(person_id, field_name, old_value, new_value, source, cr
 
 ---
 
-**Last Updated:** 2025-12-02
-**Schema Version:** 2
+**Last Updated:** 2025-12-11
+**Schema Version:** 3

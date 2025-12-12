@@ -439,15 +439,17 @@ class CensusExtractionViewerTab:
             rmtree_person_id=rin,
         )
 
-        # Filter to unlinked persons if requested
+        # Filter to unlinked persons if requested (exclude linked AND user-rejected)
         if unlinked_only:
-            linked_ids = set()
+            excluded_ids = set()
             with self.repository._connect() as conn:
                 rows = conn.execute(
-                    "SELECT DISTINCT census_person_id FROM rmtree_link WHERE rmtree_person_id IS NOT NULL"
+                    """SELECT DISTINCT census_person_id FROM rmtree_link
+                       WHERE rmtree_person_id IS NOT NULL
+                       OR match_method IN ('user_rejected', 'not_in_rmtree')"""
                 ).fetchall()
-                linked_ids = {r[0] for r in rows}
-            persons = [p for p in persons if p.person_id not in linked_ids]
+                excluded_ids = {r[0] for r in rows}
+            persons = [p for p in persons if p.person_id not in excluded_ids]
 
         self._refresh_person_list(persons)
         status_text = f"Found {len(persons)} persons"
@@ -922,14 +924,58 @@ class CensusExtractionViewerTab:
 
         # Show existing links (flat display - no collapsible)
         if link_rows and has_confirmed_link:
-            with ui.row().classes("w-full items-center gap-2 p-2 bg-purple-50 rounded"):
-                ui.icon("link", size="sm").classes("text-purple-500")
-                for row in link_rows:
-                    if row["rmtree_person_id"]:
-                        ui.label(f"RIN #{row['rmtree_person_id']}").classes("text-sm font-medium")
-                    if row["rmtree_citation_id"]:
-                        ui.label(f"(Citation #{row['rmtree_citation_id']})").classes("text-sm text-gray-600")
-                    ui.badge(f"{row['match_confidence']:.0%}", color="purple").classes("text-xs")
+            with ui.card().classes("w-full p-3 bg-purple-50"):
+                with ui.row().classes("w-full items-center gap-2"):
+                    ui.icon("link", size="sm").classes("text-purple-500")
+                    for row in link_rows:
+                        if row["rmtree_person_id"]:
+                            ui.label(f"RIN #{row['rmtree_person_id']}").classes("text-sm font-medium")
+                        if row["rmtree_citation_id"]:
+                            ui.label(f"(Citation #{row['rmtree_citation_id']})").classes("text-sm text-gray-600")
+                        ui.badge(f"{row['match_confidence']:.0%}", color="purple").classes("text-xs")
+
+                # Option to change RIN
+                with ui.expansion("Change RIN", icon="edit").classes("w-full mt-2"):
+                    with ui.row().classes("w-full items-center gap-2"):
+                        rin_input = ui.input(
+                            label="New RIN",
+                            placeholder="Enter RootsMagic RIN",
+                            value=str(link_rows[0]["rmtree_person_id"]) if link_rows and link_rows[0]["rmtree_person_id"] else "",
+                        ).props("dense outlined type=number").classes("flex-1")
+
+                        async def update_rin(p=person, cid=stored_citation_id):
+                            try:
+                                new_rin = int(rin_input.value) if rin_input.value else None
+                                with self.repository._connect() as conn:
+                                    conn.execute(
+                                        """UPDATE rmtree_link
+                                           SET rmtree_person_id = ?, match_method = 'manual_correction'
+                                           WHERE census_person_id = ?""",
+                                        (new_rin, p.person_id),
+                                    )
+                                    conn.commit()
+                                ui.notify(f"RIN updated to {new_rin}" if new_rin else "RIN removed", type="positive")
+                                self._select_person(p)
+                                self._refresh_detail_view()
+                            except (ValueError, TypeError):
+                                ui.notify("Please enter a valid RIN number", type="warning")
+
+                        ui.button("Update", icon="save", on_click=update_rin).props("color=primary size=sm")
+
+                        async def remove_rin(p=person):
+                            with self.repository._connect() as conn:
+                                conn.execute(
+                                    """UPDATE rmtree_link
+                                       SET rmtree_person_id = NULL, match_method = 'manual_unlink'
+                                       WHERE census_person_id = ?""",
+                                    (p.person_id,),
+                                )
+                                conn.commit()
+                            ui.notify("RIN link removed", type="warning")
+                            self._select_person(p)
+                            self._refresh_detail_view()
+
+                        ui.button("Remove Link", icon="link_off", on_click=remove_rin).props("color=red size=sm outline")
 
         # Show match suggestions for unlinked persons using hybrid citation lookup
         if not has_confirmed_link:
@@ -937,12 +983,53 @@ class CensusExtractionViewerTab:
             if citation_id:
                 self._render_match_suggestions_card(person, citation_id)
             else:
-                # No citation found - show warning
+                # No citation found - show warning with manual RIN entry
                 with ui.card().classes("w-full p-3 bg-yellow-50 border-yellow-200"):
                     with ui.row().classes("w-full items-center gap-2"):
                         ui.icon("warning", size="sm").classes("text-yellow-600")
                         ui.label("No RootsMagic link").classes("font-medium text-yellow-800")
                     ui.label("This person has no associated citation in RootsMagic.").classes("text-sm text-gray-600")
+
+                    # Manual RIN entry
+                    ui.separator().classes("my-2")
+                    ui.label("Link to RIN manually:").classes("text-sm text-gray-600")
+                    with ui.row().classes("w-full items-center gap-2"):
+                        rin_input = ui.input(
+                            label="RIN",
+                            placeholder="Enter RootsMagic RIN",
+                        ).props("dense outlined type=number").classes("flex-1")
+
+                        async def link_rin_direct(p=person):
+                            try:
+                                rin = int(rin_input.value)
+                                with self.repository._connect() as conn:
+                                    # Check if link exists
+                                    existing = conn.execute(
+                                        "SELECT link_id FROM rmtree_link WHERE census_person_id = ?",
+                                        (p.person_id,),
+                                    ).fetchone()
+                                    if existing:
+                                        conn.execute(
+                                            """UPDATE rmtree_link
+                                               SET rmtree_person_id = ?, match_method = 'manual_link'
+                                               WHERE census_person_id = ?""",
+                                            (rin, p.person_id),
+                                        )
+                                    else:
+                                        conn.execute(
+                                            """INSERT INTO rmtree_link
+                                               (census_person_id, rmtree_person_id, match_confidence, match_method)
+                                               VALUES (?, ?, 1.0, 'manual_link')""",
+                                            (p.person_id, rin),
+                                        )
+                                    conn.commit()
+                                ui.notify(f"Linked to RIN {rin}", type="positive")
+                                self._select_person(p)
+                                self._refresh_detail_view()
+                            except (ValueError, TypeError):
+                                ui.notify("Please enter a valid RIN number", type="warning")
+
+                        ui.button("Link", icon="link", on_click=link_rin_direct).props("color=primary size=sm")
 
     def _render_match_suggestions_card(self, person: CensusPerson, citation_id: int) -> None:
         """Render match suggestions for an unlinked person."""
