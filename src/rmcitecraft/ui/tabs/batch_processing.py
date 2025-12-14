@@ -129,6 +129,54 @@ class BatchProcessingTab:
             )
         )
 
+    def _count_pending_exports(self) -> int:
+        """Count total pending exports across all sessions in state database.
+
+        Returns:
+            Number of completed items with pending export status
+        """
+        if not self.state_repository:
+            return 0
+
+        try:
+            count = 0
+            all_sessions = self.state_repository.get_all_sessions()
+            for session in all_sessions:
+                items = self.state_repository.get_session_items(session['session_id'])
+                count += sum(
+                    1 for item in items
+                    if item['status'] == 'complete'
+                    and item.get('export_status', 'pending') == 'pending'
+                )
+            return count
+        except Exception as e:
+            logger.warning(f"Error counting pending exports: {e}")
+            return 0
+
+    def _count_exported_items(self) -> int:
+        """Count total exported items across all sessions in state database.
+
+        Returns:
+            Number of completed items with exported status
+        """
+        if not self.state_repository:
+            return 0
+
+        try:
+            count = 0
+            all_sessions = self.state_repository.get_all_sessions()
+            for session in all_sessions:
+                items = self.state_repository.get_session_items(session['session_id'])
+                count += sum(
+                    1 for item in items
+                    if item['status'] == 'complete'
+                    and item.get('export_status') == 'exported'
+                )
+            return count
+        except Exception as e:
+            logger.warning(f"Error counting exported items: {e}")
+            return 0
+
     def render(self) -> None:
         """Render the batch processing tab with sub-tabs."""
         with ui.column().classes("w-full h-full"):
@@ -272,18 +320,23 @@ class BatchProcessingTab:
                     "Reset state DB (use after RootsMagic restore)"
                 )
 
+                # Check if there are pending exports in state DB (show Export even without active session)
+                pending_export_count = self._count_pending_exports()
+                if pending_export_count > 0 or self.controller.session:
+                    ui.button(
+                        f"Export ({pending_export_count})" if pending_export_count > 0 and not self.controller.session else "Export",
+                        icon="save",
+                        on_click=self._export_results,
+                    ).props("dense outline color=green" if pending_export_count > 0 else "dense outline").tooltip(
+                        f"{pending_export_count} citations pending export" if pending_export_count > 0 else "Export citations"
+                    )
+
                 if self.controller.session:
                     ui.button(
                         "Process",
                         icon="play_arrow",
                         on_click=self._start_batch_processing,
                     ).props("dense color=primary")
-
-                    ui.button(
-                        "Export",
-                        icon="save",
-                        on_click=self._export_results,
-                    ).props("dense outline")
 
     def _render_status_bar(self) -> None:
         """Render bottom status bar showing current citation info."""
@@ -314,7 +367,7 @@ class BatchProcessingTab:
             ui.label("Select Census Year:").classes("font-medium mb-2")
             year_select = ui.select(
                 [1790 + (i * 10) for i in range(17)],  # 1790-1950
-                value=1940,
+                value=1930,
             ).props("outlined").classes("w-full mb-4")
 
             # Limit input
@@ -868,7 +921,7 @@ class BatchProcessingTab:
             },
         )
 
-        # Create items for each citation
+        # Create items for each citation (using citation_id for unique tracking)
         for citation in citations:
             self.state_repository.create_item(
                 session_id=self.current_session_id,
@@ -877,6 +930,8 @@ class BatchProcessingTab:
                 census_year=citation.census_year,
                 state=citation.extracted_data.get('state') if citation.extracted_data else None,
                 county=citation.extracted_data.get('county') if citation.extracted_data else None,
+                citation_id=citation.citation_id,
+                source_id=citation.source_id,
             )
 
         logger.info(f"Created census batch session {self.current_session_id} with {len(citations)} items")
@@ -1250,35 +1305,1156 @@ class BatchProcessingTab:
             self._notify_and_log("Please fix validation errors before submitting", type="warning")
 
     async def _export_results(self) -> None:
-        """Export batch processing results to database and organize image files."""
-        if not self.controller.session:
-            self._notify_and_log("No batch session loaded", type="warning")
-            return
+        """Export batch processing results to database and organize image files.
 
-        session = self.controller.session
-        completed_citations = [c for c in session.citations if c.is_complete]
+        This function exports from TWO sources:
+        1. In-memory session (current citations being processed)
+        2. State database (ALL sessions with pending exports, not just current)
+        """
+        # Check in-memory session - only include items updated THIS session
+        # This prevents re-exporting citations that were already complete when loaded
+        in_memory_citations = []
+        if self.controller.session:
+            in_memory_citations = [
+                c for c in self.controller.session.citations
+                if c.is_complete and c.updated_this_session
+            ]
 
-        if not completed_citations:
+        # Get citation IDs from in-memory session to avoid double-counting
+        in_memory_citation_ids = {c.citation_id for c in in_memory_citations}
+
+        # Check state database for ALL completed items with pending export across ALL sessions
+        state_db_only_count = 0
+        sessions_with_pending = []
+        if self.state_repository:
+            all_sessions = self.state_repository.get_all_sessions()
+            for session in all_sessions:
+                session_id = session['session_id']
+                items = self.state_repository.get_session_items(session_id)
+                pending_items = [
+                    item for item in items
+                    if item['status'] == 'complete'
+                    and item.get('export_status', 'pending') == 'pending'
+                    and item.get('citation_id') not in in_memory_citation_ids
+                ]
+                if pending_items:
+                    sessions_with_pending.append({
+                        'session_id': session_id,
+                        'count': len(pending_items),
+                        'census_year': session.get('census_year'),
+                    })
+                    state_db_only_count += len(pending_items)
+
+        total_to_export = len(in_memory_citations) + state_db_only_count
+
+        if total_to_export == 0:
             self._notify_and_log("No completed citations to export", type="warning")
             return
 
-        # Confirm export
-        with ui.dialog() as confirm_dialog, ui.card():
+        # Confirm export with details about both sources
+        with ui.dialog() as confirm_dialog, ui.card().classes("w-[450px]"):
             ui.label("Export Citations to Database").classes("text-lg font-bold mb-2")
-            ui.label(f"This will write {len(completed_citations)} completed citations to the database.").classes("mb-2")
-            ui.label("Census images will be renamed and moved to their final locations.").classes("mb-4")
+            ui.label(f"Total citations to export: {total_to_export}").classes("mb-2 font-semibold")
+
+            if len(in_memory_citations) > 0:
+                ui.label(f"  • Current session (in memory): {len(in_memory_citations)}").classes("text-sm ml-4")
+
+            if sessions_with_pending:
+                ui.label(f"  • From state database: {state_db_only_count}").classes("text-sm ml-4")
+                # Show breakdown by session
+                for sess in sessions_with_pending[:5]:  # Show max 5 sessions
+                    year_str = f" ({sess['census_year']})" if sess.get('census_year') else ""
+                    ui.label(f"      - {sess['session_id'][-15:]}{year_str}: {sess['count']}").classes("text-xs ml-8 text-gray-600")
+                if len(sessions_with_pending) > 5:
+                    ui.label(f"      ... and {len(sessions_with_pending) - 5} more sessions").classes("text-xs ml-8 text-gray-500 italic")
+
+            ui.label("Census images will be renamed and moved to their final locations.").classes("mb-4 mt-2")
 
             with ui.row().classes("w-full justify-end gap-2"):
                 ui.button("Cancel", on_click=confirm_dialog.close).props("flat")
                 # Call export directly (not as background task) to maintain UI context
-                ui.button("Export", on_click=lambda: self._do_export(
-                    confirm_dialog, completed_citations
+                ui.button("Export", on_click=lambda: self._do_export_all(
+                    confirm_dialog, in_memory_citations, sessions_with_pending
                 )).props("color=primary")
 
         confirm_dialog.open()
 
+    async def _do_export_all(
+        self,
+        dialog,
+        in_memory_citations: list[CitationBatchItem],
+        sessions_with_pending: list[dict],
+    ) -> None:
+        """Export citations from both in-memory session and state database.
+
+        This method handles the case where a large batch was processed, the session
+        was disconnected, and then resumed. The completed items from before the
+        disconnect are only in the state database (not in memory), so we need to
+        export from both sources.
+
+        Args:
+            dialog: Confirmation dialog to close
+            in_memory_citations: Citations completed in the current in-memory session
+            sessions_with_pending: List of session dicts with pending exports
+        """
+        dialog.close()
+
+        # First export in-memory citations
+        if in_memory_citations:
+            await self._do_export_internal(in_memory_citations, "current session")
+
+        # Then export state database items from all sessions with pending exports
+        if sessions_with_pending and self.state_repository:
+            # Get citation IDs from in-memory to avoid double-exporting
+            in_memory_citation_ids = {c.citation_id for c in in_memory_citations}
+            await self._export_from_state_db_all_sessions(sessions_with_pending, in_memory_citation_ids)
+
+    async def _export_from_state_db(self) -> None:
+        """Export completed items from the state database that aren't in the current session.
+
+        This method reloads citation data from RootsMagic for items that were completed
+        in a previous session (before disconnect/resume) and exports them.
+        """
+        if not self.state_repository or not self.current_session_id:
+            return
+
+        from scripts.process_census_batch import find_census_citations
+
+        # Get all completed items from state DB
+        items = self.state_repository.get_session_items(self.current_session_id)
+        completed_items = [
+            item for item in items
+            if item['status'] == 'complete'
+            and item.get('export_status', 'pending') == 'pending'
+        ]
+
+        if not completed_items:
+            return
+
+        # Get citation IDs from in-memory session to exclude
+        in_memory_citation_ids = set()
+        if self.controller.session:
+            in_memory_citation_ids = {c.citation_id for c in self.controller.session.citations}
+
+        # Filter to only items not in memory
+        items_to_export = [
+            item for item in completed_items
+            if item.get('citation_id') not in in_memory_citation_ids
+        ]
+
+        if not items_to_export:
+            self._notify_and_log("All state DB items already in memory session", type="info")
+            return
+
+        self._notify_and_log(
+            f"Exporting {len(items_to_export)} additional items from state database...",
+            type="info"
+        )
+
+        # Show progress dialog
+        with ui.dialog() as progress_dialog, ui.card().classes("p-6"):
+            ui.label("Exporting from State Database...").classes("text-lg font-bold mb-4")
+            progress_label = ui.label("Loading citation data...").classes("mb-2")
+            progress_bar = ui.linear_progress(value=0).classes("mb-4")
+
+        progress_dialog.open()
+
+        exported_count = 0
+        errors = []
+
+        try:
+            # Load and export each item
+            db_path = str(self.config.rm_database_path)
+
+            for i, item in enumerate(items_to_export):
+                try:
+                    progress_label.text = f"Processing {item.get('person_name', 'Unknown')} ({i+1}/{len(items_to_export)})"
+                    progress_bar.value = i / len(items_to_export)
+                    await ui.context.client.connected()
+
+                    # Load the citation from RootsMagic using stored extracted_data
+                    citation_id = item.get('citation_id')
+                    person_id = item.get('person_id')
+                    census_year = item.get('census_year')
+                    extracted_data_json = item.get('extracted_data')
+
+                    if not citation_id or not extracted_data_json:
+                        errors.append(f"{item.get('person_name', 'Unknown')}: Missing citation_id or extracted_data")
+                        continue
+
+                    # Parse stored extracted data
+                    import json
+                    try:
+                        extracted_data = json.loads(extracted_data_json) if isinstance(extracted_data_json, str) else extracted_data_json
+                    except json.JSONDecodeError:
+                        errors.append(f"{item.get('person_name', 'Unknown')}: Invalid JSON in extracted_data")
+                        continue
+
+                    # Reload full citation data from database
+                    result = find_census_citations(db_path, census_year, limit=1000)
+                    matching_citation = None
+                    for cit in result.get('citations', []):
+                        if cit.get('citation_id') == citation_id:
+                            matching_citation = cit
+                            break
+
+                    if not matching_citation:
+                        errors.append(f"{item.get('person_name', 'Unknown')}: Citation {citation_id} not found in database")
+                        continue
+
+                    # Create CitationBatchItem from the loaded data
+                    given_name = matching_citation['given_name']
+                    surname = matching_citation['surname']
+                    full_name = f"{given_name} {surname}".strip()
+
+                    batch_item = CitationBatchItem(
+                        person_id=matching_citation['person_id'],
+                        event_id=matching_citation['event_id'],
+                        citation_id=matching_citation['citation_id'],
+                        source_id=matching_citation['source_id'],
+                        surname=surname,
+                        given_name=given_name,
+                        full_name=full_name,
+                        census_year=census_year,
+                        source_name=matching_citation.get('source_name', ''),
+                        familysearch_url=matching_citation.get('familysearch_url'),
+                    )
+
+                    # Apply the stored extracted data
+                    batch_item.extracted_data = extracted_data
+                    batch_item.status = CitationStatus.COMPLETE
+
+                    # Generate formatted citations
+                    from rmcitecraft.services.citation_formatter import CensusFootnoteFormatter
+                    formatter = CensusFootnoteFormatter()
+                    merged = batch_item.merged_data
+                    batch_item.footnote = formatter.format_footnote(merged)
+                    batch_item.short_footnote = formatter.format_short_footnote(merged)
+                    batch_item.bibliography = formatter.format_bibliography(merged)
+
+                    # Write to database
+                    await self._write_citation_to_database(batch_item)
+
+                    # Mark as exported in state DB (using a custom update)
+                    self.state_repository.mark_item_exported(item['id'])
+
+                    exported_count += 1
+
+                except Exception as e:
+                    logger.error(f"Error exporting state DB item {item.get('id')}: {e}")
+                    errors.append(f"{item.get('person_name', 'Unknown')}: {str(e)}")
+
+            # Checkpoint database
+            progress_label.text = "Checkpointing database..."
+            progress_bar.value = 1.0
+
+            with self.db.transaction() as conn:
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+            progress_dialog.close()
+
+            # Report results
+            if errors:
+                self._notify_and_log(
+                    f"State DB export completed with {len(errors)} errors. Exported: {exported_count}",
+                    type="warning"
+                )
+            else:
+                self._notify_and_log(
+                    f"Successfully exported {exported_count} citations from state database!",
+                    type="positive"
+                )
+
+        except Exception as e:
+            progress_dialog.close()
+            logger.error(f"State DB export failed: {e}")
+            self._notify_and_log(f"State DB export failed: {str(e)}", type="negative")
+
+    async def _export_from_state_db_all_sessions(
+        self,
+        sessions_with_pending: list[dict],
+        exclude_citation_ids: set[int],
+    ) -> None:
+        """Export completed items from ALL sessions with pending exports.
+
+        This method handles exporting from multiple sessions, which is needed when
+        a large batch was processed and the user has items pending export from
+        previous sessions.
+
+        Args:
+            sessions_with_pending: List of dicts with session_id and count
+            exclude_citation_ids: Citation IDs to skip (already in memory)
+        """
+        if not self.state_repository:
+            return
+
+        from rmcitecraft.services.citation_formatter import format_census_citation_preview
+        import json
+
+        # Collect all items to export from all sessions
+        all_items_to_export = []
+        for session_info in sessions_with_pending:
+            session_id = session_info['session_id']
+            items = self.state_repository.get_session_items(session_id)
+            pending_items = [
+                item for item in items
+                if item['status'] == 'complete'
+                and item.get('export_status', 'pending') == 'pending'
+                and item.get('citation_id') not in exclude_citation_ids
+            ]
+            all_items_to_export.extend(pending_items)
+
+        if not all_items_to_export:
+            self._notify_and_log("No pending items to export from state database", type="info")
+            return
+
+        self._notify_and_log(
+            f"Exporting {len(all_items_to_export)} items from state database ({len(sessions_with_pending)} sessions)...",
+            type="info"
+        )
+
+        # Show progress dialog
+        with ui.dialog() as progress_dialog, ui.card().classes("p-6"):
+            ui.label("Exporting from State Database...").classes("text-lg font-bold mb-4")
+            progress_label = ui.label("Loading citation data...").classes("mb-2")
+            progress_bar = ui.linear_progress(value=0).classes("mb-4")
+
+        progress_dialog.open()
+
+        exported_count = 0
+        images_processed = 0
+        errors = []
+
+        try:
+            for i, item in enumerate(all_items_to_export):
+                try:
+                    progress_label.text = f"Processing {item.get('person_name', 'Unknown')} ({i+1}/{len(all_items_to_export)})"
+                    progress_bar.value = i / len(all_items_to_export)
+                    await ui.context.client.connected()
+
+                    citation_id = item.get('citation_id')
+                    source_id = item.get('source_id')
+                    person_id = item.get('person_id')
+                    census_year = item.get('census_year')
+                    extracted_data_json = item.get('extracted_data')
+
+                    if not extracted_data_json:
+                        errors.append(f"{item.get('person_name', 'Unknown')}: Missing extracted_data")
+                        continue
+
+                    # Parse stored extracted data
+                    try:
+                        extracted_data = json.loads(extracted_data_json) if isinstance(extracted_data_json, str) else extracted_data_json
+                    except json.JSONDecodeError:
+                        errors.append(f"{item.get('person_name', 'Unknown')}: Invalid JSON in extracted_data")
+                        continue
+
+                    # If no citation_id, try to find it by person_id and census_year
+                    if not citation_id and person_id:
+                        with self.db.transaction() as conn:
+                            cursor = conn.cursor()
+                            # Find census event for this person and year
+                            # Date format is 'D.+YYYYMMDD..+00000000..' so year is at position 4
+                            cursor.execute("""
+                                SELECT e.EventID, c.CitationID, c.SourceID
+                                FROM EventTable e
+                                JOIN CitationLinkTable cl ON cl.OwnerID = e.EventID AND cl.OwnerType = 2
+                                JOIN CitationTable c ON c.CitationID = cl.CitationID
+                                WHERE e.OwnerID = ?
+                                  AND e.EventType = 18  -- Census event type
+                                  AND substr(e.Date, 4, 4) = ?
+                            """, (person_id, str(census_year)))
+                            row = cursor.fetchone()
+                            if row:
+                                citation_id = row[1]
+                                source_id = row[2]
+
+                    if not citation_id:
+                        errors.append(f"{item.get('person_name', 'Unknown')}: Could not find citation for person {person_id}, year {census_year}")
+                        continue
+
+                    # Query RootsMagic directly for this citation's source_id
+                    if not source_id:
+                        with self.db.transaction() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                SELECT SourceID FROM CitationTable WHERE CitationID = ?
+                            """, (citation_id,))
+                            row = cursor.fetchone()
+                            if row:
+                                source_id = row[0]
+                            else:
+                                errors.append(f"{item.get('person_name', 'Unknown')}: Citation {citation_id} not found in RootsMagic")
+                                continue
+
+                    # Generate formatted citations using the preview formatter
+                    formatted = format_census_citation_preview(extracted_data, census_year)
+
+                    # Write to SourceTable.Fields and update Source Name brackets
+                    from rmcitecraft.database.image_repository import ImageRepository
+                    with self.db.transaction() as conn:
+                        repo = ImageRepository(conn)
+                        # 1. Update SourceTable.Fields BLOB
+                        repo.update_source_fields(
+                            source_id=source_id,
+                            footnote=formatted['footnote'],
+                            short_footnote=formatted['short_footnote'],
+                            bibliography=formatted['bibliography'],
+                        )
+
+                        # 2. Update SourceTable.Name brackets with citation details
+                        bracket_content = self._generate_bracket_content_from_data(extracted_data, census_year)
+                        if bracket_content and bracket_content != "[]":
+                            repo.update_source_name_brackets(source_id, bracket_content)
+
+                    # 3. Process image if exists in temp_images
+                    # Check if temp image exists for this citation
+                    temp_dir = Path.home() / ".rmcitecraft" / "temp_images"
+                    if temp_dir.exists():
+                        # Find image file by citation_id pattern (ends with _citXXXX.jpg)
+                        matching_images = list(temp_dir.glob(f"*_cit{citation_id}.jpg"))
+                        if matching_images:
+                            local_image_path = matching_images[0]
+
+                            # Check if source already has media linked
+                            has_existing_media = False
+                            with self.db.transaction() as conn:
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    SELECT COUNT(*) FROM MediaLinkTable
+                                    WHERE OwnerID = ? AND OwnerType = 3
+                                """, (source_id,))
+                                has_existing_media = cursor.fetchone()[0] > 0
+
+                            if not has_existing_media:
+                                # Process the image
+                                from datetime import datetime
+                                from rmcitecraft.models.image import ImageMetadata
+                                from rmcitecraft.services.image_processing import get_image_processing_service
+
+                                image_service = get_image_processing_service()
+
+                                access_date = extracted_data.get('access_date')
+                                if not access_date:
+                                    today = datetime.now()
+                                    access_date = today.strftime("%-d %B %Y")
+
+                                state = extracted_data.get('state', '')
+                                county = extracted_data.get('county', '')
+                                person_name = item.get('person_name', '')
+
+                                # Parse surname and given from person_name
+                                name_parts = person_name.split(' ', 1) if person_name else ['', '']
+                                given_name = name_parts[0] if name_parts else ''
+                                surname = name_parts[1] if len(name_parts) > 1 else ''
+
+                                # For "Surname, Given" format, swap
+                                if ',' in person_name:
+                                    parts = person_name.split(',', 1)
+                                    surname = parts[0].strip()
+                                    given_name = parts[1].strip() if len(parts) > 1 else ''
+
+                                metadata = ImageMetadata(
+                                    image_id=f"batch_{citation_id}",
+                                    citation_id=str(citation_id),
+                                    year=census_year,
+                                    state=state,
+                                    county=county,
+                                    surname=surname,
+                                    given_name=given_name,
+                                    familysearch_url=extracted_data.get('familysearch_url', ''),
+                                    access_date=access_date,
+                                    town_ward=extracted_data.get('town_ward'),
+                                    enumeration_district=extracted_data.get('enumeration_district'),
+                                    sheet=extracted_data.get('sheet'),
+                                    line=extracted_data.get('line'),
+                                    family_number=extracted_data.get('family_number'),
+                                    dwelling_number=extracted_data.get('dwelling_number'),
+                                )
+
+                                image_service.register_pending_image(metadata)
+                                result = image_service.process_downloaded_file(str(local_image_path))
+                                if result:
+                                    images_processed += 1
+                                else:
+                                    logger.warning(f"Failed to process image for {item.get('person_name')}")
+
+                    # Mark as exported
+                    self.state_repository.mark_item_exported(item['id'])
+
+                    exported_count += 1
+
+                except Exception as e:
+                    logger.error(f"Error exporting state DB item {item.get('id')}: {e}")
+                    errors.append(f"{item.get('person_name', 'Unknown')}: {str(e)}")
+
+            # Checkpoint database
+            progress_label.text = "Checkpointing database..."
+            progress_bar.value = 1.0
+
+            with self.db.transaction() as conn:
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+            progress_dialog.close()
+
+            # Report results
+            if errors:
+                error_summary = f"First 5 errors:\n" + "\n".join(errors[:5])
+                if len(errors) > 5:
+                    error_summary += f"\n... and {len(errors) - 5} more"
+                logger.warning(f"Export errors:\n{error_summary}")
+                self._notify_and_log(
+                    f"State DB export completed with {len(errors)} errors. Exported: {exported_count} citations, {images_processed} images.",
+                    type="warning"
+                )
+            else:
+                self._notify_and_log(
+                    f"Successfully exported {exported_count} citations and {images_processed} images from state database!",
+                    type="positive"
+                )
+
+        except Exception as e:
+            progress_dialog.close()
+            logger.error(f"State DB export failed: {e}")
+            self._notify_and_log(f"State DB export failed: {str(e)}", type="negative")
+
+    async def _repair_source_name_brackets(self) -> None:
+        """[LEGACY/REPAIR] Fix Source Name brackets for exported items with empty brackets.
+
+        NOTE: This is a one-time data repair function created to fix items that were
+        exported before the export flow was corrected to include bracket updates.
+        The normal export flow now properly updates brackets via _export_from_state_db_all_sessions.
+        This function can be removed once all historical data has been repaired.
+
+        This function finds all exported items in the state database and updates
+        the SourceTable.Name field to include the citation details in brackets.
+        """
+        if not self.state_repository:
+            self._notify_and_log("State repository not available", type="negative")
+            return
+
+        import json
+        from rmcitecraft.database.image_repository import ImageRepository
+
+        # Find all exported items
+        all_sessions = self.state_repository.get_all_sessions()
+        items_to_repair = []
+
+        for session in all_sessions:
+            items = self.state_repository.get_session_items(session['session_id'])
+            for item in items:
+                if item['status'] == 'complete' and item.get('export_status') == 'exported':
+                    if item.get('extracted_data'):
+                        items_to_repair.append(item)
+
+        if not items_to_repair:
+            self._notify_and_log("No exported items found to repair", type="info")
+            return
+
+        self._notify_and_log(
+            f"Repairing Source Name brackets for {len(items_to_repair)} items...",
+            type="info"
+        )
+
+        # Show progress dialog
+        with ui.dialog() as progress_dialog, ui.card().classes("p-6"):
+            ui.label("Repairing Source Name Brackets...").classes("text-lg font-bold mb-4")
+            progress_label = ui.label("Processing...").classes("mb-2")
+            progress_bar = ui.linear_progress(value=0).classes("mb-4")
+
+        progress_dialog.open()
+
+        repaired_count = 0
+        skipped_count = 0
+        errors = []
+
+        try:
+            for i, item in enumerate(items_to_repair):
+                try:
+                    progress_label.text = f"Processing {item.get('person_name', 'Unknown')} ({i+1}/{len(items_to_repair)})"
+                    progress_bar.value = i / len(items_to_repair)
+
+                    # Yield to UI periodically
+                    if i % 50 == 0:
+                        await ui.context.client.connected()
+
+                    # Parse extracted data
+                    extracted_data_json = item.get('extracted_data')
+                    try:
+                        extracted_data = json.loads(extracted_data_json) if isinstance(extracted_data_json, str) else extracted_data_json
+                    except json.JSONDecodeError:
+                        errors.append(f"{item.get('person_name', 'Unknown')}: Invalid JSON")
+                        continue
+
+                    # Get source_id - either from item or look it up
+                    source_id = item.get('source_id')
+                    citation_id = item.get('citation_id')
+                    person_id = item.get('person_id')
+                    census_year = item.get('census_year')
+
+                    if not source_id:
+                        # Try to find via citation_id or person_id
+                        with self.db.transaction() as conn:
+                            cursor = conn.cursor()
+                            if citation_id:
+                                cursor.execute("SELECT SourceID FROM CitationTable WHERE CitationID = ?", (citation_id,))
+                                row = cursor.fetchone()
+                                if row:
+                                    source_id = row[0]
+                            elif person_id and census_year:
+                                cursor.execute("""
+                                    SELECT c.SourceID
+                                    FROM EventTable e
+                                    JOIN CitationLinkTable cl ON cl.OwnerID = e.EventID AND cl.OwnerType = 2
+                                    JOIN CitationTable c ON c.CitationID = cl.CitationID
+                                    WHERE e.OwnerID = ? AND e.EventType = 18 AND substr(e.Date, 4, 4) = ?
+                                """, (person_id, str(census_year)))
+                                row = cursor.fetchone()
+                                if row:
+                                    source_id = row[0]
+
+                    if not source_id:
+                        errors.append(f"{item.get('person_name', 'Unknown')}: Could not find source_id")
+                        continue
+
+                    # Check if source already has bracket content
+                    with self.db.transaction() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT Name FROM SourceTable WHERE SourceID = ?", (source_id,))
+                        row = cursor.fetchone()
+                        if not row:
+                            errors.append(f"{item.get('person_name', 'Unknown')}: Source {source_id} not found")
+                            continue
+
+                        current_name = row[0]
+                        # Skip if brackets already have content
+                        if '[]' not in current_name:
+                            skipped_count += 1
+                            continue
+
+                    # Generate bracket content from extracted data
+                    bracket_content = self._generate_bracket_content_from_data(extracted_data, census_year)
+
+                    if bracket_content and bracket_content != "[]":
+                        with self.db.transaction() as conn:
+                            repo = ImageRepository(conn)
+                            repo.update_source_name_brackets(source_id, bracket_content)
+                        repaired_count += 1
+
+                except Exception as e:
+                    logger.error(f"Error repairing item {item.get('id')}: {e}")
+                    errors.append(f"{item.get('person_name', 'Unknown')}: {str(e)}")
+
+            # Checkpoint database
+            progress_label.text = "Checkpointing database..."
+            progress_bar.value = 1.0
+
+            with self.db.transaction() as conn:
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+            progress_dialog.close()
+
+            # Report results
+            msg = f"Repair complete: {repaired_count} updated, {skipped_count} already had content"
+            if errors:
+                msg += f", {len(errors)} errors"
+                logger.warning(f"Repair errors (first 5): {errors[:5]}")
+            self._notify_and_log(msg, type="positive" if not errors else "warning")
+
+        except Exception as e:
+            progress_dialog.close()
+            logger.error(f"Repair failed: {e}")
+            self._notify_and_log(f"Repair failed: {str(e)}", type="negative")
+
+    async def _repair_missing_images(self) -> None:
+        """[LEGACY/REPAIR] Download and link images for exported items missing media.
+
+        NOTE: This is a one-time data repair function created to download images for
+        items that were exported before images were downloaded during batch processing.
+        The normal batch processing flow downloads images during _process_single_citation_robust.
+        This function can be removed once all historical data has been repaired.
+
+        This function:
+        1. Finds exported items where the source has no media linked
+        2. Downloads images from FamilySearch using stored image_viewer_url
+        3. Processes and links images to source/citation/event
+        """
+        if not self.state_repository:
+            self._notify_and_log("State repository not available", type="negative")
+            return
+
+        import json
+        from pathlib import Path
+        from rmcitecraft.database.image_repository import ImageRepository
+        from rmcitecraft.models.image import ImageMetadata
+        from rmcitecraft.services.image_processing import get_image_processing_service
+        from rmcitecraft.services.familysearch_automation import FamilySearchAutomation
+
+        # Find exported items that need images
+        all_sessions = self.state_repository.get_all_sessions()
+        items_needing_images = []
+
+        self._notify_and_log("Scanning for items needing images...", type="info")
+
+        for session in all_sessions:
+            items = self.state_repository.get_session_items(session['session_id'])
+            for item in items:
+                if item['status'] != 'complete' or item.get('export_status') != 'exported':
+                    continue
+                if not item.get('extracted_data'):
+                    continue
+
+                # Parse extracted data to get image URL
+                try:
+                    extracted_data = json.loads(item['extracted_data']) if isinstance(item['extracted_data'], str) else item['extracted_data']
+                except json.JSONDecodeError:
+                    continue
+
+                image_url = extracted_data.get('image_viewer_url')
+                if not image_url:
+                    continue
+
+                # Check if source already has media
+                source_id = item.get('source_id')
+                citation_id = item.get('citation_id')
+                person_id = item.get('person_id')
+                census_year = item.get('census_year')
+
+                # Look up source_id if not stored
+                if not source_id:
+                    with self.db.transaction() as conn:
+                        cursor = conn.cursor()
+                        if citation_id:
+                            cursor.execute("SELECT SourceID FROM CitationTable WHERE CitationID = ?", (citation_id,))
+                            row = cursor.fetchone()
+                            if row:
+                                source_id = row[0]
+                        elif person_id and census_year:
+                            cursor.execute("""
+                                SELECT c.SourceID, c.CitationID
+                                FROM EventTable e
+                                JOIN CitationLinkTable cl ON cl.OwnerID = e.EventID AND cl.OwnerType = 2
+                                JOIN CitationTable c ON c.CitationID = cl.CitationID
+                                WHERE e.OwnerID = ? AND e.EventType = 18 AND substr(e.Date, 4, 4) = ?
+                            """, (person_id, str(census_year)))
+                            row = cursor.fetchone()
+                            if row:
+                                source_id = row[0]
+                                citation_id = row[1]
+
+                if not source_id:
+                    continue
+
+                # Check if source already has media linked
+                with self.db.transaction() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM MediaLinkTable WHERE OwnerID = ? AND OwnerType = 3
+                    """, (source_id,))
+                    has_media = cursor.fetchone()[0] > 0
+
+                if has_media:
+                    continue  # Skip - already has media
+
+                items_needing_images.append({
+                    'item': item,
+                    'extracted_data': extracted_data,
+                    'source_id': source_id,
+                    'citation_id': citation_id,
+                    'image_url': image_url,
+                })
+
+        if not items_needing_images:
+            self._notify_and_log("All exported items already have media attached", type="positive")
+            return
+
+        self._notify_and_log(
+            f"Found {len(items_needing_images)} items needing images. Starting download...",
+            type="info"
+        )
+
+        # Show progress dialog
+        with ui.dialog() as progress_dialog, ui.card().classes("p-6 w-[500px]"):
+            ui.label("Downloading Missing Images").classes("text-lg font-bold mb-4")
+            progress_label = ui.label("Initializing...").classes("mb-2")
+            progress_bar = ui.linear_progress(value=0).classes("mb-4")
+            status_label = ui.label("").classes("text-sm text-gray-600")
+
+        progress_dialog.open()
+
+        downloaded_count = 0
+        skipped_count = 0
+        errors = []
+
+        try:
+            # Initialize FamilySearch automation
+            progress_label.text = "Connecting to browser..."
+            await ui.context.client.connected()
+
+            fs_automation = FamilySearchAutomation()
+            connected = await fs_automation.connect_to_chrome()
+            if not connected:
+                raise RuntimeError("Could not connect to Chrome. Make sure Chrome is running with --remote-debugging-port=9222")
+
+            image_service = get_image_processing_service()
+
+            for i, item_data in enumerate(items_needing_images):
+                try:
+                    item = item_data['item']
+                    extracted_data = item_data['extracted_data']
+                    source_id = item_data['source_id']
+                    citation_id = item_data['citation_id']
+                    image_url = item_data['image_url']
+                    census_year = item.get('census_year')
+
+                    person_name = item.get('person_name', 'Unknown')
+                    progress_label.text = f"Downloading {person_name} ({i+1}/{len(items_needing_images)})"
+                    progress_bar.value = i / len(items_needing_images)
+                    status_label.text = f"Downloaded: {downloaded_count} | Skipped: {skipped_count} | Errors: {len(errors)}"
+
+                    # Yield to UI
+                    if i % 5 == 0:
+                        await ui.context.client.connected()
+
+                    # Generate filename for download
+                    state = extracted_data.get('state', '')
+                    county = extracted_data.get('county', '')
+
+                    # Get person's name from extracted data or item
+                    surname = item.get('person_name', '').split()[-1] if item.get('person_name') else ''
+                    given_name = ' '.join(item.get('person_name', '').split()[:-1]) if item.get('person_name') else ''
+
+                    if not state or not county:
+                        errors.append(f"{person_name}: Missing state/county")
+                        continue
+
+                    # Create temp download path
+                    temp_filename = f"{census_year}, {state}, {county} - {surname}, {given_name}.jpg"
+                    temp_path = Path(self.config.rm_media_root_directory) / f"{census_year} Federal" / temp_filename
+
+                    # Ensure directory exists
+                    temp_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    # Check if file already exists
+                    if temp_path.exists():
+                        logger.info(f"Image already exists: {temp_path}")
+                        # Just need to link it to the source
+                        await self._link_existing_image_to_source(temp_path, source_id, citation_id, census_year)
+                        downloaded_count += 1
+                        continue
+
+                    # Download from FamilySearch
+                    success = await fs_automation.download_census_image(image_url, temp_path)
+
+                    if success:
+                        # Register and process the image
+                        metadata = ImageMetadata(
+                            image_id=f"repair_{citation_id}",
+                            citation_id=str(citation_id),
+                            year=census_year,
+                            state=state,
+                            county=county,
+                            surname=surname,
+                            given_name=given_name,
+                            familysearch_url=extracted_data.get('familysearch_url', ''),
+                            access_date=extracted_data.get('access_date', ''),
+                        )
+
+                        image_service.register_pending_image(metadata)
+                        result = image_service.process_downloaded_file(temp_path)
+
+                        if result:
+                            downloaded_count += 1
+                        else:
+                            # File was downloaded but couldn't be processed - still try to link
+                            await self._link_existing_image_to_source(temp_path, source_id, citation_id, census_year)
+                            downloaded_count += 1
+                    else:
+                        errors.append(f"{person_name}: Download failed")
+
+                    # Add small delay between downloads to be respectful
+                    await asyncio.sleep(1.0)
+
+                except Exception as e:
+                    logger.error(f"Error downloading image for {item.get('person_name', 'Unknown')}: {e}")
+                    errors.append(f"{item.get('person_name', 'Unknown')}: {str(e)}")
+
+            # Cleanup
+            await fs_automation.disconnect()
+
+            # Checkpoint database
+            progress_label.text = "Checkpointing database..."
+            progress_bar.value = 1.0
+
+            with self.db.transaction() as conn:
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+            progress_dialog.close()
+
+            # Report results
+            msg = f"Image repair complete: {downloaded_count} downloaded"
+            if skipped_count > 0:
+                msg += f", {skipped_count} skipped"
+            if errors:
+                msg += f", {len(errors)} errors"
+                logger.warning(f"Image repair errors (first 10): {errors[:10]}")
+            self._notify_and_log(msg, type="positive" if not errors else "warning")
+
+        except Exception as e:
+            progress_dialog.close()
+            logger.error(f"Image repair failed: {e}")
+            self._notify_and_log(f"Image repair failed: {str(e)}", type="negative")
+
+    async def _link_existing_image_to_source(
+        self, image_path: Path, source_id: int, citation_id: int, census_year: int
+    ) -> None:
+        """Link an existing image file to a source in RootsMagic.
+
+        Args:
+            image_path: Path to the image file
+            source_id: RootsMagic SourceID
+            citation_id: RootsMagic CitationID
+            census_year: Census year for directory structure
+        """
+        from rmcitecraft.database.image_repository import ImageRepository
+
+        with self.db.transaction() as conn:
+            repo = ImageRepository(conn)
+
+            # Check if media record exists
+            media_id = repo.find_media_by_file(image_path.name)
+
+            if not media_id:
+                # Create media record
+                media_id = repo.create_media_record(
+                    media_file=image_path.name,
+                    media_path=f"Records - Census/{census_year} Federal",
+                )
+
+            # Link to source if not already linked
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT COUNT(*) FROM MediaLinkTable WHERE MediaID = ? AND OwnerID = ? AND OwnerType = 3
+            """, (media_id, source_id))
+            if cursor.fetchone()[0] == 0:
+                repo.link_media_to_source(media_id, source_id)
+
+            # Link to citation if not already linked
+            cursor.execute("""
+                SELECT COUNT(*) FROM MediaLinkTable WHERE MediaID = ? AND OwnerID = ? AND OwnerType = 4
+            """, (media_id, citation_id))
+            if cursor.fetchone()[0] == 0:
+                repo.link_media_to_citation(media_id, citation_id)
+
+    def _generate_bracket_content_from_data(self, data: dict, year: int) -> str:
+        """Generate bracket content from extracted data dict.
+
+        Args:
+            data: Extracted census data dictionary
+            year: Census year
+
+        Returns:
+            Formatted bracket content string
+        """
+        parts = []
+
+        # For 1880-1950: Include enumeration district
+        ed = data.get('enumeration_district', '')
+        if ed and year >= 1880:
+            parts.append(f"enumeration district (ED) {ed}")
+
+        # Sheet or page
+        sheet = data.get('sheet', '')
+        page = data.get('page', '')
+        if sheet:
+            parts.append(f"sheet {sheet}")
+        elif page and year < 1880:
+            parts.append(f"p. {page}")
+
+        # Line number (1850+)
+        line = data.get('line', '')
+        if line:
+            parts.append(f"line {line}")
+
+        # Family number (1850+)
+        family = data.get('family_number', '')
+        if family:
+            parts.append(f"family {family}")
+
+        # Dwelling number (1850+)
+        dwelling = data.get('dwelling_number', '')
+        if dwelling:
+            parts.append(f"dwelling {dwelling}")
+
+        if parts:
+            return f"[citing {', '.join(parts)}]"
+        return "[]"
+
+    async def _do_export_internal(
+        self,
+        completed_citations: list[CitationBatchItem],
+        source_name: str = "session"
+    ) -> None:
+        """Internal export operation for a list of citations.
+
+        Args:
+            completed_citations: List of citations to export
+            source_name: Description of source for logging
+        """
+        await self._do_export_impl(completed_citations, source_name)
+
+    async def _do_export_impl(
+        self,
+        completed_citations: list[CitationBatchItem],
+        source_name: str = "session"
+    ) -> None:
+        """Implementation of export operation."""
+        from datetime import datetime
+
+        from rmcitecraft.models.image import ImageMetadata
+        from rmcitecraft.services.image_processing import get_image_processing_service
+
+        # Show progress dialog
+        with ui.dialog() as progress_dialog, ui.card().classes("p-6"):
+            ui.label(f"Exporting from {source_name}...").classes("text-lg font-bold mb-4")
+            progress_label = ui.label("Processing citations...").classes("mb-2")
+            progress_bar = ui.linear_progress(value=0).classes("mb-4")
+
+        progress_dialog.open()
+
+        # Track results
+        citations_written = 0
+        images_processed = 0
+        errors = []
+
+        try:
+            # Get services
+            image_service = get_image_processing_service()
+
+            # Build a lookup of state DB items by citation_id for efficient marking
+            state_items_by_citation = {}
+            if self.state_repository and self.current_session_id:
+                items = self.state_repository.get_session_items(self.current_session_id)
+                for item in items:
+                    cit_id = item.get('citation_id')
+                    if cit_id:
+                        state_items_by_citation[cit_id] = item['id']
+
+            # Process each citation
+            for i, citation in enumerate(completed_citations):
+                try:
+                    progress_label.text = f"Processing {citation.full_name} ({i+1}/{len(completed_citations)})"
+                    progress_bar.value = i / len(completed_citations)
+                    await ui.context.client.connected()
+
+                    # 1. Write citation fields to database
+                    await self._write_citation_to_database(citation)
+                    citations_written += 1
+
+                    # 2. Mark as exported in state DB (if tracking this citation)
+                    if citation.citation_id in state_items_by_citation:
+                        self.state_repository.mark_item_exported(state_items_by_citation[citation.citation_id])
+
+                    # 3. Ensure existing media is linked to source and all citations
+                    if citation.has_existing_media:
+                        await self._ensure_existing_media_links(citation)
+
+                    # 4. Process image if downloaded (skip if already has media)
+                    if citation.local_image_path and Path(citation.local_image_path).exists() and not citation.has_existing_media:
+                        # Create ImageMetadata from citation data
+                        access_date = citation.merged_data.get('access_date')
+                        if not access_date:
+                            today = datetime.now()
+                            access_date = today.strftime("%-d %B %Y")
+
+                        state = citation.merged_data.get('state', '')
+                        county = citation.merged_data.get('county', '')
+
+                        if (not state or not county) and citation.source_name:
+                            from rmcitecraft.parsers.source_name_parser import SourceNameParser
+                            try:
+                                parsed = SourceNameParser.parse(citation.source_name)
+                                if parsed:
+                                    if not state and parsed.get('state'):
+                                        state = parsed['state']
+                                    if not county and parsed.get('county'):
+                                        county = parsed['county']
+                            except Exception as e:
+                                logger.warning(f"Could not parse source_name for {citation.full_name}: {e}")
+
+                        if not state or not county:
+                            errors.append(f"{citation.full_name}: Missing state/county for image filename")
+                            continue
+
+                        metadata = ImageMetadata(
+                            image_id=f"batch_{citation.citation_id}",
+                            citation_id=str(citation.citation_id),
+                            year=citation.census_year,
+                            state=state,
+                            county=county,
+                            surname=citation.surname,
+                            given_name=citation.given_name,
+                            familysearch_url=citation.familysearch_url or '',
+                            access_date=access_date,
+                            town_ward=citation.merged_data.get('town_ward'),
+                            enumeration_district=citation.merged_data.get('enumeration_district'),
+                            sheet=citation.merged_data.get('sheet'),
+                            line=citation.merged_data.get('line'),
+                            family_number=citation.merged_data.get('family_number'),
+                            dwelling_number=citation.merged_data.get('dwelling_number'),
+                        )
+
+                        image_service.register_pending_image(metadata)
+                        result = image_service.process_downloaded_file(citation.local_image_path)
+                        if result:
+                            images_processed += 1
+                        else:
+                            errors.append(f"{citation.full_name}: Failed to process image")
+
+                except Exception as e:
+                    logger.error(f"Error exporting citation {citation.citation_id}: {e}")
+                    errors.append(f"{citation.full_name}: {str(e)}")
+
+            progress_bar.value = 1.0
+            progress_label.text = "Checkpointing database..."
+
+            with self.db.transaction() as conn:
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+            progress_label.text = "Export complete!"
+            await asyncio.sleep(0.5)
+            progress_dialog.close()
+
+            if errors:
+                self._notify_and_log(
+                    f"Export ({source_name}) completed with {len(errors)} errors. "
+                    f"Written: {citations_written} citations, {images_processed} images.",
+                    type="warning"
+                )
+            else:
+                self._notify_and_log(
+                    f"Successfully exported {citations_written} citations and {images_processed} images from {source_name}!",
+                    type="positive"
+                )
+
+        except Exception as e:
+            logger.error(f"Export failed: {e}")
+            try:
+                with self.db.transaction() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            except Exception:
+                pass
+            progress_dialog.close()
+            self._notify_and_log(f"Export failed: {str(e)}", type="negative")
+
     async def _do_export(self, dialog, completed_citations: list[CitationBatchItem]) -> None:
-        """Perform the actual export operation."""
+        """Perform the actual export operation (legacy method for backwards compatibility)."""
         from datetime import datetime
 
         from rmcitecraft.models.image import ImageMetadata
@@ -1314,7 +2490,11 @@ class BatchProcessingTab:
                     await self._write_citation_to_database(citation)
                     citations_written += 1
 
-                    # 2. Process image if downloaded (skip if already has media in RootsMagic)
+                    # 2. Ensure existing media is linked to source and all citations
+                    if citation.has_existing_media:
+                        await self._ensure_existing_media_links(citation)
+
+                    # 3. Process image if downloaded (skip if already has media in RootsMagic)
                     if citation.local_image_path and Path(citation.local_image_path).exists() and not citation.has_existing_media:
                         # Create ImageMetadata from citation data
                         # Generate access date in Evidence Explained format: "D Month YYYY"
@@ -1555,6 +2735,90 @@ class BatchProcessingTab:
 
         except Exception as e:
             logger.error(f"Failed to update citation quality: {e}")
+
+    async def _ensure_existing_media_links(self, citation) -> None:
+        """Ensure existing media is linked to source, event, and all related citations.
+
+        When a citation already has media attached from a previous processing run,
+        this method ensures proper links exist to:
+        1. The source document
+        2. The census event
+        3. All citations for that event
+
+        Args:
+            citation: CitationBatchItem with has_existing_media=True
+        """
+        from rmcitecraft.database.image_repository import ImageRepository
+
+        try:
+            with self.db.transaction() as conn:
+                repo = ImageRepository(conn)
+                cursor = conn.cursor()
+
+                # Find media linked to this citation (OwnerType=4 for citations)
+                cursor.execute(
+                    """
+                    SELECT m.MediaID, m.MediaFile
+                    FROM MultimediaTable m
+                    JOIN MediaLinkTable ml ON m.MediaID = ml.MediaID
+                    WHERE ml.OwnerID = ? AND ml.OwnerType = 4
+                    """,
+                    (citation.citation_id,),
+                )
+                media_rows = cursor.fetchall()
+
+                if not media_rows:
+                    logger.debug(f"No media found linked to CitationID={citation.citation_id}")
+                    return
+
+                for media_id, media_file in media_rows:
+                    logger.debug(f"Ensuring links for MediaID={media_id} ({media_file})")
+
+                    # Link to source (OwnerType=3) if not already linked
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) FROM MediaLinkTable
+                        WHERE MediaID = ? AND OwnerID = ? AND OwnerType = 3
+                        """,
+                        (media_id, citation.source_id),
+                    )
+                    if cursor.fetchone()[0] == 0:
+                        repo.link_media_to_source(media_id, citation.source_id)
+                        logger.info(f"Linked MediaID={media_id} to SourceID={citation.source_id}")
+
+                    # Link to event (OwnerType=2) if not already linked
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) FROM MediaLinkTable
+                        WHERE MediaID = ? AND OwnerID = ? AND OwnerType = 2
+                        """,
+                        (media_id, citation.event_id),
+                    )
+                    if cursor.fetchone()[0] == 0:
+                        repo.link_media_to_event(media_id, citation.event_id)
+                        logger.info(f"Linked MediaID={media_id} to EventID={citation.event_id}")
+
+                    # Find all other citations for this event and link media to them
+                    citation_ids = repo.find_citations_for_event(citation.event_id)
+                    for cit_id in citation_ids:
+                        if cit_id != citation.citation_id:  # Skip the original citation
+                            cursor.execute(
+                                """
+                                SELECT COUNT(*) FROM MediaLinkTable
+                                WHERE MediaID = ? AND OwnerID = ? AND OwnerType = 4
+                                """,
+                                (media_id, cit_id),
+                            )
+                            if cursor.fetchone()[0] == 0:
+                                repo.link_media_to_citation(media_id, cit_id)
+                                logger.info(f"Linked MediaID={media_id} to CitationID={cit_id}")
+
+                conn.commit()
+
+        except Exception as e:
+            logger.error(f"Failed to ensure existing media links: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _get_session_status_text(self) -> str:
         """Get session status text.
