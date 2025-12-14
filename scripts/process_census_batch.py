@@ -243,22 +243,56 @@ def find_census_citations(
 
     cursor = conn.cursor()
 
-    # Find ALL census events for specified year (regardless of existing media)
+    # Find ALL census events for specified year (regardless of existing media).
+    #
+    # MEDIA EXISTENCE CHECK: Census images in RootsMagic can be linked to any of three
+    # entity types via MediaLinkTable.OwnerType:
+    #   - Event (OwnerType=2): The census event itself
+    #   - Source (OwnerType=3): The source document (most common for Evidence Explained practice)
+    #   - Citation (OwnerType=4): The specific citation
+    #
+    # To avoid downloading duplicate images, we must check ALL THREE link types.
+    # Previously, only Event links were checked, which could miss images linked
+    # only to the Source or Citation, resulting in duplicate downloads.
+    #
+    # The subqueries check for media linked to ANY of the three related entities
+    # (the event, its citation's source, or the citation itself).
     query = """
         SELECT
             e.EventID, e.OwnerID as PersonID, n.Given, n.Surname,
             c.CitationID, s.SourceID, s.Name as SourceName,
             s.Fields, c.Fields as CitationFields,
-            COUNT(DISTINCT ml_existing.MediaID) as existing_media_count,
-            GROUP_CONCAT(m.MediaFile, '|||') as existing_files,
-            GROUP_CONCAT(m.MediaPath, '|||') as existing_media_paths
+            -- Count distinct media IDs linked to Event, Source, OR Citation
+            (
+                SELECT COUNT(DISTINCT ml.MediaID)
+                FROM MediaLinkTable ml
+                WHERE (ml.OwnerID = e.EventID AND ml.OwnerType = 2)      -- Event
+                   OR (ml.OwnerID = s.SourceID AND ml.OwnerType = 3)     -- Source
+                   OR (ml.OwnerID = c.CitationID AND ml.OwnerType = 4)   -- Citation
+            ) as existing_media_count,
+            -- Get filenames from all three link types (using ||| delimiter since filenames may contain commas)
+            (
+                SELECT GROUP_CONCAT(m.MediaFile, '|||')
+                FROM MediaLinkTable ml
+                JOIN MultimediaTable m ON ml.MediaID = m.MediaID
+                WHERE (ml.OwnerID = e.EventID AND ml.OwnerType = 2)
+                   OR (ml.OwnerID = s.SourceID AND ml.OwnerType = 3)
+                   OR (ml.OwnerID = c.CitationID AND ml.OwnerType = 4)
+            ) as existing_files,
+            -- Get media paths from all three link types
+            (
+                SELECT GROUP_CONCAT(m.MediaPath, '|||')
+                FROM MediaLinkTable ml
+                JOIN MultimediaTable m ON ml.MediaID = m.MediaID
+                WHERE (ml.OwnerID = e.EventID AND ml.OwnerType = 2)
+                   OR (ml.OwnerID = s.SourceID AND ml.OwnerType = 3)
+                   OR (ml.OwnerID = c.CitationID AND ml.OwnerType = 4)
+            ) as existing_media_paths
         FROM EventTable e
         JOIN NameTable n ON e.OwnerID = n.OwnerID AND n.IsPrimary = 1
         JOIN CitationLinkTable cl ON e.EventID = cl.OwnerID AND cl.OwnerType = 2
         JOIN CitationTable c ON cl.CitationID = c.CitationID
         JOIN SourceTable s ON c.SourceID = s.SourceID
-        LEFT JOIN MediaLinkTable ml_existing ON e.EventID = ml_existing.OwnerID AND ml_existing.OwnerType = 2
-        LEFT JOIN MultimediaTable m ON ml_existing.MediaID = m.MediaID
         WHERE e.EventType = 18
           AND e.Date LIKE ?
           AND s.TemplateID = 0
@@ -372,7 +406,12 @@ def find_census_citations(
                         bibliography=bibliography,
                         census_year=census_year
                     )
-                    if not needs_processing:
+
+                    # Also check if Source Name has empty brackets [] - indicates incomplete processing
+                    # even if the citation text passes validation (may have template with empty values)
+                    has_empty_brackets = source_name and '[]' in source_name
+
+                    if not needs_processing and not has_empty_brackets:
                         # Citation is already properly processed, skip it
                         skipped_processed += 1
                         continue

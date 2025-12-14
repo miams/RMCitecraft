@@ -367,7 +367,7 @@ class BatchProcessingTab:
             ui.label("Select Census Year:").classes("font-medium mb-2")
             year_select = ui.select(
                 [1790 + (i * 10) for i in range(17)],  # 1790-1950
-                value=1930,
+                value=1920,
             ).props("outlined").classes("w-full mb-4")
 
             # Limit input
@@ -1164,9 +1164,32 @@ class BatchProcessingTab:
             self.checkpoint_counter = 0
             logger.debug(f"Created checkpoint at item {self.current_state_item_id}")
 
-        # Mark complete in state DB
+        # Mark complete in state DB ONLY if validation passed.
+        #
+        # IMPORTANT: If validation failed (e.g., FamilySearch URL didn't render properly,
+        # resulting in missing required fields like state, county, ED, etc.), we should
+        # NOT mark the item as 'complete'. This allows it to be reprocessed in subsequent
+        # batches after the underlying issue is fixed.
+        #
+        # Citation status values:
+        #   - COMPLETE: All required fields extracted and validated successfully
+        #   - MANUAL_REVIEW: Extraction ran but validation failed (missing fields)
+        #
         if self.state_repository and self.current_state_item_id:
-            self.state_repository.update_item_status(self.current_state_item_id, 'complete')
+            if citation.status == CitationStatus.COMPLETE:
+                self.state_repository.update_item_status(self.current_state_item_id, 'complete')
+                logger.info(f"Citation {citation.citation_id} marked complete - validation passed")
+            else:
+                # Keep status as 'extracted' so it can be reprocessed
+                self.state_repository.update_item_status(
+                    self.current_state_item_id,
+                    'extracted',
+                    f"Validation failed: {', '.join(citation.validation.errors) if citation.validation else 'Unknown'}"
+                )
+                logger.warning(
+                    f"Citation {citation.citation_id} NOT marked complete - validation failed: "
+                    f"{citation.validation.errors if citation.validation else 'No validation result'}"
+                )
 
         # Reset recovery counter on success
         self.recovery_manager.reset_recovery_counter()
@@ -1717,14 +1740,38 @@ class BatchProcessingTab:
                         if matching_images:
                             local_image_path = matching_images[0]
 
-                            # Check if source already has media linked
+                            # MEDIA EXISTENCE CHECK: Prevent duplicate image imports.
+                            #
+                            # Census images in RootsMagic can be linked to any of three entity
+                            # types via MediaLinkTable.OwnerType:
+                            #   - Source (OwnerType=3): The source document
+                            #   - Citation (OwnerType=4): The specific citation
+                            #   - Event (OwnerType=2): The census event itself
+                            #
+                            # We must check ALL THREE to avoid downloading duplicates. An image
+                            # might be linked only to the Event (e.g., from manual entry) while
+                            # the Source has no direct media link.
                             has_existing_media = False
                             with self.db.transaction() as conn:
                                 cursor = conn.cursor()
+
+                                # First, find the Event linked to this Citation.
+                                # CitationLinkTable connects citations to events (OwnerType=2 means Event).
+                                cursor.execute("""
+                                    SELECT cl.OwnerID FROM CitationLinkTable cl
+                                    WHERE cl.CitationID = ? AND cl.OwnerType = 2
+                                    LIMIT 1
+                                """, (citation_id,))
+                                event_row = cursor.fetchone()
+                                event_id_for_check = event_row[0] if event_row else None
+
+                                # Check for media linked to Source, Citation, OR Event
                                 cursor.execute("""
                                     SELECT COUNT(*) FROM MediaLinkTable
-                                    WHERE OwnerID = ? AND OwnerType = 3
-                                """, (source_id,))
+                                    WHERE (OwnerID = ? AND OwnerType = 3)   -- Source
+                                       OR (OwnerID = ? AND OwnerType = 4)   -- Citation
+                                       OR (OwnerID = ? AND OwnerType = 2)   -- Event
+                                """, (source_id, citation_id, event_id_for_check or 0))
                                 has_existing_media = cursor.fetchone()[0] > 0
 
                             if not has_existing_media:
@@ -2048,16 +2095,43 @@ class BatchProcessingTab:
                 if not source_id:
                     continue
 
-                # Check if source already has media linked
+                # MEDIA EXISTENCE CHECK: Prevent duplicate image imports.
+                #
+                # Census images in RootsMagic can be linked to any of three entity
+                # types via MediaLinkTable.OwnerType:
+                #   - Source (OwnerType=3): The source document
+                #   - Citation (OwnerType=4): The specific citation
+                #   - Event (OwnerType=2): The census event itself
+                #
+                # We must check ALL THREE to avoid downloading duplicates. An image
+                # might be linked only to the Event (e.g., from manual entry) while
+                # the Source has no direct media link.
                 with self.db.transaction() as conn:
                     cursor = conn.cursor()
+
+                    # First, find the Event linked to this Citation (if we have a citation_id).
+                    # CitationLinkTable connects citations to events (OwnerType=2 means Event).
+                    event_id_for_check = None
+                    if citation_id:
+                        cursor.execute("""
+                            SELECT cl.OwnerID FROM CitationLinkTable cl
+                            WHERE cl.CitationID = ? AND cl.OwnerType = 2
+                            LIMIT 1
+                        """, (citation_id,))
+                        event_row = cursor.fetchone()
+                        event_id_for_check = event_row[0] if event_row else None
+
+                    # Check for media linked to Source, Citation, OR Event
                     cursor.execute("""
-                        SELECT COUNT(*) FROM MediaLinkTable WHERE OwnerID = ? AND OwnerType = 3
-                    """, (source_id,))
+                        SELECT COUNT(*) FROM MediaLinkTable
+                        WHERE (OwnerID = ? AND OwnerType = 3)   -- Source
+                           OR (OwnerID = ? AND OwnerType = 4)   -- Citation
+                           OR (OwnerID = ? AND OwnerType = 2)   -- Event
+                    """, (source_id, citation_id or 0, event_id_for_check or 0))
                     has_media = cursor.fetchone()[0] > 0
 
                 if has_media:
-                    continue  # Skip - already has media
+                    continue  # Skip - already has media linked to Source, Citation, or Event
 
                 items_needing_images.append({
                     'item': item,
