@@ -2,26 +2,12 @@
 
 > **For LLMs**: This compact index contains essential docs only.
 > For complete documentation, see `docs/FULL_INDEX.md`.
-> Last generated: 2025-12-12 00:37:46 UTC
+> Last generated: 2025-12-14 11:15:58 UTC
 
-**Essential docs**: 17 | 
-**Total docs**: 132 (use Glob/Grep for full search)
+**Essential docs**: 16 | 
+**Total docs**: 82 (use Glob/Grep for full search)
 
 ## Getting Started
-
-### [RMCitecraft - Quick Start Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/QUICKSTART.md)
-*Topics: database, census, citation, testing, ui*
-
-- Prerequisites
-- Installation
-- Running Tests
-- Running the Application
-- Development Commands
-- Project Structure
-- Common Tasks
-- Troubleshooting
-- Getting Help
-- Week 1 Status
 
 ### [RMCitecraft](https://github.com/mikeiacovacci/RMCitecraft/blob/main/README.md)
 *Topics: database, census, citation, batch, findagrave*
