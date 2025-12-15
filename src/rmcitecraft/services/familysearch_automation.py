@@ -1,6 +1,14 @@
 r"""
 FamilySearch Automation Service using Playwright
 
+DEPRECATION NOTICE:
+    This module is being replaced by rmcitecraft.services.familysearch.
+    For new code, use:
+        from rmcitecraft.services.familysearch import CensusExtractor
+
+    The extract_citation_data() method now delegates to the new unified
+    CensusExtractor for consistent extraction across all census years.
+
 Launches Chrome with persistent context to:
 - Extract census citation data from FamilySearch pages
 - Automate census image downloads
@@ -419,7 +427,29 @@ class FamilySearchAutomation:
             logger.info(f"Extracted citation data: {citation_data['personName']}")
 
             # Transform to expected format (snake_case keys, parsed location)
-            return self._transform_citation_data(citation_data, census_year)
+            transformed = self._transform_citation_data(citation_data, census_year)
+
+            # 1930 Census Special Case: ED and Family Number are on the detail page, not main page
+            # Navigate to detail page if we're missing these fields
+            if census_year == 1930:
+                ed = transformed.get('enumeration_district', '')
+                family = transformed.get('family_number', '')
+
+                if not ed or not family:
+                    image_viewer_url = citation_data.get("imageViewerUrl", "")
+                    if image_viewer_url:
+                        logger.info(f"1930 census: ED or Family Number missing, extracting from detail page...")
+                        detail_data = await self._extract_1930_detail_page_data(page, image_viewer_url)
+
+                        if detail_data:
+                            if not ed and detail_data.get('enumeration_district'):
+                                transformed['enumeration_district'] = detail_data['enumeration_district']
+                                logger.info(f"1930 census: Extracted ED '{detail_data['enumeration_district']}' from detail page")
+                            if not family and detail_data.get('family_number'):
+                                transformed['family_number'] = detail_data['family_number']
+                                logger.info(f"1930 census: Extracted Family Number '{detail_data['family_number']}' from detail page")
+
+            return transformed
 
 
         except Exception as e:
@@ -429,6 +459,14 @@ class FamilySearchAutomation:
     def _get_extraction_javascript(self, census_year: int | None) -> str:
         """
         Generate year-specific JavaScript for extracting census data from FamilySearch pages.
+
+        DEPRECATED: This method is no longer used. Use _extract_table_data_playwright()
+        instead, which uses Playwright's native locators for more reliable extraction.
+
+        This JavaScript approach was replaced because:
+        1. Playwright locators are more maintainable and testable
+        2. CDP connections work better with native Playwright methods
+        3. The unified extraction architecture uses Playwright-first policy
 
         Census Eras:
         - 1790-1840: Page only (household head names, no individual records)
@@ -495,6 +533,12 @@ class FamilySearchAutomation:
                     line: '',
                     family: '',
                     dwelling: '',
+                    // 1910 Census-specific fields
+                    district: '',
+                    sourceSheetNumber: '',
+                    sourceSheetLetter: '',
+                    householdId: '',
+                    township: '',
                     foundLabels: []  // Debug: track what labels we find
                 }};
 
@@ -526,13 +570,25 @@ class FamilySearchAutomation:
                             else if ({str(extract_ed).lower()} && (label.includes('enumeration') || label === 'ed' || label === 'e.d.')) {{
                                 result.enumerationDistrict = value;
                             }}
+                            // 1910 Census: "District" field with "ED 340" format
+                            else if ({str(extract_ed).lower()} && label === 'district') {{
+                                result.district = value;
+                            }}
                             // Sheet number (1880-1940)
-                            else if ({str(extract_sheet).lower()} && (label === 'sheet number' || (label.includes('sheet') && !label.includes('letter')))) {{
+                            else if ({str(extract_sheet).lower()} && (label === 'sheet number' || (label.includes('sheet') && !label.includes('letter') && !label.includes('source')))) {{
                                 result.sheetNumber = value;
+                            }}
+                            // 1910 Census: "Source Sheet Number"
+                            else if ({str(extract_sheet).lower()} && label === 'source sheet number') {{
+                                result.sourceSheetNumber = value;
                             }}
                             // Sheet letter (1880-1940)
                             else if ({str(extract_sheet).lower()} && label === 'sheet letter') {{
                                 result.sheetLetter = value;
+                            }}
+                            // 1910 Census: "Source Sheet Letter"
+                            else if ({str(extract_sheet).lower()} && label === 'source sheet letter') {{
+                                result.sourceSheetLetter = value;
                             }}
                             // Page number (1790-1870, 1950)
                             else if ({str(extract_page).lower()} && (label === 'page number' || label === 'page' || label === 'page no.')) {{
@@ -546,9 +602,17 @@ class FamilySearchAutomation:
                             else if (label.includes('family')) {{
                                 result.family = value;
                             }}
+                            // 1910 Census: "HOUSEHOLD_ID" field for family number
+                            else if (label === 'household_id' || label === 'household id') {{
+                                result.householdId = value;
+                            }}
                             // Dwelling number (optional, all years)
                             else if (label.includes('dwelling')) {{
                                 result.dwelling = value;
+                            }}
+                            // 1910 Census: "Township" field
+                            else if (label === 'township') {{
+                                result.township = value;
                             }}
                         }}
                     }}
@@ -557,9 +621,89 @@ class FamilySearchAutomation:
             }}
         """
 
+    async def _extract_1930_detail_page_data(
+        self, page: Page, image_viewer_url: str
+    ) -> dict[str, str] | None:
+        """
+        Extract ED and Family Number from 1930 census detail/image viewer page.
+
+        The 1930 census doesn't show ED and Family Number on the main person page.
+        Instead, they appear on the detail page in the right sidebar:
+        - District: ED X
+        - HOUSEHOLD_ID: X
+
+        Args:
+            page: Playwright Page object
+            image_viewer_url: URL to the detail/image viewer page
+
+        Returns:
+            Dict with enumeration_district and family_number, or None on error
+        """
+        result = {
+            'enumeration_district': '',
+            'family_number': '',
+        }
+
+        try:
+            logger.debug(f"Navigating to 1930 detail page: {image_viewer_url}")
+
+            # Navigate to the detail page
+            try:
+                await asyncio.wait_for(
+                    page.goto(image_viewer_url, wait_until="domcontentloaded"),
+                    timeout=15.0
+                )
+            except TimeoutError:
+                logger.warning("1930 detail page navigation timed out after 15 seconds")
+                # Continue anyway if we're on FamilySearch
+                if "familysearch.org" not in page.url:
+                    return None
+
+            # Wait for sidebar to render - the District field appears in the sidebar
+            try:
+                await page.wait_for_selector('text=District:', timeout=10000)
+                logger.debug("1930 detail page: Found 'District:' text, sidebar loaded")
+            except Exception as e:
+                logger.warning(f"1930 detail page: Timeout waiting for 'District:' text: {e}")
+                # Try a shorter sleep and continue anyway
+                await asyncio.sleep(2)
+
+            # Get all text content from the page body
+            body_text = await page.text_content('body')
+
+            if not body_text:
+                logger.warning("1930 detail page has no body text")
+                return None
+
+            # Extract District: ED X pattern
+            # Format: "District: ED 4" or "District: ED 4-5"
+            district_match = re.search(r'District[:\s]*(ED[-\s]*\d+[-\d]*)', body_text, re.IGNORECASE)
+            if district_match:
+                ed_value = district_match.group(1).strip()
+                # Clean up: "ED 4" -> "4", "ED4" -> "4"
+                ed_clean = re.sub(r'^ED[-\s]*', '', ed_value, flags=re.IGNORECASE)
+                result['enumeration_district'] = ed_clean
+                logger.debug(f"1930 detail page: Found ED '{ed_clean}' from '{district_match.group(0)}'")
+
+            # Extract HOUSEHOLD_ID: X pattern
+            # Format: "HOUSEHOLD_ID: 258"
+            household_match = re.search(r'HOUSEHOLD_ID[:\s]*(\d+)', body_text, re.IGNORECASE)
+            if household_match:
+                result['family_number'] = household_match.group(1)
+                logger.debug(f"1930 detail page: Found Family Number '{household_match.group(1)}'")
+
+            return result
+
+        except Exception as e:
+            logger.warning(f"Error extracting 1930 detail page data: {e}")
+            return None
+
     def _get_extraction_flags(self, census_year: int | None) -> tuple[bool, bool, bool, bool]:
         """
         Determine which fields to extract based on census year.
+
+        DEPRECATED: Use YearSpecificHandler.get_extraction_flags() instead.
+        This method is kept for backward compatibility.
 
         Args:
             census_year: Census year to determine extraction strategy
@@ -612,6 +756,12 @@ class FamilySearchAutomation:
             "line": "",
             "family": "",
             "dwelling": "",
+            # 1910 Census-specific fields
+            "district": "",
+            "sourceSheetNumber": "",
+            "sourceSheetLetter": "",
+            "householdId": "",
+            "township": "",
             "foundLabels": [],
         }
 
@@ -658,17 +808,30 @@ class FamilySearchAutomation:
                                 ):
                                     result["enumerationDistrict"] = value
 
+                                # 1910 Census: "District" field with "ED 340" format
+                                elif extract_ed and label == "district":
+                                    result["district"] = value
+
                                 # Sheet number (1880-1940)
                                 elif (
                                     extract_sheet
                                     and "sheet" in label
                                     and "letter" not in label
+                                    and "source" not in label
                                 ):
                                     result["sheetNumber"] = value
+
+                                # 1910 Census: "Source Sheet Number"
+                                elif extract_sheet and label == "source sheet number":
+                                    result["sourceSheetNumber"] = value
 
                                 # Sheet letter (1880-1940)
                                 elif extract_sheet and label == "sheet letter":
                                     result["sheetLetter"] = value
+
+                                # 1910 Census: "Source Sheet Letter"
+                                elif extract_sheet and label == "source sheet letter":
+                                    result["sourceSheetLetter"] = value
 
                                 # Page number (1790-1870, 1950)
                                 elif extract_page and label in [
@@ -690,9 +853,17 @@ class FamilySearchAutomation:
                                 elif "family" in label:
                                     result["family"] = value
 
+                                # 1910 Census: "HOUSEHOLD_ID" for family number
+                                elif label in ["household_id", "household id"]:
+                                    result["householdId"] = value
+
                                 # Dwelling number (optional, all years)
                                 elif "dwelling" in label:
                                     result["dwelling"] = value
+
+                                # 1910 Census: "Township" field
+                                elif label == "township":
+                                    result["township"] = value
 
                         except Exception as e:
                             logger.debug(f"Error extracting cell data: {e}")
@@ -716,6 +887,9 @@ class FamilySearchAutomation:
         - eventPlace string → separate state/county
         - Extracts enumeration_district from familySearchEntry
 
+        Uses YearSpecificHandler for year-specific parsing to ensure
+        consistency with the unified CensusExtractor.
+
         Args:
             raw_data: Raw extraction from FamilySearch page
             census_year: Census year for year-specific parsing (e.g., 1940)
@@ -726,6 +900,15 @@ class FamilySearchAutomation:
         """
         # DEBUG: Log what raw_data contains for census fields
         logger.debug(f"_transform_citation_data received: sheet='{raw_data.get('sheet', 'KEY_MISSING')}', line='{raw_data.get('line', 'KEY_MISSING')}', page='{raw_data.get('page', 'KEY_MISSING')}'")
+
+        # Get year-specific handler if valid census year
+        year_handler = None
+        if census_year:
+            try:
+                from rmcitecraft.services.familysearch import YearSpecificHandler
+                year_handler = YearSpecificHandler(census_year)
+            except (ImportError, ValueError) as e:
+                logger.debug(f"Could not create YearSpecificHandler: {e}")
 
         transformed = {}
 
@@ -751,19 +934,37 @@ class FamilySearchAutomation:
         # For 1920 census, ED is often embedded in eventPlace instead of separate table row
         raw_ed = raw_data.get('enumerationDistrict', '')
 
-        # 1940 Census: Extract only the hyphenated number from "Enumeration District Number"
-        # Format: "94-123" or similar hyphenated pattern
-        if census_year == 1940 and raw_ed:
-            ed_match = re.search(r'(\d+-\d+)', raw_ed)
-            if ed_match:
-                transformed['enumeration_district'] = ed_match.group(1)
-                logger.debug(f"1940 census: Extracted hyphenated ED '{ed_match.group(1)}' from '{raw_ed}'")
+        # Use YearSpecificHandler for ED parsing if available
+        if year_handler:
+            # Try district field first (1910 uses "District: ED 340" format)
+            if not raw_ed:
+                raw_ed = raw_data.get('district', '')
+
+            parsed_ed = year_handler.parse_enumeration_district(raw_ed)
+            if parsed_ed:
+                transformed['enumeration_district'] = parsed_ed
             else:
-                # No hyphenated pattern found, use raw value
-                transformed['enumeration_district'] = raw_ed
-                logger.debug(f"1940 census: No hyphenated ED pattern found in '{raw_ed}', using raw value")
+                transformed['enumeration_district'] = raw_ed or ''
         else:
-            transformed['enumeration_district'] = raw_ed
+            # Fallback: Legacy parsing without handler
+            # 1910 Census: FamilySearch uses "district" field with "ED 340" format
+            if not raw_ed and census_year == 1910:
+                raw_district = raw_data.get('district', '')
+                if raw_district:
+                    ed_match = re.search(r'ED\s*(\d+)', raw_district, re.IGNORECASE)
+                    if ed_match:
+                        transformed['enumeration_district'] = ed_match.group(1)
+                    else:
+                        transformed['enumeration_district'] = raw_district
+            # 1940 Census: Extract hyphenated ED pattern
+            elif census_year == 1940 and raw_ed:
+                ed_match = re.search(r'(\d+-\d+)', raw_ed)
+                if ed_match:
+                    transformed['enumeration_district'] = ed_match.group(1)
+                else:
+                    transformed['enumeration_district'] = raw_ed
+            else:
+                transformed['enumeration_district'] = raw_ed
 
         # Extract locality/township from Event Place
         # Format: "Locality, County, State, Country" or "Township, ED XX, County, State, Country" (1920)
@@ -799,6 +1000,54 @@ class FamilySearchAutomation:
         transformed['line'] = raw_data.get('line', '')
         transformed['family_number'] = raw_data.get('familyNumber', '')
         transformed['dwelling_number'] = raw_data.get('dwellingNumber', '')
+
+        # Year-specific field handling using YearSpecificHandler
+        if year_handler:
+            # Sheet: Handle source_sheet_number + source_sheet_letter combination
+            if not transformed['sheet']:
+                sheet_num = raw_data.get('source_sheet_number', '') or raw_data.get('sourceSheetNumber', '')
+                sheet_letter = raw_data.get('source_sheet_letter', '') or raw_data.get('sourceSheetLetter', '')
+                if sheet_num:
+                    parsed_sheet = year_handler.parse_sheet(sheet_num, sheet_letter)
+                    if parsed_sheet:
+                        transformed['sheet'] = parsed_sheet
+
+            # Household ID: Year-specific mapping (dwelling vs family number)
+            if not transformed['family_number'] and not transformed['dwelling_number']:
+                household_id = raw_data.get('household_id', '') or raw_data.get('householdId', '')
+                if household_id:
+                    dwelling, family = year_handler.parse_household_id(household_id)
+                    if family:
+                        transformed['family_number'] = family
+                    if dwelling:
+                        transformed['dwelling_number'] = dwelling
+
+            # Township handling
+            if not transformed.get('town_ward'):
+                township = raw_data.get('township', '')
+                if township:
+                    transformed['town_ward'] = township
+
+        elif census_year == 1910:
+            # Fallback: Legacy 1910-specific handling without handler
+            if not transformed['sheet']:
+                sheet_num = raw_data.get('source_sheet_number', '') or raw_data.get('sourceSheetNumber', '')
+                sheet_letter = raw_data.get('source_sheet_letter', '') or raw_data.get('sourceSheetLetter', '')
+                if sheet_num:
+                    if sheet_letter and not str(sheet_num).endswith(sheet_letter):
+                        transformed['sheet'] = f"{sheet_num}{sheet_letter}"
+                    else:
+                        transformed['sheet'] = str(sheet_num)
+
+            if not transformed['family_number']:
+                household_id = raw_data.get('household_id', '') or raw_data.get('householdId', '')
+                if household_id:
+                    transformed['family_number'] = household_id
+
+            if not transformed.get('town_ward'):
+                township = raw_data.get('township', '')
+                if township:
+                    transformed['town_ward'] = township
 
         # Initialize town_ward if not already set from Event Place parsing
         if 'town_ward' not in transformed:

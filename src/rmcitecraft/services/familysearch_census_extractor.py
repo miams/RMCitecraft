@@ -642,13 +642,17 @@ FAMILYSEARCH_FIELD_MAP = {
     "state": "state",
     "county": "county",
     "city": "township_city",
+    "township": "township_city",  # 1910 Census uses "Township" label
     "enumeration district": "enumeration_district",
+    "district": "enumeration_district",  # 1910 Census: "District: ED 340" format
     "supervisor district field": "supervisor_district",
     "page number": "page_number",
     "source page number": "page_number",
     "line number": "line_number",
     "source line number": "line_number",
     "sheet number": "sheet_number",
+    "source sheet number": "sheet_number",  # 1910 Census uses "Source Sheet Number"
+    "source sheet letter": "sheet_letter",  # 1910 Census: A or B side
     "stamp number": "stamp_number",
     "house number": "house_number",
     "apartment number": "apartment_number",
@@ -659,9 +663,11 @@ FAMILYSEARCH_FIELD_MAP = {
     "image number": "image_number",
 
     # Household/dwelling info (cols 2-5)
-    # NOTE: FamilySearch labels this as "household_id" but it's actually the dwelling number (Col 3)
-    "household_id": "dwelling_number",  # Col 3: Serial number of dwelling unit
+    # NOTE: For 1950, FamilySearch "household_id" is dwelling number (Col 3)
+    # For 1910, FamilySearch "household_id" is family number (Col 4) - handled in _parse_extracted_data
+    "household id": "dwelling_number",  # Default: Col 3 (overridden for 1910)
     "dwelling number": "dwelling_number",
+    "family number": "family_number",  # Explicit family number field
     "lived on farm": "is_dwelling_on_farm",  # Col 4: current dwelling on farm
     "3 plus acres": "farm_3_plus_acres",  # Col 5: 3+ acres
     "agricultural questionnaire": "agricultural_questionnaire",  # Col 6
@@ -801,7 +807,22 @@ SAMPLE_LINE_OFFSET_MAP = {
 
 
 class FamilySearchCensusExtractor:
-    """Extracts detailed census data from FamilySearch."""
+    """Extracts detailed census data from FamilySearch.
+
+    DEPRECATION NOTICE:
+        This class is being replaced by rmcitecraft.services.familysearch.CensusExtractor.
+        For new code, use:
+            from rmcitecraft.services.familysearch import CensusExtractor
+
+        This class now delegates year-specific parsing to YearSpecificHandler
+        for consistency with the unified extraction architecture.
+
+    The new CensusExtractor provides:
+        - Playwright-first extraction policy
+        - Unified year-specific handling via YearSpecificHandler
+        - Consistent field mapping via FAMILYSEARCH_FIELD_MAP
+        - Better separation of concerns (browser, extraction, field mapping)
+    """
 
     def __init__(
         self,
@@ -1656,6 +1677,9 @@ class FamilySearchCensusExtractor:
         CRITICAL: The person ARK page has LINE NUMBER in table data, but the detail view
         does NOT include Line Number in data-dense elements. We MUST extract table data
         from the person page FIRST, then navigate to detail view for additional fields.
+
+        NOTE: For 1910 Census, FamilySearch does NOT extract Line Number at all.
+        This is a known limitation. Citations will be created without line numbers.
 
         Args:
             page: Playwright page object
@@ -3113,9 +3137,20 @@ class FamilySearchCensusExtractor:
         """
         Parse raw extracted data into structured objects.
 
+        Uses YearSpecificHandler for year-specific field processing to ensure
+        consistency with the unified CensusExtractor.
+
         Returns:
             Tuple of (CensusPerson, CensusPage, extended_fields dict)
         """
+        # Get year-specific handler for consistent parsing
+        year_handler = None
+        try:
+            from rmcitecraft.services.familysearch import YearSpecificHandler
+            year_handler = YearSpecificHandler(census_year)
+        except (ImportError, ValueError) as e:
+            logger.debug(f"Could not create YearSpecificHandler: {e}")
+
         # Initialize objects (normalize ARK URL for consistent storage/lookup)
         person = CensusPerson(familysearch_ark=normalize_ark_url(ark_url))
         page = CensusPage(census_year=census_year)
@@ -3156,6 +3191,53 @@ class FamilySearchCensusExtractor:
                 # Store unmapped fields in extended
                 safe_name = re.sub(r"[^a-z0-9_]", "_", label)
                 extended_fields[safe_name] = value
+
+        # === Year-specific field processing using YearSpecificHandler ===
+        if year_handler:
+            # Household ID: Year-specific mapping (dwelling vs family number)
+            if person.dwelling_number is not None and person.family_number is None:
+                dwelling, family = year_handler.parse_household_id(str(person.dwelling_number))
+                if family:
+                    person.family_number = family
+                    person.dwelling_number = None
+                elif dwelling:
+                    person.dwelling_number = dwelling
+
+            # Sheet: Combine sheet_number and sheet_letter if present
+            sheet_letter = extended_fields.pop("sheet_letter", None)
+            if page.sheet_number:
+                parsed_sheet = year_handler.parse_sheet(str(page.sheet_number), sheet_letter)
+                if parsed_sheet:
+                    page.sheet_number = parsed_sheet
+            elif sheet_letter:
+                # Just have the letter, store it back
+                extended_fields["sheet_letter"] = sheet_letter
+
+            # Enumeration District: Year-specific parsing
+            if page.enumeration_district:
+                parsed_ed = year_handler.parse_enumeration_district(str(page.enumeration_district))
+                if parsed_ed:
+                    page.enumeration_district = parsed_ed
+
+        elif census_year == 1910:
+            # Fallback: Legacy 1910-specific processing without handler
+            if person.dwelling_number is not None and person.family_number is None:
+                person.family_number = person.dwelling_number
+                person.dwelling_number = None
+
+            sheet_letter = extended_fields.pop("sheet_letter", None)
+            if sheet_letter and page.sheet_number:
+                sheet_str = str(page.sheet_number)
+                if not sheet_str[-1].isalpha():
+                    page.sheet_number = f"{sheet_str}{sheet_letter}"
+            elif sheet_letter:
+                extended_fields["sheet_letter"] = sheet_letter
+
+            if page.enumeration_district:
+                ed_str = str(page.enumeration_district)
+                ed_match = re.search(r'ED\s*(\d+)', ed_str, re.IGNORECASE)
+                if ed_match:
+                    page.enumeration_district = ed_match.group(1)
 
         # Build full name from parts or parse full_name into parts
         if person.full_name and not person.given_name and not person.surname:
