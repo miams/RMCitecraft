@@ -2,14 +2,14 @@
 
 > Complete documentation index for developers.
 > For LLM-optimized compact map, see `claude_code_docs_map.md` in repo root.
-> Last generated: 2025-12-14 11:15:58 UTC
+> Last generated: 2025-12-15 00:43:18 UTC
 
 ## Summary
 
 | Priority | Count | Included |
 |----------|-------|----------|
 | Essential | 16 | Yes |
-| Reference | 61 | Yes |
+| Reference | 60 | Yes |
 | Archive | 5 | No |
 
 ## Getting Started (1 docs)
@@ -2541,7 +2541,7 @@
 - Method 2: Python Scripts
 - Building icu.dylib for MacOS
 
-## Testing (5 docs)
+## Testing (4 docs)
 
 ### [E2E Testing Quick Start Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/E2E-TESTING-QUICKSTART.md) [essential]
 
@@ -2574,28 +2574,6 @@
 - CI/CD Note
 - Next Steps
 - Support
-
-### [Extension Debugging Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/extension/DEBUGGING.md) 
-
-- Step-by-Step Debugging Process
-  - 1. Reload Extension (MANDATORY after any code changes)
-  - 2. Check Content Script Is Loading
-  - 3. Check Content Script on Census Page
-  - 4. Check Popup Console
-  - 5. Test Manual Send Button
-  - 6. Check Background Service Worker
-  - 7. Verify FamilySearch URL Pattern
-  - 8. Test Message Passing Manually
-- Common Issues & Solutions
-  - Issue: "Could not establish connection"
-  - Issue: No console messages at all
-  - Issue: Content script loads but doesn't detect census page
-  - Issue: Data sends but doesn't appear in RMCitecraft
-- Quick Diagnostic Checklist
-- Testing URLs
-  - Working Census Record URLs:
-- Log Output Reference
-  - Successful Flow:
 
 ### [Census Image Management - Testing Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/testing/IMAGE-TESTING-GUIDE.md) 
 
