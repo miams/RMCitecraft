@@ -384,6 +384,12 @@ class FamilySearchAutomation:
             # DEBUG: Log what was set in citation_data before transform
             logger.debug(f"citation_data before transform: sheet='{citation_data.get('sheet', 'KEY_MISSING')}', line='{citation_data.get('line', 'KEY_MISSING')}', page='{citation_data.get('page', 'KEY_MISSING')}'")
 
+            # DEBUG: Log 1880-specific fields for troubleshooting
+            if census_year == 1880:
+                all_labels = table_data.get('foundLabels', [])
+                logger.info(f"1880 Census extraction - line='{table_data.get('line', '')}', ED='{table_data.get('enumerationDistrict', '')}'")
+                logger.info(f"1880 Census extraction - ALL {len(all_labels)} labels found: {all_labels}")
+
             # DEBUG: Log 1910-specific fields for troubleshooting
             if census_year == 1910:
                 logger.info(f"1910 Census extraction - district='{table_data.get('district', '')}', householdId='{table_data.get('householdId', '')}', ED='{table_data.get('enumerationDistrict', '')}', line='{table_data.get('line', '')}'")
@@ -462,6 +468,21 @@ class FamilySearchAutomation:
                             if not family and detail_data.get('family_number'):
                                 transformed['family_number'] = detail_data['family_number']
                                 logger.info(f"1930 census: Extracted Family Number '{detail_data['family_number']}' from detail page")
+
+            # 1880 Census Special Case: External Line Number is on the detail page, not main page
+            # Navigate to detail page if line number is missing
+            if census_year == 1880:
+                line = transformed.get('line', '')
+
+                if not line:
+                    image_viewer_url = citation_data.get("imageViewerUrl", "")
+                    if image_viewer_url:
+                        logger.info("1880 census: Line number missing, extracting from detail page...")
+                        detail_data = await self._extract_1880_detail_page_data(page, image_viewer_url)
+
+                        if detail_data and detail_data.get('line_number'):
+                            transformed['line'] = detail_data['line_number']
+                            logger.info(f"1880 census: Extracted line number '{detail_data['line_number']}' from detail page")
 
             return transformed
 
@@ -710,6 +731,76 @@ class FamilySearchAutomation:
 
         except Exception as e:
             logger.warning(f"Error extracting 1930 detail page data: {e}")
+            return None
+
+    async def _extract_1880_detail_page_data(
+        self, page: Page, image_viewer_url: str
+    ) -> dict[str, str] | None:
+        """
+        Extract External Line Number from 1880 census detail/image viewer page.
+
+        The 1880 census shows "External Line Number" on the detail page in the
+        right sidebar, not on the main person page.
+
+        Args:
+            page: Playwright Page object
+            image_viewer_url: URL to the detail/image viewer page
+
+        Returns:
+            Dict with line_number, or None on error
+        """
+        result = {
+            'line_number': '',
+        }
+
+        try:
+            logger.debug(f"Navigating to 1880 detail page: {image_viewer_url}")
+
+            # Navigate to the detail page
+            try:
+                await asyncio.wait_for(
+                    page.goto(image_viewer_url, wait_until="domcontentloaded"),
+                    timeout=15.0
+                )
+            except TimeoutError:
+                logger.warning("1880 detail page navigation timed out after 15 seconds")
+                # Continue anyway if we're on FamilySearch
+                if "familysearch.org" not in page.url:
+                    return None
+
+            # Wait for sidebar to render
+            try:
+                await page.wait_for_selector('text=External Line Number', timeout=10000)
+                logger.debug("1880 detail page: Found 'External Line Number' text, sidebar loaded")
+            except Exception as e:
+                logger.warning(f"1880 detail page: Timeout waiting for 'External Line Number' text: {e}")
+                # Try a shorter sleep and continue anyway
+                await asyncio.sleep(2)
+
+            # Get all text content from the page body
+            body_text = await page.text_content('body')
+
+            if not body_text:
+                logger.warning("1880 detail page has no body text")
+                return None
+
+            # Extract External Line Number: XXXXX pattern
+            # Format: "External Line Number: 00033" -> extract "00033"
+            line_match = re.search(r'External\s+Line\s+Number[:\s]*(\d+)', body_text, re.IGNORECASE)
+            if line_match:
+                line_value = line_match.group(1)
+                # Strip leading zeros: "00033" -> "33"
+                stripped_line = line_value.lstrip('0')
+                if stripped_line:
+                    result['line_number'] = stripped_line
+                else:
+                    result['line_number'] = '0'  # Preserve single "0" for line 0
+                logger.debug(f"1880 detail page: Found line number '{result['line_number']}' from '{line_match.group(0)}'")
+
+            return result
+
+        except Exception as e:
+            logger.warning(f"Error extracting 1880 detail page data: {e}")
             return None
 
     def _get_extraction_flags(self, census_year: int | None) -> tuple[bool, bool, bool, bool]:
