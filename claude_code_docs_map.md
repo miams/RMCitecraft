@@ -2,9 +2,9 @@
 
 > **For LLMs**: This compact index contains essential docs only.
 > For complete documentation, see `docs/FULL_INDEX.md`.
-> Last generated: 2025-12-15 00:43:18 UTC
+> Last generated: 2025-12-16 16:45:36 UTC
 
-**Essential docs**: 16 | 
+**Essential docs**: 15 | 
 **Total docs**: 81 (use Glob/Grep for full search)
 
 ## Getting Started
@@ -52,20 +52,6 @@
 - Configuration
 - Playwright Browser Automation
 - Key Files
-
-### [Product Requirements Document](https://github.com/mikeiacovacci/RMCitecraft/blob/main/PRD.md)
-*Topics: database, census, citation, batch, testing*
-
-- RMCitecraft
-- 1. Executive Summary
-- 2. User Personas
-- 3. User Stories & Use Cases
-- 4. Functional Requirements
-- 5. Non-Functional Requirements
-- 6. Technical Architecture
-- 7. Development Phases
-- 8. Testing Strategy
-- 9. Deployment & Distribution
 
 ## Reference
 

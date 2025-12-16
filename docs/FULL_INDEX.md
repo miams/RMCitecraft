@@ -2,14 +2,14 @@
 
 > Complete documentation index for developers.
 > For LLM-optimized compact map, see `claude_code_docs_map.md` in repo root.
-> Last generated: 2025-12-15 00:43:18 UTC
+> Last generated: 2025-12-16 16:45:36 UTC
 
 ## Summary
 
 | Priority | Count | Included |
 |----------|-------|----------|
-| Essential | 16 | Yes |
-| Reference | 60 | Yes |
+| Essential | 15 | Yes |
+| Reference | 61 | Yes |
 | Archive | 5 | No |
 
 ## Getting Started (1 docs)
@@ -109,109 +109,31 @@
 - Notes
 - Evolving This File
 
-### [Product Requirements Document](https://github.com/mikeiacovacci/RMCitecraft/blob/main/PRD.md) [essential]
+### [Product Requirements Document: RMCitecraft (v2.0)](https://github.com/mikeiacovacci/RMCitecraft/blob/main/PRD.md) 
 
-- RMCitecraft
-  - RootsMagic Census Citation Assistant
+- Active Genealogy Automation Agent
 - 1. Executive Summary
-  - 1.1 Project Overview
-  - 1.2 Problem Statement
-  - 1.3 Solution
-  - 1.4 Target Platform
-  - 1.5 Success Metrics
-- 2. User Personas
-  - Primary User: Genealogy Researcher
-- 3. User Stories & Use Cases
-  - 3.1 Citation Formatting
-    - US-1.1: Process Citations in Small Batches
-    - US-1.2: Batch Process Census Year
-    - US-1.3: Handle Missing Citation Data
-  - 3.2 Image Management
-    - US-2.1: Monitor Downloads Folder
-    - US-2.2: Download Census Image from Active Citation
-    - US-2.3: Handle Multiple Downloads
-- 4. Functional Requirements
-  - 4.1 Citation Formatting Engine
-    - FR-1.1: Parse FamilySearch Citations
-    - FR-1.2: Citation Templates by Census Year
-    - FR-1.3: Data Validation
-    - FR-1.4: Missing Data Prompts
-  - 4.2 Image Management Engine
-    - FR-2.1: File System Monitoring
-    - FR-2.2: Citation Context Tracking
-    - FR-2.3: File Naming Schema
-    - FR-2.4: File Organization
-    - FR-2.5: RootsMagic Database Integration
-  - 4.3 Database Access
-    - FR-3.1: Database Connection
-    - FR-3.2: Database Schema (Read)
-    - FR-3.3: Query Patterns
-  - 4.4 User Interface
-    - FR-4.1: Main Window Layout
-    - FR-4.2: Citation Manager Tab
-    - FR-4.3: Image Monitor Tab
-    - FR-4.4: Settings Tab
-    - FR-4.5: Side-by-Side Browser Integration
-- 5. Non-Functional Requirements
-  - 5.1 Performance
-  - 5.2 Reliability
-  - 5.3 Usability
-  - 5.4 Security
-  - 5.5 Compatibility
-  - 5.6 Maintainability
-- 6. Technical Architecture
-  - 6.1 Recommended Technology Stack
-    - Core Framework
-    - Programming Language
-    - Key Libraries
-  - 6.2 Application Architecture
-    - Layered Architecture
-    - Module Structure
-  - 6.3 Data Models
-    - Citation Model
-    - Census Metadata Model
-    - Media Model
-    - Download Context Model
-  - 6.4 Key Algorithms
-    - Citation Parser Algorithm
-    - Citation Formatter Algorithm
-    - Filename Generator Algorithm
-    - Folder Mapper Algorithm
-  - 6.5 Database Operations
-    - Safe Database Writing
-    - Query Optimization
-- 7. Development Phases
-  - Phase 1: Foundation (Weeks 1-2)
-  - Phase 2: Citation UI (Weeks 3-4)
-  - Phase 3: Image Monitoring (Weeks 5-6)
-  - Phase 4: Image-Database Integration (Week 7)
-  - Phase 5: Polish & Extended Support (Week 8)
-  - Phase 6: Testing & Release (Week 9-10)
-- 8. Testing Strategy
-  - 8.1 Unit Tests
-  - 8.2 Integration Tests
-  - 8.3 Manual Testing
-  - 8.4 Performance Testing
-- 9. Deployment & Distribution
-  - 9.1 Packaging
-  - 9.2 Installation
-  - 9.3 Updates
-- 10. Risks & Mitigations
-  - Risk 1: Database Schema Changes
-  - Risk 2: Citation Parsing Ambiguity
-  - Risk 3: File System Permissions
-  - Risk 4: RootsMagic Database Corruption
-  - Risk 5: Browser Automation Limitations
-- 11. Future Enhancements
-  - Phase 7: State Census Support
-  - Phase 8: Other Record Types
-  - Phase 9: Advanced Features
-  - Phase 10: AI Enhancement
-- 12. Appendix
-  - A. Glossary
-  - B. Reference Citations
-  - C. Technology Stack Summary
-  - D. Contact & Support
+  - 1.1 Product Vision
+  - 1.2 Core Value Proposition
+  - 1.3 Target Platform
+- 2. System Architecture
+  - 2.1 The "Agent" Model
+  - 2.2 Data Flow
+- 3. Core Features
+  - 3.1 Census Batch Automation
+  - 3.2 Find a Grave Integration
+  - 3.3 The Sidecar Database (`census.db`)
+  - 3.4 Image Management
+  - 3.5 Interactive Dashboard
+- 4. Technical Requirements
+  - 4.1 Technology Stack
+  - 4.2 Database Safety Protocols
+  - 4.3 Performance Goals
+- 5. Roadmap
+  - Phase 1: Core Consolidation (Current)
+  - Phase 2: Enhanced Transcription
+  - Phase 3: State Census & Expansion
+- 6. Glossary
 
 ## Reference (20 docs)
 
