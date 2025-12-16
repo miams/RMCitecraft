@@ -35,6 +35,64 @@ from playwright.async_api import BrowserContext, Page, async_playwright
 # Chrome profile directory (persistent login)
 CHROME_PROFILE_DIR = os.path.expanduser("~/chrome-debug-profile")
 
+# State name normalization mapping
+# Maps postal codes and variations to properly formatted state names
+# Used to normalize FamilySearch data which may use different formats by census year
+US_STATE_NAMES = {
+    # Postal codes -> Full names
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
+    "CA": "California", "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware",
+    "FL": "Florida", "GA": "Georgia", "HI": "Hawaii", "ID": "Idaho",
+    "IL": "Illinois", "IN": "Indiana", "IA": "Iowa", "KS": "Kansas",
+    "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
+    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada",
+    "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York",
+    "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma",
+    "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
+    "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah",
+    "VT": "Vermont", "VA": "Virginia", "WA": "Washington", "WV": "West Virginia",
+    "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia",
+    # Territories (historical)
+    "AZ TERR": "Arizona Territory", "NM TERR": "New Mexico Territory",
+    "OK TERR": "Oklahoma Territory", "UT TERR": "Utah Territory",
+    "WA TERR": "Washington Territory", "DK": "Dakota Territory",
+    "DAKOTA TERRITORY": "Dakota Territory",
+}
+
+# Build reverse lookup: uppercase full names -> proper case
+_STATE_NAME_LOOKUP = {name.upper(): name for name in US_STATE_NAMES.values()}
+# Add postal codes (already uppercase keys)
+_STATE_NAME_LOOKUP.update(US_STATE_NAMES)
+
+
+def normalize_state_name(state: str) -> str:
+    """Normalize state name to proper format.
+
+    Handles:
+    - Postal codes: "CA" -> "California"
+    - All caps: "CALIFORNIA" -> "California"
+    - Mixed case: "california" -> "California"
+
+    Args:
+        state: Raw state name from FamilySearch
+
+    Returns:
+        Properly formatted state name (e.g., "California")
+    """
+    if not state:
+        return state
+
+    state_upper = state.strip().upper()
+
+    # Look up in our mapping
+    if state_upper in _STATE_NAME_LOOKUP:
+        return _STATE_NAME_LOOKUP[state_upper]
+
+    # If not found, try title case as fallback
+    # This handles cases like "new york" -> "New York"
+    return state.strip().title()
+
 
 class FamilySearchAutomation:
     """Automates FamilySearch interactions using Playwright-launched Chrome."""
@@ -1044,6 +1102,14 @@ class FamilySearchAutomation:
         if census_year == 1910:
             logger.info(f"1910 transform: eventPlace='{event_place}'")
         state, county = self._parse_event_place(event_place)
+
+        # Normalize state name to proper format
+        # FamilySearch may return postal codes ("CA") or all-caps ("CALIFORNIA") for some census years
+        original_state = state
+        state = normalize_state_name(state)
+        if original_state != state:
+            logger.debug(f"Normalized state: '{original_state}' -> '{state}'")
+
         transformed['state'] = state
         transformed['county'] = county
 
