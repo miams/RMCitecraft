@@ -857,8 +857,9 @@ class FamilySearchAutomation:
 
                                 # Line number (1850-1950)
                                 # FamilySearch may use "Visitation Number" for some census years
+                                # 1880 Census uses "External Line Number" on detail page
                                 elif extract_line and (
-                                    label in ["line number", "line", "line no."]
+                                    label in ["line number", "line", "line no.", "external line number"]
                                     or "visitation" in label
                                 ):
                                     result["line"] = value
@@ -1074,6 +1075,27 @@ class FamilySearchAutomation:
                 township = raw_data.get('township', '')
                 if township:
                     transformed['town_ward'] = township
+
+            # 1880 Census: Line number from "External Line Number" has leading zeros to strip
+            # Example: "00033" -> "33"
+            if census_year == 1880 and transformed['line']:
+                stripped_line = transformed['line'].lstrip('0')
+                if stripped_line:  # Preserve "0" if line was literally "0" or "00"
+                    transformed['line'] = stripped_line
+                else:
+                    transformed['line'] = '0'  # Keep single "0" for line 0
+                logger.debug(f"1880: Stripped leading zeros from line: '{raw_data.get('line', '')}' -> '{transformed['line']}'")
+
+        elif census_year == 1880:
+            # 1880 Census: Line number from "External Line Number" has leading zeros to strip
+            # Example: "00033" -> "33"
+            if transformed['line']:
+                stripped_line = transformed['line'].lstrip('0')
+                if stripped_line:  # Preserve "0" if line was literally "0" or "00"
+                    transformed['line'] = stripped_line
+                else:
+                    transformed['line'] = '0'  # Keep single "0" for line 0
+                logger.debug(f"1880: Stripped leading zeros from line: '{raw_data.get('line', '')}' -> '{transformed['line']}'")
 
         elif census_year == 1900:
             # Fallback: Legacy 1900-specific handling without handler

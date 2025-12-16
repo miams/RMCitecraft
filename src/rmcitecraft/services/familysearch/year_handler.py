@@ -260,6 +260,11 @@ class YearSpecificHandler:
         if not value:
             return (None, None)
 
+        # 1880: Ignore Source Household Id - not used for dwelling/family number
+        if self._year == 1880:
+            logger.debug(f"1880: household_id '{value}' ignored (Source Household Id not used)")
+            return (None, None)
+
         # 1900: FamilySearch's Household Identifier is the family number
         if self._year == 1900:
             logger.debug(f"1900: household_id '{value}' mapped to family_number")
