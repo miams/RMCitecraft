@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS census_batch_items (
     census_year INTEGER NOT NULL,  -- 1790-1950
     state TEXT,  -- US state abbreviation (e.g., "OH", "TX")
     county TEXT,  -- County name
+    citation_id INTEGER,  -- RootsMagic CitationID (for unique tracking)
+    source_id INTEGER,  -- RootsMagic SourceID
     status TEXT NOT NULL CHECK(status IN (
         'queued', 'extracting', 'extracted', 'creating_citation',
         'created_citation', 'downloading_images', 'complete', 'error'
@@ -38,8 +40,7 @@ CREATE TABLE IF NOT EXISTS census_batch_items (
     created_event_id INTEGER,  -- Census event ID
     downloaded_image_paths TEXT,  -- JSON array of paths
     created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    UNIQUE(session_id, person_id, census_year)
+    updated_at TIMESTAMP NOT NULL
 );
 
 -- Checkpoint tracking for efficient resume
@@ -69,6 +70,9 @@ CREATE INDEX IF NOT EXISTS idx_census_batch_items_state
 
 CREATE INDEX IF NOT EXISTS idx_census_batch_items_county
     ON census_batch_items(state, county);
+
+CREATE INDEX IF NOT EXISTS idx_census_batch_items_citation
+    ON census_batch_items(session_id, citation_id);
 
 -- Update schema version
 INSERT OR REPLACE INTO schema_version (version, applied_at)

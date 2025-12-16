@@ -625,6 +625,9 @@ class ImageProcessingService:
             # Check if existing media files need renaming (missing state/county)
             self._rename_incomplete_media_files(citation_id, metadata, image_repo)
 
+            # Ensure existing media is linked to source and all related citations
+            self._ensure_media_links(citation_id, source_id, image_repo)
+
             return True
 
         except Exception as e:
@@ -639,9 +642,15 @@ class ImageProcessingService:
         self, citation_id: int, metadata: ImageMetadata, image_repo
     ) -> None:
         """
-        Rename existing media files that have incomplete filenames (missing state/county).
+        Rename existing media files ONLY if they have incomplete filenames (missing state/county).
 
-        Checks for filenames with pattern "YYYY, , " and renames to "YYYY, State, County".
+        IMPORTANT: This method only processes files with the specific pattern "YYYY, , "
+        (comma-space-comma-space indicating missing state/county). Files that already have
+        a complete, properly formatted name are NEVER renamed, even if the name differs
+        from what would be generated from metadata.
+
+        This preserves original filenames (e.g., maiden names for married women) that were
+        correctly assigned when the file was first processed.
 
         Args:
             citation_id: Citation ID to check for linked media
@@ -665,9 +674,13 @@ class ImageProcessingService:
             media_rows = cursor.fetchall()
 
             for media_id, media_file, media_path in media_rows:
-                # Check if filename is missing state/county (has ", , " pattern)
+                # ONLY process files with incomplete pattern ", , " (missing state/county)
+                # Files with any other format are considered complete and should NOT be renamed
                 if not media_file or ", , " not in media_file:
-                    continue  # Filename is complete
+                    logger.debug(
+                        f"Skipping complete filename: {media_file} (MediaID={media_id})"
+                    )
+                    continue  # Filename is complete - do not modify
 
                 logger.info(
                     f"Found incomplete media filename: {media_file} (MediaID={media_id})"
@@ -693,10 +706,10 @@ class ImageProcessingService:
                 old_path = self._resolve_media_path(media_path, media_file)
                 new_path = old_path.parent / correct_filename
 
-                # Check if file exists
+                # Check if file exists on filesystem
                 if not old_path.exists():
                     logger.warning(
-                        f"Media file not found, skipping rename: {old_path}"
+                        f"Media file not found on filesystem, skipping rename: {old_path}"
                     )
                     continue
 
@@ -707,11 +720,15 @@ class ImageProcessingService:
                     )
                     continue
 
-                # Rename physical file
+                # Rename physical file FIRST, then update database only if successful
                 logger.info(f"Renaming media file: {old_path.name} → {correct_filename}")
-                shutil.move(str(old_path), str(new_path))
+                try:
+                    shutil.move(str(old_path), str(new_path))
+                except OSError as move_error:
+                    logger.error(f"Failed to rename file: {move_error}")
+                    continue  # Skip database update if file rename failed
 
-                # Update database
+                # Update database only after successful file rename
                 cursor.execute(
                     """
                     UPDATE MultimediaTable
@@ -727,6 +744,93 @@ class ImageProcessingService:
 
         except Exception as e:
             logger.error(f"Failed to rename incomplete media files: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _ensure_media_links(
+        self, citation_id: int, source_id: int, image_repo
+    ) -> None:
+        """
+        Ensure existing media is linked to source and all related citations.
+
+        When a citation already has media attached, this method ensures the media
+        is also linked to:
+        1. The source document (SourceTable)
+        2. All citations using that source
+        3. The census event (if findable from citation)
+
+        Args:
+            citation_id: Citation ID that has media attached
+            source_id: Source ID to link media to
+            image_repo: Image repository instance
+        """
+        try:
+            cursor = image_repo.conn.cursor()
+
+            # Find media linked to this citation (OwnerType=4 for citations)
+            cursor.execute(
+                """
+                SELECT m.MediaID, m.MediaFile
+                FROM MultimediaTable m
+                JOIN MediaLinkTable ml ON m.MediaID = ml.MediaID
+                WHERE ml.OwnerID = ? AND ml.OwnerType = 4
+                """,
+                (citation_id,),
+            )
+            media_rows = cursor.fetchall()
+
+            if not media_rows:
+                logger.debug(f"No media found linked to CitationID={citation_id}")
+                return
+
+            for media_id, media_file in media_rows:
+                logger.debug(f"Ensuring links for MediaID={media_id} ({media_file})")
+
+                # Link to source (OwnerType=3) if not already linked
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) FROM MediaLinkTable
+                    WHERE MediaID = ? AND OwnerID = ? AND OwnerType = 3
+                    """,
+                    (media_id, source_id),
+                )
+                if cursor.fetchone()[0] == 0:
+                    image_repo.link_media_to_source(media_id, source_id)
+                    logger.info(f"Linked MediaID={media_id} to SourceID={source_id}")
+
+                # Find event for this citation and link to it (OwnerType=2)
+                event_id = image_repo.find_event_for_citation(citation_id)
+                if event_id:
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) FROM MediaLinkTable
+                        WHERE MediaID = ? AND OwnerID = ? AND OwnerType = 2
+                        """,
+                        (media_id, event_id),
+                    )
+                    if cursor.fetchone()[0] == 0:
+                        image_repo.link_media_to_event(media_id, event_id)
+                        logger.info(f"Linked MediaID={media_id} to EventID={event_id}")
+
+                    # Find all other citations for this event and link media to them
+                    citation_ids = image_repo.find_citations_for_event(event_id)
+                    for cit_id in citation_ids:
+                        if cit_id != citation_id:  # Skip the original citation
+                            cursor.execute(
+                                """
+                                SELECT COUNT(*) FROM MediaLinkTable
+                                WHERE MediaID = ? AND OwnerID = ? AND OwnerType = 4
+                                """,
+                                (media_id, cit_id),
+                            )
+                            if cursor.fetchone()[0] == 0:
+                                image_repo.link_media_to_citation(media_id, cit_id)
+                                logger.info(f"Linked MediaID={media_id} to CitationID={cit_id}")
+
+            image_repo.conn.commit()
+
+        except Exception as e:
+            logger.error(f"Failed to ensure media links: {e}")
             import traceback
             traceback.print_exc()
 

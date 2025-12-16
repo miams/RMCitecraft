@@ -96,6 +96,9 @@ class CitationBatchItem:
     started_at: datetime | None = None
     completed_at: datetime | None = None
 
+    # Session tracking - distinguishes items updated this session from pre-existing complete items
+    updated_this_session: bool = False
+
     @property
     def is_complete(self) -> bool:
         """Check if citation processing is complete."""
@@ -113,8 +116,12 @@ class CitationBatchItem:
 
     @property
     def missing_fields(self) -> list[str]:
-        """Get list of missing required fields."""
-        if self.validation:
+        """Get list of missing required fields.
+
+        Note: Must use 'is not None' check because ValidationResult.__bool__
+        returns is_valid, so a failed validation would be falsy.
+        """
+        if self.validation is not None:
             return self.validation.missing_required
         return []
 
@@ -326,6 +333,7 @@ class BatchProcessingController:
         # Update status based on validation
         if validation.is_valid:
             citation.status = CitationStatus.COMPLETE
+            citation.updated_this_session = True
 
             # Generate formatted citations
             try:
@@ -377,6 +385,7 @@ class BatchProcessingController:
         if validation.is_valid:
             citation.status = CitationStatus.COMPLETE
             citation.completed_at = datetime.now()
+            citation.updated_this_session = True
 
             # Generate formatted citations
             try:

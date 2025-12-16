@@ -308,6 +308,8 @@ class CensusBatchStateRepository:
         census_year: int,
         state: str | None = None,
         county: str | None = None,
+        citation_id: int | None = None,
+        source_id: int | None = None,
     ) -> int:
         """Create Census batch item.
 
@@ -318,6 +320,8 @@ class CensusBatchStateRepository:
             census_year: Census year (1790-1950)
             state: US state abbreviation (e.g., "OH", "TX")
             county: County name
+            citation_id: RootsMagic citation ID (required for unique tracking)
+            source_id: RootsMagic source ID
 
         Returns:
             Item ID
@@ -326,14 +330,18 @@ class CensusBatchStateRepository:
             cursor = conn.cursor()
             now = self._now_iso()
 
+            # Use INSERT OR IGNORE to handle duplicate citations gracefully
+            # This can happen if the same citation appears multiple times
             cursor.execute("""
-                INSERT INTO census_batch_items (
+                INSERT OR IGNORE INTO census_batch_items (
                     session_id, person_id, person_name, census_year,
-                    state, county, status, retry_count, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    state, county, citation_id, source_id,
+                    status, retry_count, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 session_id, person_id, person_name, census_year,
-                state, county, 'queued', 0, now, now
+                state, county, citation_id, source_id,
+                'queued', 0, now, now
             ))
             conn.commit()
 
@@ -449,6 +457,21 @@ class CensusBatchStateRepository:
                 SET downloaded_image_paths = ?, updated_at = ?
                 WHERE id = ?
             """, (json.dumps(image_paths), self._now_iso(), item_id))
+            conn.commit()
+
+    def mark_item_exported(self, item_id: int) -> None:
+        """Mark item as exported to RootsMagic.
+
+        Args:
+            item_id: Item ID
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE census_batch_items
+                SET export_status = 'exported', updated_at = ?
+                WHERE id = ?
+            """, (self._now_iso(), item_id))
             conn.commit()
 
     def get_item(self, item_id: int) -> dict[str, Any] | None:

@@ -62,6 +62,21 @@ class DataEntryFormComponent:
         # Data entry form (info moved to status bar)
         missing_fields = self.citation.missing_fields
 
+        # DEBUG: Log what we're seeing
+        from loguru import logger
+        logger.info(f"[DataEntryForm] Citation {self.citation.citation_id}:")
+        logger.info(f"  status: {self.citation.status.value}")
+        logger.info(f"  missing_fields: {missing_fields}")
+        logger.info(f"  validation: {self.citation.validation}")
+        if self.citation.validation:
+            logger.info(f"  validation.is_valid: {self.citation.validation.is_valid}")
+            logger.info(f"  validation.missing_required: {self.citation.validation.missing_required}")
+        logger.info(f"  extracted_data keys: {list(self.citation.extracted_data.keys())}")
+        logger.info(f"  extracted_data.state: '{self.citation.extracted_data.get('state', 'NOT SET')}'")
+        logger.info(f"  extracted_data.county: '{self.citation.extracted_data.get('county', 'NOT SET')}'")
+        logger.info(f"  merged_data.state: '{self.citation.merged_data.get('state', 'NOT SET')}'")
+        logger.info(f"  merged_data.county: '{self.citation.merged_data.get('county', 'NOT SET')}')")
+
         # Show manual entry form if:
         # 1. Citation has missing fields (needs data entry)
         # 2. Citation is in QUEUED status (not yet processed - allow manual entry)
@@ -78,14 +93,22 @@ class DataEntryFormComponent:
             with ui.card().classes("w-full p-2"):
                 # Heading (no Update button - changes auto-save)
                 if missing_fields:
-                    ui.label("Missing Required Fields").classes("font-semibold text-sm mb-2")
+                    ui.label("Missing Required Fields").classes("font-semibold text-sm text-red-600 mb-2")
                 else:
                     with ui.column().classes("gap-0 mb-2"):
                         ui.label("Manual Data Entry").classes("font-semibold text-sm")
                         ui.label("Enter census data from the FamilySearch image (auto-saves)").classes("text-xs text-gray-600")
 
-                # Show input fields for missing fields, or all key fields if QUEUED/COMPLETE
-                fields_to_show = missing_fields if missing_fields else self._get_default_census_fields()
+                # Build fields to show:
+                # 1. Always show missing required fields first (if any)
+                # 2. Then show default census fields that aren't already in the list
+                # This ensures users can fix all issues AND enter common fields
+                fields_to_show = list(missing_fields) if missing_fields else []
+
+                # Add default fields that aren't already shown
+                for default_field in self._get_default_census_fields():
+                    if default_field not in fields_to_show:
+                        fields_to_show.append(default_field)
 
                 for field in fields_to_show:
                     self._render_field_input(field)
@@ -193,20 +216,37 @@ class DataEntryFormComponent:
             Tuple of (label, hint, placeholder)
         """
         metadata = {
+            # Location fields (required)
+            'state': (
+                'State',
+                'Full state name (e.g., "Maryland", "Ohio")',
+                'Maryland',
+            ),
+            'county': (
+                'County',
+                'County name without "County" suffix',
+                'Baltimore',
+            ),
+            'town_ward': (
+                'Township/Ward',
+                'Township, ward, city, or other subdivision',
+                'Ward 15',
+            ),
+            # Census reference fields
             'enumeration_district': (
                 'Enumeration District (ED)',
-                'Format: "XX-XXX" (e.g., "96-413")',
-                '96-413',
+                'Format varies by year (e.g., "96", "96-413")',
+                '456',
             ),
             'sheet': (
                 'Sheet Number',
                 'Sheet or page number from census image',
-                '9',
+                '1B',
             ),
             'line': (
                 'Line Number',
                 'Line number on census page',
-                '75',
+                '80',
             ),
             'family_number': (
                 'Family Number',
@@ -217,11 +257,6 @@ class DataEntryFormComponent:
                 'Dwelling Number',
                 'Dwelling number (for 1850-1880 census)',
                 '42',
-            ),
-            'town_ward': (
-                'Township/Ward',
-                'Township, ward, or other subdivision',
-                'Canton Township',
             ),
         }
 
