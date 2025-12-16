@@ -373,8 +373,22 @@ class FamilySearchAutomation:
             citation_data["familyNumber"] = table_data.get("family", "")
             citation_data["dwellingNumber"] = table_data.get("dwelling", "")
 
+            # 1910 Census-specific fields: Pass through to transform for year-specific handling
+            # These need to be passed through for YearSpecificHandler to process
+            citation_data["householdId"] = table_data.get("householdId", "")  # Maps to family_number
+            citation_data["district"] = table_data.get("district", "")  # "ED 340" format
+            citation_data["sourceSheetNumber"] = table_data.get("sourceSheetNumber", "")
+            citation_data["sourceSheetLetter"] = table_data.get("sourceSheetLetter", "")
+            citation_data["township"] = table_data.get("township", "")
+
             # DEBUG: Log what was set in citation_data before transform
             logger.debug(f"citation_data before transform: sheet='{citation_data.get('sheet', 'KEY_MISSING')}', line='{citation_data.get('line', 'KEY_MISSING')}', page='{citation_data.get('page', 'KEY_MISSING')}'")
+
+            # DEBUG: Log 1910-specific fields for troubleshooting
+            if census_year == 1910:
+                logger.info(f"1910 Census extraction - district='{table_data.get('district', '')}', householdId='{table_data.get('householdId', '')}', ED='{table_data.get('enumerationDistrict', '')}', line='{table_data.get('line', '')}'")
+                all_labels = table_data.get('foundLabels', [])
+                logger.info(f"1910 Census extraction - ALL {len(all_labels)} labels found: {all_labels}")
 
             # Extract FamilySearch citation text
             citation_elems = await page.query_selector_all(
@@ -438,7 +452,7 @@ class FamilySearchAutomation:
                 if not ed or not family:
                     image_viewer_url = citation_data.get("imageViewerUrl", "")
                     if image_viewer_url:
-                        logger.info(f"1930 census: ED or Family Number missing, extracting from detail page...")
+                        logger.info("1930 census: ED or Family Number missing, extracting from detail page...")
                         detail_data = await self._extract_1930_detail_page_data(page, image_viewer_url)
 
                         if detail_data:
@@ -842,19 +856,22 @@ class FamilySearchAutomation:
                                     result["pageNumber"] = value
 
                                 # Line number (1850-1950)
-                                elif extract_line and label in [
-                                    "line number",
-                                    "line",
-                                    "line no.",
-                                ]:
+                                # FamilySearch may use "Visitation Number" for some census years
+                                elif extract_line and (
+                                    label in ["line number", "line", "line no."]
+                                    or "visitation" in label
+                                ):
                                     result["line"] = value
 
                                 # Family number (optional, all years)
                                 elif "family" in label:
                                     result["family"] = value
 
-                                # 1910 Census: "HOUSEHOLD_ID" for family number
-                                elif label in ["household_id", "household id"]:
+                                # 1910 Census: "HOUSEHOLD_ID" or "Household Identifier" for family number
+                                # FamilySearch uses "household identifier" for 1910 Census
+                                elif label in ["household_id", "household id", "home id", "household identifier"]:
+                                    result["householdId"] = value
+                                elif label == "household" and not result["householdId"]:
                                     result["householdId"] = value
 
                                 # Dwelling number (optional, all years)
@@ -910,6 +927,11 @@ class FamilySearchAutomation:
             except (ImportError, ValueError) as e:
                 logger.debug(f"Could not create YearSpecificHandler: {e}")
 
+        # DEBUG: Log raw_data keys for 1910 Census
+        if census_year == 1910:
+            logger.info(f"1910 transform: raw_data keys = {list(raw_data.keys())}")
+            logger.info(f"1910 transform: district='{raw_data.get('district', 'KEY_NOT_FOUND')}', householdId='{raw_data.get('householdId', 'KEY_NOT_FOUND')}'")
+
         transformed = {}
 
         # Map camelCase to snake_case
@@ -925,7 +947,10 @@ class FamilySearchAutomation:
 
         # Parse eventPlace: "St. Louis, Missouri, United States" → state + county
         # For 1920 census: "Township, ED XX, County, State, United States"
+        # For 1910 census: "Township, ED, County, State, United States" (ED is bare number)
         event_place = raw_data.get('eventPlace', '')
+        if census_year == 1910:
+            logger.info(f"1910 transform: eventPlace='{event_place}'")
         state, county = self._parse_event_place(event_place)
         transformed['state'] = state
         transformed['county'] = county
@@ -939,8 +964,12 @@ class FamilySearchAutomation:
             # Try district field first (1910 uses "District: ED 340" format)
             if not raw_ed:
                 raw_ed = raw_data.get('district', '')
+                if census_year == 1910:
+                    logger.info(f"1910 transform: got district='{raw_ed}' from raw_data")
 
             parsed_ed = year_handler.parse_enumeration_district(raw_ed)
+            if census_year == 1910:
+                logger.info(f"1910 transform: parse_enumeration_district('{raw_ed}') -> '{parsed_ed}'")
             if parsed_ed:
                 transformed['enumeration_district'] = parsed_ed
             else:
@@ -987,13 +1016,27 @@ class FamilySearchAutomation:
                     transformed['town_ward'] = first_part
                     logger.debug(f"Extracted locality '{first_part}' from Event Place: {event_place}")
 
-        # 1920 Census Special Case: Also extract ED from Event Place (Original) if not already set
-        # Format: "Township, ED XX, County, State, United States"
+        # Census-year specific ED extraction from Event Place (Original) if not already set
         if not transformed['enumeration_district'] and event_place:
-            ed_match = re.search(r'\bED\s+(\d+)', event_place, re.IGNORECASE)
-            if ed_match:
-                transformed['enumeration_district'] = ed_match.group(1)
-                logger.debug(f"Extracted ED {ed_match.group(1)} from Event Place (Original): {event_place}")
+            parts = [p.strip() for p in event_place.split(',')]
+
+            # 1910 Census: ED is the second component as a bare number
+            # Format: "Township, ED, County, State, United States"
+            # Example: "Lander, 64, Fremont, Wyoming, United States" - ED is "64"
+            if census_year == 1910 and len(parts) >= 4:
+                second_part = parts[1]
+                # Check if second part is a bare number (the ED)
+                if re.match(r'^\d+$', second_part):
+                    transformed['enumeration_district'] = second_part
+                    logger.info(f"1910: Extracted ED '{second_part}' from Event Place (Original): {event_place}")
+
+            # 1920 Census: ED is prefixed with "ED" in format "ED XX"
+            # Format: "Township, ED XX, County, State, United States"
+            if not transformed['enumeration_district']:
+                ed_match = re.search(r'\bED\s+(\d+)', event_place, re.IGNORECASE)
+                if ed_match:
+                    transformed['enumeration_district'] = ed_match.group(1)
+                    logger.debug(f"Extracted ED {ed_match.group(1)} from Event Place (Original): {event_place}")
 
         transformed['sheet'] = raw_data.get('sheet', '')
         transformed['page'] = raw_data.get('page', '')  # For 1790-1870, 1950
@@ -1015,8 +1058,12 @@ class FamilySearchAutomation:
             # Household ID: Year-specific mapping (dwelling vs family number)
             if not transformed['family_number'] and not transformed['dwelling_number']:
                 household_id = raw_data.get('household_id', '') or raw_data.get('householdId', '')
+                if census_year == 1910:
+                    logger.info(f"1910 transform: got householdId='{household_id}' from raw_data")
                 if household_id:
                     dwelling, family = year_handler.parse_household_id(household_id)
+                    if census_year == 1910:
+                        logger.info(f"1910 transform: parse_household_id('{household_id}') -> dwelling='{dwelling}', family='{family}'")
                     if family:
                         transformed['family_number'] = family
                     if dwelling:
@@ -1027,6 +1074,14 @@ class FamilySearchAutomation:
                 township = raw_data.get('township', '')
                 if township:
                     transformed['town_ward'] = township
+
+        elif census_year == 1900:
+            # Fallback: Legacy 1900-specific handling without handler
+            # Household Identifier maps to family_number
+            if not transformed['family_number']:
+                household_id = raw_data.get('household_id', '') or raw_data.get('householdId', '')
+                if household_id:
+                    transformed['family_number'] = household_id
 
         elif census_year == 1910:
             # Fallback: Legacy 1910-specific handling without handler
@@ -1039,6 +1094,7 @@ class FamilySearchAutomation:
                     else:
                         transformed['sheet'] = str(sheet_num)
 
+            # Household Identifier maps to family_number
             if not transformed['family_number']:
                 household_id = raw_data.get('household_id', '') or raw_data.get('householdId', '')
                 if household_id:
@@ -1068,6 +1124,12 @@ class FamilySearchAutomation:
         transformed['image_viewer_url'] = raw_data.get('imageViewerUrl', '')
 
         logger.debug(f"Transformed citation data: state={state}, county={county}, ED={transformed.get('enumeration_district', 'N/A')}")
+
+        # DEBUG: Log 1910-specific transformed values
+        if census_year == 1910:
+            logger.info(f"1910 Census TRANSFORMED - ED='{transformed.get('enumeration_district', '')}', family_number='{transformed.get('family_number', '')}', line='{transformed.get('line', '')}', sheet='{transformed.get('sheet', '')}'")
+            logger.info(f"1910 Census FINAL extracted_data being returned: {transformed}")
+
         return transformed
 
     def _parse_event_place(self, event_place: str) -> tuple[str, str]:

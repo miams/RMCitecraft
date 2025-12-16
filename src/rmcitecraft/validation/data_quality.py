@@ -51,13 +51,21 @@ class CensusDataValidator:
         'person_name': 'Person name',
         'familysearch_url': 'FamilySearch URL',
         'sheet': 'Sheet/Page number',
-        'line': 'Line number',
     }
 
     # Required fields by census year range
     REQUIRED_BY_YEAR = {
         (1900, 1950): {
             'enumeration_district': 'Enumeration District (ED)',
+        },
+    }
+
+    # Fields that are required for most years but optional for specific years
+    # Key: field name, Value: dict with 'description' and 'optional_years' list
+    YEAR_SPECIFIC_OPTIONAL = {
+        'line': {
+            'description': 'Line number',
+            'optional_years': [1910],  # 1910 Census doesn't have line numbers in FamilySearch
         },
     }
 
@@ -92,6 +100,18 @@ class CensusDataValidator:
                 missing_required.append(field)
                 errors.append(f"Missing required field: {description} ({field})")
 
+        # Check year-specific optional fields (required for most years, optional for specific years)
+        for field, config in cls.YEAR_SPECIFIC_OPTIONAL.items():
+            value = citation_data.get(field, '').strip()
+            if not value or value == 'Unknown':
+                if census_year in config['optional_years']:
+                    # Optional for this year - just add to optional missing
+                    missing_optional.append(field)
+                else:
+                    # Required for this year
+                    missing_required.append(field)
+                    errors.append(f"Missing required field: {config['description']} ({field})")
+
         # Check year-specific required fields
         for (start_year, end_year), required_fields in cls.REQUIRED_BY_YEAR.items():
             if start_year <= census_year <= end_year:
@@ -107,7 +127,7 @@ class CensusDataValidator:
                             warnings.append(f"Missing recommended field: {description} ({field})")
 
         # Check optional fields
-        for field, description in cls.OPTIONAL_FIELDS.items():
+        for field in cls.OPTIONAL_FIELDS:
             if field not in missing_required:  # Don't double-count
                 value = citation_data.get(field, '').strip()
                 if not value:

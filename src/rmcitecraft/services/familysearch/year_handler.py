@@ -252,8 +252,6 @@ class YearSpecificHandler:
 
         Returns:
             Tuple of (dwelling_number, family_number)
-            For 1910: (None, household_id)
-            For others: (household_id, None)
         """
         if not raw_value:
             return (None, None)
@@ -262,7 +260,12 @@ class YearSpecificHandler:
         if not value:
             return (None, None)
 
-        # 1910: FamilySearch's HOUSEHOLD_ID is the family number
+        # 1900: FamilySearch's Household Identifier is the family number
+        if self._year == 1900:
+            logger.debug(f"1900: household_id '{value}' mapped to family_number")
+            return (None, value)
+
+        # 1910: FamilySearch's Household Identifier is the family number
         if self._year == 1910:
             logger.debug(f"1910: household_id '{value}' mapped to family_number")
             return (None, value)
