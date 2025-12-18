@@ -363,16 +363,31 @@ class TestIsCitationNeedsProcessing:
             assert result is False, f"Year {year} should not need processing"
 
         # Test years before 1900 (ED not required)
-        for year in [1850, 1860, 1870, 1880]:
+        # Pre-1880 uses "page", 1880+ uses "sheet"
+        for year in [1850, 1860, 1870]:
             footnote = (
-                f"{year} U.S. census, Noble County, Ohio, sheet 3B, "
+                f"{year} U.S. census, Noble County, Ohio, page 3, "
                 "FamilySearch (https://familysearch.org)"
             )
-            short_footnote = f"{year} U.S. census, Noble Co., sheet 3B, John Smith."
+            short_footnote = f"{year} U.S. census, Noble Co., page 3, John Smith."
             bibliography = f'{year} U.S Census. FamilySearch.'
 
             result = is_citation_needs_processing(
                 footnote, short_footnote, bibliography, year
             )
-            # These should NOT need processing (ED not required pre-1900)
+            # These should NOT need processing (ED not required pre-1880, uses page)
             assert result is False, f"Year {year} should not need processing"
+
+        # 1880 uses sheet (introduced same time as enumeration districts)
+        footnote = (
+            "1880 U.S. census, Noble County, Ohio, sheet 3B, "
+            "FamilySearch (https://familysearch.org)"
+        )
+        short_footnote = "1880 U.S. census, Noble Co., sheet 3B, John Smith."
+        bibliography = '1880 U.S Census. FamilySearch.'
+
+        result = is_citation_needs_processing(
+            footnote, short_footnote, bibliography, 1880
+        )
+        # 1880 should NOT need processing (uses sheet, ED optional for 1880)
+        assert result is False, "Year 1880 should not need processing"

@@ -286,28 +286,60 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
     Returns:
         Dictionary with 'footnote', 'short_footnote', 'bibliography' keys
     """
+    from datetime import datetime
+
     # Get data with fallbacks for preview
     state = data.get('state', '[State]')
     county = data.get('county', '[County]')
     locality = data.get('town_ward', data.get('locality', ''))
-    ed = data.get('enumeration_district', '[ED]')
-    sheet = data.get('sheet', '[sheet]')
-    line = data.get('line', '[line]')
     person = data.get('person_name', '[Person Name]')
+
+    # 1860 Census: Use family number (column 2 per schema) instead of line number
+    # FamilySearch doesn't index line numbers for 1860, but does extract HOUSEHOLD_ID
+    # which maps to family_number per src/rmcitecraft/schemas/census/1860.yaml
+    if year == 1860:
+        family_number = data.get('family_number', '')
+        household_label = "family"
+        household_value = family_number if family_number else '[family]'
+    else:
+        line = data.get('line', '[line]')
+        household_label = "line"
+        household_value = line
 
     # Clean URL: Remove query parameters (e.g., ?lang=en) if not already cleaned
     raw_url = data.get('familysearch_url', '[URL]')
     url = raw_url.split('?')[0] if raw_url and raw_url != '[URL]' else raw_url
 
     # Use provided access date or generate current date in Evidence Explained format
-    from datetime import datetime
     access_date = data.get('access_date') or datetime.now().strftime("%d %B %Y")
+
+    # Year-specific field handling
+    # Pre-1880: No enumeration district, uses "page" instead of "sheet"
+    # 1880-1940: Uses enumeration district and "sheet"
+    # 1950: Uses enumeration district and "stamp"
+    uses_ed = year >= 1880
+    if year < 1880:
+        page_label = "page"
+        page_value = data.get('page', '[page]')
+    elif year == 1950:
+        page_label = "stamp"
+        page_value = data.get('stamp', data.get('sheet', '[stamp]'))
+    else:
+        page_label = "sheet"
+        page_value = data.get('sheet', '[sheet]')
+
+    ed = data.get('enumeration_district', '[ED]') if uses_ed else None
 
     # Footnote
     locality_str = f", {locality}" if locality else ""
+    if uses_ed:
+        ed_str = f", enumeration district (ED) {ed}"
+    else:
+        ed_str = ""
+
     footnote = (
-        f"{year} U.S. census, {county} County, {state}{locality_str}, "
-        f"enumeration district (ED) {ed}, sheet {sheet}, line {line}, {person}; "
+        f"{year} U.S. census, {county} County, {state}{locality_str}"
+        f"{ed_str}, {page_label} {page_value}, {household_label} {household_value}, {person}; "
         f"imaged, \"United States Census, {year},\" <i>FamilySearch</i> "
         f"({url} : accessed {access_date})."
     )
@@ -320,12 +352,19 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
     # Locality (optional - only include if available)
     locality_str = f", {locality}" if locality else ""
 
-    # Line number (optional but preferred)
-    line_str = f", line {line}" if line else ""
+    # Household identifier: line number for most years, family number for 1860
+    # For 1860: FamilySearch doesn't index line numbers, uses HOUSEHOLD_ID -> family_number
+    household_str = f", {household_label} {household_value}" if household_value and household_value not in ('[line]', '[family]') else ""
+
+    # ED string for short footnote
+    if uses_ed:
+        ed_short_str = f", E.D. {ed}"
+    else:
+        ed_short_str = ""
 
     short_footnote = (
-        f"{year} U.S. census, {county} Co., {state_abbr}{locality_str}, "
-        f"E.D. {ed}, sheet {sheet}{line_str}, {person}."
+        f"{year} U.S. census, {county} Co., {state_abbr}{locality_str}"
+        f"{ed_short_str}, {page_label} {page_value}{household_str}, {person}."
     )
 
     # Bibliography

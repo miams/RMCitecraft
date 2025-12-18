@@ -191,15 +191,23 @@ class DataEntryFormComponent:
         """
         year = self.citation.census_year
 
-        # Common fields for all years
-        fields = ['enumeration_district', 'sheet', 'line']
+        fields = []
 
-        # Add year-specific fields (with None check)
-        if year and 1850 <= year <= 1940:
-            fields.append('family_number')
-
-        if year and 1850 <= year <= 1880:
-            fields.append('dwelling_number')
+        # Year-specific fields based on census structure
+        if year and year < 1880:
+            # 1850-1870: No enumeration districts, use page numbers
+            # FamilySearch doesn't extract line numbers for these years
+            fields.extend(['page_number', 'dwelling_number', 'family_number'])
+        elif year and year == 1950:
+            # 1950: Uses stamp instead of sheet
+            fields.extend(['enumeration_district', 'stamp_number', 'line_number', 'family_number'])
+        else:
+            # 1880-1940: Enumeration districts and sheets
+            fields.extend(['enumeration_district', 'sheet_number', 'line_number'])
+            if year and 1850 <= year <= 1940:
+                fields.append('family_number')
+            if year and year == 1880:
+                fields.append('dwelling_number')
 
         # Township/Ward for location detail
         fields.append('town_ward')
@@ -236,27 +244,37 @@ class DataEntryFormComponent:
             'enumeration_district': (
                 'Enumeration District (ED)',
                 'Format varies by year (e.g., "96", "96-413")',
-                '456',
+                '96',
             ),
-            'sheet': (
+            'sheet_number': (
                 'Sheet Number',
-                'Sheet or page number from census image',
-                '1B',
+                'Sheet number from census image (1880-1940)',
+                '5B',
             ),
-            'line': (
+            'page_number': (
+                'Page Number',
+                'Page number from census image (1850-1870)',
+                '21',
+            ),
+            'stamp_number': (
+                'Stamp Number',
+                'Stamp number from census image (1950)',
+                '42',
+            ),
+            'line_number': (
                 'Line Number',
                 'Line number on census page',
-                '80',
+                '15',
             ),
             'family_number': (
                 'Family Number',
-                'Family or dwelling number (if applicable)',
+                'Family number from census form',
                 '57',
             ),
             'dwelling_number': (
                 'Dwelling Number',
-                'Dwelling number (for 1850-1880 census)',
-                '42',
+                'Dwelling number from census form (1850-1880)',
+                '141',
             ),
         }
 

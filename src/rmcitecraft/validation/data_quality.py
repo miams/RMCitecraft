@@ -45,12 +45,12 @@ class CensusDataValidator:
     """Validates census citation data quality."""
 
     # Required fields for all census years
+    # Note: 'sheet' is validated separately due to year-specific naming (sheet vs page)
     REQUIRED_FIELDS = {
         'state': 'State name',
         'county': 'County name',
         'person_name': 'Person name',
         'familysearch_url': 'FamilySearch URL',
-        'sheet': 'Sheet/Page number',
     }
 
     # Required fields by census year range
@@ -62,10 +62,19 @@ class CensusDataValidator:
 
     # Fields that are required for most years but optional for specific years
     # Key: field name, Value: dict with 'description' and 'optional_years' list
+    #
+    # IMPORTANT: Census year extraction must be completely independent with no cross-year dependencies.
+    # Each census year has different fields available in FamilySearch:
+    # - 1850-1870: No enumeration districts, FamilySearch doesn't index line numbers
+    # - 1880: First year with enumeration districts, line numbers from detail page
+    # - 1900-1940: Enumeration districts, sheet numbers (not page numbers)
+    # - 1910: Line numbers not indexed by FamilySearch
+    # - 1950: Uses stamp numbers instead of sheet numbers
     YEAR_SPECIFIC_OPTIONAL = {
         'line': {
             'description': 'Line number',
-            'optional_years': [1910],  # 1910 Census doesn't have line numbers in FamilySearch
+            # Line number is optional for years where FamilySearch doesn't index it
+            'optional_years': [1850, 1860, 1870, 1910],
         },
     }
 
@@ -99,6 +108,28 @@ class CensusDataValidator:
             if not value or value == 'Unknown':
                 missing_required.append(field)
                 errors.append(f"Missing required field: {description} ({field})")
+
+        # Check sheet/page - year-specific field name
+        # Pre-1880 censuses use "page", 1880-1940 use "sheet", 1950 uses "stamp"
+        if census_year < 1880:
+            # 1870 and earlier use page number
+            page_value = citation_data.get('page', '').strip()
+            if not page_value or page_value == 'Unknown':
+                missing_required.append('page')
+                errors.append("Missing required field: Page number (page)")
+        elif census_year == 1950:
+            # 1950 uses stamp number
+            stamp_value = citation_data.get('stamp', '').strip()
+            sheet_value = citation_data.get('sheet', '').strip()
+            if (not stamp_value or stamp_value == 'Unknown') and (not sheet_value or sheet_value == 'Unknown'):
+                missing_required.append('stamp')
+                errors.append("Missing required field: Stamp number (stamp)")
+        else:
+            # 1880-1940 use sheet number
+            sheet_value = citation_data.get('sheet', '').strip()
+            if not sheet_value or sheet_value == 'Unknown':
+                missing_required.append('sheet')
+                errors.append("Missing required field: Sheet number (sheet)")
 
         # Check year-specific optional fields (required for most years, optional for specific years)
         for field, config in cls.YEAR_SPECIFIC_OPTIONAL.items():
@@ -227,6 +258,14 @@ class FormattedCitationValidator:
 
         text = footnote.lower()
 
+        # Reject old FamilySearch citation format
+        # Old format starts with: "United States Census, YYYY," database with images
+        # Proper Evidence Explained format starts with: YYYY U.S. census,
+        if 'database with images' in text:
+            return False
+        if text.startswith('"united states census'):
+            return False
+
         # Must contain census year and "census" reference
         if str(census_year) not in footnote:
             return False
@@ -308,6 +347,12 @@ class FormattedCitationValidator:
 
         text = short_footnote.lower()
 
+        # Reject old FamilySearch citation format
+        if 'database with images' in text:
+            return False
+        if text.startswith('"united states census'):
+            return False
+
         # Must contain census year
         if str(census_year) not in short_footnote:
             return False
@@ -316,9 +361,17 @@ class FormattedCitationValidator:
         if 'census' not in text and 'pop. sch.' not in text:
             return False
 
-        # Must contain sheet reference (1950 census uses "stamp" instead)
-        if 'sheet' not in text and 'stamp' not in text:
-            return False
+        # Must contain sheet/page/stamp reference depending on census year
+        # Pre-1880: page, 1880-1940: sheet, 1950: stamp
+        if census_year < 1880:
+            if 'page' not in text:
+                return False
+        elif census_year == 1950:
+            if 'stamp' not in text and 'sheet' not in text:
+                return False
+        else:
+            if 'sheet' not in text:
+                return False
 
         return True
 
@@ -338,6 +391,12 @@ class FormattedCitationValidator:
             return False
 
         text = bibliography.lower()
+
+        # Reject old FamilySearch citation format
+        if 'database with images' in text:
+            return False
+        if text.startswith('"united states census'):
+            return False
 
         # Must contain census year
         if str(census_year) not in bibliography:
@@ -380,9 +439,13 @@ class FormattedCitationValidator:
         # Criterion 5: If footnote == short_footnote, it hasn't been processed
         # (RootsMagic defaults both to the same initial value)
         if footnote and short_footnote:
-            # Normalize for comparison (strip whitespace)
-            fn_normalized = footnote.strip()
-            sf_normalized = short_footnote.strip()
+            # Normalize for comparison:
+            # - Strip leading/trailing whitespace
+            # - Replace non-breaking spaces (char 160) with regular spaces
+            # - Collapse multiple spaces into single space
+            import re
+            fn_normalized = re.sub(r'\s+', ' ', footnote.replace('\xa0', ' ')).strip()
+            sf_normalized = re.sub(r'\s+', ' ', short_footnote.replace('\xa0', ' ')).strip()
             if fn_normalized == sf_normalized:
                 return False
 

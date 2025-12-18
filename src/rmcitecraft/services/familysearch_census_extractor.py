@@ -644,6 +644,7 @@ FAMILYSEARCH_FIELD_MAP = {
     "city": "township_city",
     "township": "township_city",  # 1910 Census uses "Township" label
     "enumeration district": "enumeration_district",
+    "enumeration district description": "ed_description",  # Ignore ED description (ward boundaries etc.)
     "district": "enumeration_district",  # 1910 Census: "District: ED 340" format
     "supervisor district field": "supervisor_district",
     "page number": "page_number",
@@ -665,7 +666,9 @@ FAMILYSEARCH_FIELD_MAP = {
     # Household/dwelling info (cols 2-5)
     # NOTE: For 1950, FamilySearch "household_id" is dwelling number (Col 3)
     # For 1910, FamilySearch "household_id" is family number (Col 4) - handled in _parse_extracted_data
+    # For 1860, FamilySearch uses "HOUSEHOLD_ID" (uppercase with underscore)
     "household id": "dwelling_number",  # Default: Col 3 (overridden for 1910)
+    "household_id": "dwelling_number",  # 1860 Census: FamilySearch uses underscore format
     "dwelling number": "dwelling_number",
     "family number": "family_number",  # Explicit family number field
     "lived on farm": "is_dwelling_on_farm",  # Col 4: current dwelling on farm
@@ -717,6 +720,7 @@ EXTENDED_FIELDS = {
     "event_place_original",
     "digital_folder_number",
     "image_number",
+    "ed_description",  # 1940 Census: Enumeration district description (ward boundaries) - not used in citations
     # Note: FamilySearch "household_id" maps to dwelling_number (Col 3)
     "house_number",
     "apartment_number",
@@ -1991,8 +1995,15 @@ class FamilySearchCensusExtractor:
                 "County:": "county",
                 "Enumeration District:": "enumeration_district",
                 "Line Number:": "line_number",
+                "Source Line Number:": "line_number",
                 "Page Number:": "page_number",
+                "Source Page Number:": "page_number",  # 1860 Census uses this label
                 "Sheet Number:": "sheet_number",
+                "Source Sheet Number:": "sheet_number",
+                "HOUSEHOLD_ID:": "dwelling_number",  # 1860 Census uses uppercase underscore
+                "Household Id:": "dwelling_number",
+                "Dwelling Number:": "dwelling_number",
+                "Family Number:": "family_number",
             }
 
             for i in range(min(container_count, 200)):
@@ -3170,14 +3181,17 @@ class FamilySearchCensusExtractor:
             if not mapped_field:
                 # Try partial match for fields with parenthetical variations
                 # Example: "birth year (estimated)" should match "birth year"
-                # Only match if fs_key appears as a complete phrase at start of label
-                # to avoid false matches like "year" matching "birth year"
+                # IMPORTANT: Find the LONGEST matching prefix to avoid
+                # "enumeration district" matching before "enumeration district description"
+                best_match_key = ""
+                best_match_field = None
                 for fs_key, mapped in FAMILYSEARCH_FIELD_MAP.items():
                     # Check if label starts with fs_key (handles parenthetical additions)
                     # e.g., "birth year (estimated)" starts with "birth year"
-                    if label.startswith(fs_key):
-                        mapped_field = mapped
-                        break
+                    if label.startswith(fs_key) and len(fs_key) > len(best_match_key):
+                        best_match_key = fs_key
+                        best_match_field = mapped
+                mapped_field = best_match_field
 
             if mapped_field:
                 # Determine if this is a core field or extended field

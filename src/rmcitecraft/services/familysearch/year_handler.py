@@ -186,10 +186,17 @@ class YearSpecificHandler:
                 logger.debug(f"1910 ED parsed: '{raw_str}' -> '{parsed}'")
                 return parsed
 
-        # 1940: May have supervisor district prefix like "23-45"
-        # Keep the full format for 1940
+        # 1940: FamilySearch provides ED number followed by description in one field
+        # e.g., "103-2336 Chicago City Ward 37 (Tract 338 - part), Apartments at 5952-62 W Fulton"
+        # We only want the hyphenated number: "103-2336"
         if self._year == 1940:
-            # Just clean whitespace but preserve format
+            # Extract just the ED number (format: digits-digits at start)
+            ed_match = re.match(r"^(\d+-\d+)", raw_str)
+            if ed_match:
+                parsed = ed_match.group(1)
+                logger.debug(f"1940 ED parsed: '{raw_str[:50]}...' -> '{parsed}'")
+                return parsed
+            # Fallback: return as-is if no match
             return raw_str
 
         # Default: return cleaned value
@@ -243,8 +250,11 @@ class YearSpecificHandler:
     def parse_household_id(self, raw_value: str | None) -> tuple[str | None, str | None]:
         """Parse household ID into dwelling and family numbers.
 
-        Year-specific behavior:
-        - 1910: HOUSEHOLD_ID is actually the family number, not dwelling
+        Year-specific behavior (MUST be independent per year - no cross-year dependencies):
+        - 1850-1870: HOUSEHOLD_ID is from column 2 = family_number
+                     (FamilySearch doesn't extract line numbers for these years)
+        - 1880: Ignore Source Household Id - not used for dwelling/family number
+        - 1900, 1910: HOUSEHOLD_ID is the family number
         - Other years: Returned as dwelling_number
 
         Args:
@@ -259,6 +269,14 @@ class YearSpecificHandler:
         value = str(raw_value).strip()
         if not value:
             return (None, None)
+
+        # 1850, 1860, 1870: FamilySearch's HOUSEHOLD_ID is from column 2 = family_number
+        # Per census schemas: Col 1 = dwelling_number, Col 2 = family_number
+        # FamilySearch indexes column 2 as HOUSEHOLD_ID
+        # Note: FamilySearch doesn't extract line numbers for these years
+        if self._year in (1850, 1860, 1870):
+            logger.debug(f"{self._year}: household_id '{value}' mapped to family_number (column 2)")
+            return (None, value)
 
         # 1880: Ignore Source Household Id - not used for dwelling/family number
         if self._year == 1880:

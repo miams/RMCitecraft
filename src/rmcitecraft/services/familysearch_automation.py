@@ -9,6 +9,23 @@ DEPRECATION NOTICE:
     The extract_citation_data() method now delegates to the new unified
     CensusExtractor for consistent extraction across all census years.
 
+IMPORTANT: CENSUS YEAR EXTRACTION INDEPENDENCE
+    Data extraction logic MUST be kept completely distinct between census years
+    with NO dependencies between census years. Each census year has different:
+
+    - Field names on FamilySearch (e.g., "page" vs "sheet" vs "stamp")
+    - Fields available for extraction (e.g., line numbers not indexed for 1850-1870)
+    - Required vs optional fields for validation
+    - UI form fields to display
+
+    Year-specific extraction rules:
+    - 1850-1870: No enumeration districts, page numbers (not sheets),
+                 FamilySearch does NOT index line numbers, HOUSEHOLD_ID = dwelling_number
+    - 1880: First year with enumeration districts, line numbers from detail page
+    - 1900-1940: Enumeration districts, sheet numbers (not page numbers)
+    - 1910: FamilySearch doesn't index line numbers, HOUSEHOLD_ID = family_number
+    - 1950: Uses stamp numbers instead of sheet numbers
+
 Launches Chrome with persistent context to:
 - Extract census citation data from FamilySearch pages
 - Automate census image downloads
@@ -26,6 +43,7 @@ import asyncio
 import os
 import re
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +52,30 @@ from playwright.async_api import BrowserContext, Page, async_playwright
 
 # Chrome profile directory (persistent login)
 CHROME_PROFILE_DIR = os.path.expanduser("~/chrome-debug-profile")
+
+# Circuit breaker settings
+MAX_CONSECUTIVE_FAILURES = 3
+
+
+class ConnectionStatus(Enum):
+    """Browser connection status for UI feedback."""
+
+    DISCONNECTED = "disconnected"
+    CONNECTING = "connecting"
+    CONNECTED = "connected"
+    ERROR = "error"
+
+
+class CDPConnectionError(Exception):
+    """Raised when Chrome CDP connection fails repeatedly.
+
+    This exception signals that batch processing should stop and
+    prompt user to reconnect rather than continuing to fail.
+    """
+
+    def __init__(self, message: str, consecutive_failures: int = 0):
+        super().__init__(message)
+        self.consecutive_failures = consecutive_failures
 
 # State name normalization mapping
 # Maps postal codes and variations to properly formatted state names
@@ -101,6 +143,23 @@ class FamilySearchAutomation:
         """Initialize automation service."""
         self.browser: BrowserContext | None = None
         self.playwright = None
+        self._connection_status = ConnectionStatus.DISCONNECTED
+        self._consecutive_failures = 0
+        self._last_error_message: str | None = None
+
+    @property
+    def connection_status(self) -> ConnectionStatus:
+        """Current browser connection status."""
+        return self._connection_status
+
+    @property
+    def last_error(self) -> str | None:
+        """Last connection error message, if any."""
+        return self._last_error_message
+
+    def reset_failure_count(self) -> None:
+        """Reset the consecutive failure count (call on successful operation)."""
+        self._consecutive_failures = 0
 
     async def connect_to_chrome(self) -> bool:
         """
@@ -115,6 +174,8 @@ class FamilySearchAutomation:
         Returns:
             True if connected successfully, False otherwise
         """
+        self._connection_status = ConnectionStatus.CONNECTING
+        self._last_error_message = None
         self.playwright = await async_playwright().start()
 
         # Try connecting to existing Chrome first (via CDP)
@@ -126,6 +187,8 @@ class FamilySearchAutomation:
             contexts = browser.contexts
             if contexts:
                 self.browser = contexts[0]  # Use first context
+                self._connection_status = ConnectionStatus.CONNECTED
+                self._consecutive_failures = 0
                 logger.info(
                     f"Connected to existing Chrome via CDP - {len(self.browser.pages)} page(s)"
                 )
@@ -149,10 +212,14 @@ class FamilySearchAutomation:
                 ],
             )
 
+            self._connection_status = ConnectionStatus.CONNECTED
+            self._consecutive_failures = 0
             logger.info(f"Launched Chrome with persistent context - {len(self.browser.pages)} page(s)")
             return True
         except Exception as e:
-            logger.error(f"Failed to launch Chrome: {e}")
+            self._connection_status = ConnectionStatus.ERROR
+            self._last_error_message = f"Failed to launch Chrome: {e}"
+            logger.error(self._last_error_message)
             logger.warning(
                 "Make sure Chrome is not already running with the same profile directory"
             )
@@ -174,6 +241,7 @@ class FamilySearchAutomation:
                 logger.warning(f"Error stopping playwright: {e}")
             self.playwright = None
 
+        self._connection_status = ConnectionStatus.DISCONNECTED
         logger.info("Disconnected from Chrome")
 
     async def check_login_status(self) -> bool:
@@ -286,18 +354,60 @@ class FamilySearchAutomation:
 
         Returns:
             Page instance or None if connection failed
+
+        Raises:
+            CDPConnectionError: If connection fails MAX_CONSECUTIVE_FAILURES times
         """
+        # Check circuit breaker before attempting connection
+        if self._consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+            self._connection_status = ConnectionStatus.ERROR
+            raise CDPConnectionError(
+                f"Browser connection failed {self._consecutive_failures} consecutive times. "
+                "Please check that Chrome is running with remote debugging enabled "
+                "(port 9222) and has a FamilySearch tab open, then click 'Reconnect'.",
+                consecutive_failures=self._consecutive_failures
+            )
+
         if not self.browser and not await self.connect_to_chrome():
+            self._consecutive_failures += 1
+            self._connection_status = ConnectionStatus.ERROR
+            self._last_error_message = "Failed to connect to Chrome browser"
+            logger.warning(
+                f"Browser connection failed ({self._consecutive_failures}/{MAX_CONSECUTIVE_FAILURES})"
+            )
+            if self._consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                raise CDPConnectionError(
+                    "Failed to connect to Chrome. Please ensure Chrome is running with "
+                    "--remote-debugging-port=9222 and try 'Reconnect'.",
+                    consecutive_failures=self._consecutive_failures
+                )
             return None
 
         # self.browser is now a BrowserContext directly (from launch_persistent_context)
         context = self.browser
 
         # Look for existing FamilySearch tab
-        pages = context.pages
+        try:
+            pages = context.pages
+        except Exception as e:
+            # Browser context may have been invalidated
+            self._consecutive_failures += 1
+            self._connection_status = ConnectionStatus.ERROR
+            self._last_error_message = f"Browser context error: {e}"
+            self.browser = None
+            logger.warning(f"Browser context error ({self._consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}): {e}")
+            if self._consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                raise CDPConnectionError(
+                    f"Browser context lost: {e}. Please click 'Reconnect'.",
+                    consecutive_failures=self._consecutive_failures
+                )
+            return None
+
         for page in pages:
             if "familysearch.org" in page.url:
                 logger.info(f"Found existing FamilySearch tab: {page.url}")
+                self._consecutive_failures = 0  # Reset on success
+                self._connection_status = ConnectionStatus.CONNECTED
                 return page
 
         # If no FamilySearch tab found, create a new page (safe with launched browser)
@@ -307,10 +417,23 @@ class FamilySearchAutomation:
             logger.warning(
                 "For best results, open FamilySearch in a Chrome tab before running automation"
             )
+            self._consecutive_failures = 0  # Reset on success
+            self._connection_status = ConnectionStatus.CONNECTED
             return pages[0]
 
-        # No pages available at all
-        logger.error("No browser pages available - cannot proceed")
+        # No pages available at all - increment failure count
+        self._consecutive_failures += 1
+        self._connection_status = ConnectionStatus.ERROR
+        self._last_error_message = "No browser pages available"
+        logger.error(
+            f"No browser pages available ({self._consecutive_failures}/{MAX_CONSECUTIVE_FAILURES})"
+        )
+
+        if self._consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+            raise CDPConnectionError(
+                "No browser pages available. Please open a Chrome tab and click 'Reconnect'.",
+                consecutive_failures=self._consecutive_failures
+            )
         return None
 
     async def extract_citation_data(self, url: str, census_year: int | None = None) -> dict[str, Any] | None:
@@ -428,8 +551,8 @@ class FamilySearchAutomation:
                 logger.debug(f"1950 census: Copied page number '{page_number}' to sheet field")
 
             citation_data["line"] = table_data.get("line", "")
-            citation_data["familyNumber"] = table_data.get("family", "")
-            citation_data["dwellingNumber"] = table_data.get("dwelling", "")
+            citation_data["family_number"] = table_data.get("family", "")
+            citation_data["dwelling_number"] = table_data.get("dwelling", "")
 
             # 1910 Census-specific fields: Pass through to transform for year-specific handling
             # These need to be passed through for YearSpecificHandler to process
@@ -526,6 +649,21 @@ class FamilySearchAutomation:
                             if not family and detail_data.get('family_number'):
                                 transformed['family_number'] = detail_data['family_number']
                                 logger.info(f"1930 census: Extracted Family Number '{detail_data['family_number']}' from detail page")
+
+            # Pre-1880 Census Special Case (1850, 1860, 1870): HOUSEHOLD_ID is on detail page
+            # FamilySearch indexes HOUSEHOLD_ID on detail page, maps to family_number (column 2)
+            if census_year and census_year < 1880:
+                family = transformed.get('family_number', '')
+
+                if not family:
+                    image_viewer_url = citation_data.get("imageViewerUrl", "")
+                    if image_viewer_url:
+                        logger.info(f"{census_year} census: Family number missing, extracting HOUSEHOLD_ID from detail page...")
+                        detail_data = await self._extract_pre1880_detail_page_data(page, image_viewer_url, census_year)
+
+                        if detail_data and detail_data.get('family_number'):
+                            transformed['family_number'] = detail_data['family_number']
+                            logger.info(f"{census_year} census: Extracted HOUSEHOLD_ID '{detail_data['family_number']}' -> family_number")
 
             # 1880 Census Special Case: External Line Number is on the detail page, not main page
             # Navigate to detail page if line number is missing
@@ -859,6 +997,70 @@ class FamilySearchAutomation:
 
         except Exception as e:
             logger.warning(f"Error extracting 1880 detail page data: {e}")
+            return None
+
+    async def _extract_pre1880_detail_page_data(
+        self, page: Any, image_viewer_url: str, census_year: int
+    ) -> dict[str, str] | None:
+        """Extract HOUSEHOLD_ID from detail page for pre-1880 censuses (1850, 1860, 1870).
+
+        FamilySearch indexes HOUSEHOLD_ID on the detail page (View Original Document),
+        not on the main person record page. For 1850-1870 censuses, HOUSEHOLD_ID
+        corresponds to column 2 = family_number.
+
+        Args:
+            page: Playwright Page object
+            image_viewer_url: URL to the detail/image viewer page
+            census_year: Census year (1850, 1860, or 1870)
+
+        Returns:
+            Dict with family_number, or None on error
+        """
+        result = {
+            'family_number': '',
+        }
+
+        try:
+            logger.debug(f"Navigating to {census_year} detail page: {image_viewer_url}")
+
+            # Navigate to the detail page
+            try:
+                await asyncio.wait_for(
+                    page.goto(image_viewer_url, wait_until="domcontentloaded"),
+                    timeout=15.0
+                )
+            except TimeoutError:
+                logger.warning(f"{census_year} detail page navigation timed out after 15 seconds")
+                if "familysearch.org" not in page.url:
+                    return None
+
+            # Wait for sidebar to render - look for HOUSEHOLD_ID text
+            try:
+                await page.wait_for_selector('text=HOUSEHOLD_ID', timeout=10000)
+                logger.debug(f"{census_year} detail page: Found 'HOUSEHOLD_ID' text, sidebar loaded")
+            except Exception as e:
+                logger.warning(f"{census_year} detail page: Timeout waiting for 'HOUSEHOLD_ID' text: {e}")
+                # Try a shorter sleep and continue anyway
+                await asyncio.sleep(2)
+
+            # Get all text content from the page body
+            body_text = await page.text_content('body')
+
+            if not body_text:
+                logger.warning(f"{census_year} detail page has no body text")
+                return None
+
+            # Extract HOUSEHOLD_ID: XXX pattern
+            # Format: "HOUSEHOLD_ID: 141" -> extract "141"
+            household_match = re.search(r'HOUSEHOLD_ID[:\s]*(\d+)', body_text, re.IGNORECASE)
+            if household_match:
+                result['family_number'] = household_match.group(1)
+                logger.debug(f"{census_year} detail page: Found HOUSEHOLD_ID '{result['family_number']}' -> family_number")
+
+            return result
+
+        except Exception as e:
+            logger.warning(f"Error extracting {census_year} detail page data: {e}")
             return None
 
     def _get_extraction_flags(self, census_year: int | None) -> tuple[bool, bool, bool, bool]:
@@ -1199,8 +1401,8 @@ class FamilySearchAutomation:
         transformed['sheet'] = raw_data.get('sheet', '')
         transformed['page'] = raw_data.get('page', '')  # For 1790-1870, 1950
         transformed['line'] = raw_data.get('line', '')
-        transformed['family_number'] = raw_data.get('familyNumber', '')
-        transformed['dwelling_number'] = raw_data.get('dwellingNumber', '')
+        transformed['family_number'] = raw_data.get('family_number', '') or raw_data.get('familyNumber', '')
+        transformed['dwelling_number'] = raw_data.get('dwelling_number', '') or raw_data.get('dwellingNumber', '')
 
         # Year-specific field handling using YearSpecificHandler
         if year_handler:
@@ -1232,6 +1434,13 @@ class FamilySearchAutomation:
                 township = raw_data.get('township', '')
                 if township:
                     transformed['town_ward'] = township
+
+            # Pre-1880 Census (1850, 1860, 1870): Map 'page' to 'page_number' for UI compatibility
+            # These censuses use page numbers (not sheet numbers) and the UI expects 'page_number'
+            if census_year and census_year < 1880:
+                if transformed.get('page'):
+                    transformed['page_number'] = transformed['page']
+                    logger.debug(f"{census_year} census: Mapped page '{transformed['page']}' to page_number for UI compatibility")
 
             # 1880 Census: Line number from "External Line Number" has leading zeros to strip
             # Example: "00033" -> "33"
@@ -1283,6 +1492,20 @@ class FamilySearchAutomation:
                 township = raw_data.get('township', '')
                 if township:
                     transformed['town_ward'] = township
+
+        elif census_year and census_year < 1880:
+            # Fallback: Pre-1880 Census (1850, 1860, 1870) without handler
+            # Map 'page' to 'page_number' for UI compatibility
+            if transformed.get('page'):
+                transformed['page_number'] = transformed['page']
+                logger.debug(f"{census_year} census (fallback): Mapped page '{transformed['page']}' to page_number for UI compatibility")
+
+            # Household ID maps to dwelling_number for pre-1880 censuses
+            if not transformed['dwelling_number']:
+                household_id = raw_data.get('household_id', '') or raw_data.get('householdId', '')
+                if household_id:
+                    transformed['dwelling_number'] = household_id
+                    logger.debug(f"{census_year} census (fallback): Mapped household_id '{household_id}' to dwelling_number")
 
         # Initialize town_ward if not already set from Event Place parsing
         if 'town_ward' not in transformed:
