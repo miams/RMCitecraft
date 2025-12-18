@@ -60,6 +60,7 @@ class CensusYearConfig:
     has_sheet: bool = True  # Sheet number
     has_line: bool = True  # Line number (1850+)
     has_stamp: bool = False  # 1950 uses stamp instead of sheet
+    has_sheet_or_stamp: bool = False  # 1950 can use either format
     has_family_number: bool = False  # Family number in citation
     has_dwelling_number: bool = False  # Dwelling number (1850-1880)
     has_population_schedule: bool = True  # "population schedule" in footnote
@@ -105,12 +106,11 @@ def get_census_config(year: int) -> CensusYearConfig:
         config.source_name_pattern = rf'^Fed Census: {year}, ([^,]+), ([^\[]+) \[ED (\d+[A-Z]?-\d+[A-Z]?), sheet (\d+[AB]?), line (\d+)\]'
 
     elif year == 1950:
-        # 1950: Uses "stamp" instead of "sheet"
+        # 1950: Can use either "sheet X, line Y" or "stamp XXXXX" format
         config.has_ed = True
-        config.has_sheet = False
-        config.has_stamp = True
         config.has_family_number = False
-        config.source_name_pattern = rf'^Fed Census: {year}, ([^,]+), ([^\[]+) \[ED (\d+-\d+), stamp (\d+), line (\d+)\]'
+        config.has_sheet_or_stamp = True  # Special flag for 1950
+        config.source_name_pattern = rf'^Fed Census: {year}, ([^,]+), ([^\[]+) \[ED (\d+-\d+), (?:sheet (\d+), line (\d+)|stamp (\d+(?:-\d+)?))\]'
 
     # Titles (same for all years with minor variations)
     config.footnote_title = f"United States Census, {year},"
@@ -268,7 +268,21 @@ def check_source_name(source_id: int, name: str, config: CensusYearConfig) -> li
             current_value=name[:80]
         ))
 
-    if config.has_sheet and 'sheet' not in name.lower():
+    # Handle sheet/stamp validation
+    if config.has_sheet_or_stamp:
+        # 1950 census: can use either "sheet X, line Y" or "stamp XXXXX"
+        has_sheet = 'sheet' in name.lower()
+        has_stamp = 'stamp' in name.lower()
+        if not has_sheet and not has_stamp:
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="source_name_missing_sheet_or_stamp",
+                severity="error",
+                message="Missing sheet or stamp number in source name (1950 census)",
+                field="source_name",
+                current_value=name[:80]
+            ))
+    elif config.has_sheet and 'sheet' not in name.lower():
         issues.append(Issue(
             source_id=source_id,
             issue_type="source_name_missing_sheet",
@@ -277,8 +291,7 @@ def check_source_name(source_id: int, name: str, config: CensusYearConfig) -> li
             field="source_name",
             current_value=name[:80]
         ))
-
-    if config.has_stamp and 'stamp' not in name.lower():
+    elif config.has_stamp and 'stamp' not in name.lower():
         issues.append(Issue(
             source_id=source_id,
             issue_type="source_name_missing_stamp",
@@ -288,7 +301,19 @@ def check_source_name(source_id: int, name: str, config: CensusYearConfig) -> li
             current_value=name[:80]
         ))
 
-    if config.has_line and 'line' not in name.lower():
+    # Line number check - skip for stamp format in 1950
+    if config.has_sheet_or_stamp:
+        # For 1950: line required only if using sheet format
+        if 'sheet' in name.lower() and 'line' not in name.lower():
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="source_name_missing_line",
+                severity="error",
+                message="Missing line number in source name",
+                field="source_name",
+                current_value=name[:80]
+            ))
+    elif config.has_line and 'line' not in name.lower():
         issues.append(Issue(
             source_id=source_id,
             issue_type="source_name_missing_line",
@@ -339,7 +364,20 @@ def check_footnote(source_id: int, footnote: str, config: CensusYearConfig) -> l
         ))
 
     # Check for sheet/stamp
-    if config.has_sheet and not re.search(r'sheet \d+[AB]?', footnote, re.IGNORECASE):
+    if config.has_sheet_or_stamp:
+        # 1950 census: can use either sheet or stamp
+        has_sheet = bool(re.search(r'sheet \d+', footnote, re.IGNORECASE))
+        has_stamp = bool(re.search(r'stamp \d+', footnote, re.IGNORECASE))
+        if not has_sheet and not has_stamp:
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="footnote_missing_sheet_or_stamp",
+                severity="error",
+                message="Missing sheet or stamp number in footnote (1950 census)",
+                field="footnote",
+                current_value=footnote[:100]
+            ))
+    elif config.has_sheet and not re.search(r'sheet \d+[AB]?', footnote, re.IGNORECASE):
         issues.append(Issue(
             source_id=source_id,
             issue_type="footnote_missing_sheet",
@@ -348,8 +386,7 @@ def check_footnote(source_id: int, footnote: str, config: CensusYearConfig) -> l
             field="footnote",
             current_value=footnote[:100]
         ))
-
-    if config.has_stamp and not re.search(r'stamp \d+', footnote, re.IGNORECASE):
+    elif config.has_stamp and not re.search(r'stamp \d+', footnote, re.IGNORECASE):
         issues.append(Issue(
             source_id=source_id,
             issue_type="footnote_missing_stamp",
@@ -359,8 +396,20 @@ def check_footnote(source_id: int, footnote: str, config: CensusYearConfig) -> l
             current_value=footnote[:100]
         ))
 
-    # Check for line number
-    if config.has_line and not re.search(r'line \d+', footnote, re.IGNORECASE):
+    # Check for line number - skip for stamp format in 1950
+    if config.has_sheet_or_stamp:
+        # For 1950: line required only if using sheet format
+        has_sheet = bool(re.search(r'sheet \d+', footnote, re.IGNORECASE))
+        if has_sheet and not re.search(r'line \d+', footnote, re.IGNORECASE):
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="footnote_missing_line",
+                severity="error",
+                message="Missing line number in footnote",
+                field="footnote",
+                current_value=footnote[:100]
+            ))
+    elif config.has_line and not re.search(r'line \d+', footnote, re.IGNORECASE):
         issues.append(Issue(
             source_id=source_id,
             issue_type="footnote_missing_line",
@@ -449,7 +498,20 @@ def check_short_footnote(source_id: int, short_footnote: str, config: CensusYear
                 ))
 
     # Check for sheet/stamp
-    if config.has_sheet and not re.search(r'sheet \d+[AB]?', short_footnote, re.IGNORECASE):
+    if config.has_sheet_or_stamp:
+        # 1950 census: can use either sheet or stamp
+        has_sheet = bool(re.search(r'sheet \d+', short_footnote, re.IGNORECASE))
+        has_stamp = bool(re.search(r'stamp \d+', short_footnote, re.IGNORECASE))
+        if not has_sheet and not has_stamp:
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="short_missing_sheet_or_stamp",
+                severity="error",
+                message="Missing sheet or stamp number in short footnote (1950 census)",
+                field="short_footnote",
+                current_value=short_footnote[:100]
+            ))
+    elif config.has_sheet and not re.search(r'sheet \d+[AB]?', short_footnote, re.IGNORECASE):
         issues.append(Issue(
             source_id=source_id,
             issue_type="short_missing_sheet",
@@ -458,8 +520,7 @@ def check_short_footnote(source_id: int, short_footnote: str, config: CensusYear
             field="short_footnote",
             current_value=short_footnote[:100]
         ))
-
-    if config.has_stamp and not re.search(r'stamp \d+', short_footnote, re.IGNORECASE):
+    elif config.has_stamp and not re.search(r'stamp \d+', short_footnote, re.IGNORECASE):
         issues.append(Issue(
             source_id=source_id,
             issue_type="short_missing_stamp",
@@ -469,8 +530,20 @@ def check_short_footnote(source_id: int, short_footnote: str, config: CensusYear
             current_value=short_footnote[:100]
         ))
 
-    # Check for line number
-    if config.has_line and not re.search(r'line \d+', short_footnote, re.IGNORECASE):
+    # Check for line number - skip for stamp format in 1950
+    if config.has_sheet_or_stamp:
+        # For 1950: line required only if using sheet format
+        has_sheet = bool(re.search(r'sheet \d+', short_footnote, re.IGNORECASE))
+        if has_sheet and not re.search(r'line \d+', short_footnote, re.IGNORECASE):
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="short_missing_line",
+                severity="error",
+                message="Missing line number in short footnote",
+                field="short_footnote",
+                current_value=short_footnote[:100]
+            ))
+    elif config.has_line and not re.search(r'line \d+', short_footnote, re.IGNORECASE):
         issues.append(Issue(
             source_id=source_id,
             issue_type="short_missing_line",
