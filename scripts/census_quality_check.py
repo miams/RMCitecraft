@@ -5,6 +5,9 @@ Census Quality Check Tool for RMCitecraft.
 Performs comprehensive quality checks on Federal Census sources (1790-1950)
 in a RootsMagic database. Designed to be used as a tool by Claude Code.
 
+Each census year has explicit, self-contained validation rules with no
+implicit assumptions or inheritance between years.
+
 Checks include:
 - Source Name format and consistency
 - Footnote completeness and format
@@ -34,10 +37,10 @@ import logging
 import re
 import sqlite3
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Any
+from typing import Callable
 
 # Configure logging to stderr only
 logging.basicConfig(
@@ -49,74 +52,779 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Census Year Configuration
+# Census Year Configuration - Explicit per-year definitions
 # =============================================================================
 
 @dataclass
 class CensusYearConfig:
-    """Configuration for a specific census year's validation rules."""
+    """Explicit configuration for a specific census year's validation rules.
+
+    Each field must be explicitly set - no defaults are inherited.
+    """
     year: int
-    has_ed: bool = False  # Enumeration District (1880+)
-    has_sheet: bool = True  # Sheet number
-    has_line: bool = True  # Line number (1850+)
-    has_stamp: bool = False  # 1950 uses stamp instead of sheet
-    has_sheet_or_stamp: bool = False  # 1950 can use either format
-    has_family_number: bool = False  # Family number in citation
-    has_dwelling_number: bool = False  # Dwelling number (1850-1880)
-    has_population_schedule: bool = True  # "population schedule" in footnote
-    source_name_pattern: str = ""  # Regex pattern for source name
-    footnote_title: str = ""  # Expected quoted title in footnote
-    bibliography_title: str = ""  # Expected quoted title in bibliography
-    short_ed_format: str = "E.D."  # ED abbreviation in short footnote
+
+    # Source name validation
+    source_name_prefix: str  # e.g., "Fed Census: 1940,"
+    source_name_requires_ed: bool
+    source_name_ed_pattern: str | None  # Regex for ED format, None if not required
+    source_name_requires_sheet: bool
+    source_name_requires_stamp: bool
+    source_name_allows_sheet_or_stamp: bool  # If True, either sheet or stamp is valid
+    source_name_requires_line: bool
+    source_name_line_required_with_sheet_only: bool  # Line only required if sheet format used
+
+    # Footnote validation
+    footnote_census_ref: str  # e.g., "1940 U.S. census"
+    footnote_requires_ed: bool
+    footnote_ed_pattern: str | None  # e.g., "enumeration district (ED)"
+    footnote_requires_sheet: bool
+    footnote_requires_stamp: bool
+    footnote_allows_sheet_or_stamp: bool
+    footnote_requires_line: bool
+    footnote_line_required_with_sheet_only: bool
+    footnote_quoted_title: str  # Expected title in quotes
+
+    # Short footnote validation
+    short_census_ref: str  # e.g., "1940 U.S. census"
+    short_requires_ed: bool
+    short_ed_abbreviation: str | None  # e.g., "E.D." - None if ED not required
+    short_requires_sheet: bool
+    short_requires_stamp: bool
+    short_allows_sheet_or_stamp: bool
+    short_requires_line: bool
+    short_line_required_with_sheet_only: bool
+    short_requires_ending_period: bool
+
+    # Bibliography validation
+    bibliography_quoted_title: str  # Expected title in quotes
+
+    # Citation quality
+    expected_citation_quality: str  # e.g., "PDO"
+
+    # Description for output
+    description: str
 
 
-def get_census_config(year: int) -> CensusYearConfig:
-    """Get validation configuration for a census year."""
+def build_census_configs() -> dict[int, CensusYearConfig]:
+    """Build explicit configurations for each census year.
 
-    # Base configuration
-    config = CensusYearConfig(year=year)
+    Each year is fully defined with no inheritance or implicit defaults.
+    """
+    configs = {}
 
-    # Year-specific settings
-    if year <= 1840:
-        # 1790-1840: No ED, no line numbers, basic format
-        config.has_ed = False
-        config.has_line = False
-        config.has_population_schedule = False
-        config.has_dwelling_number = False
-        config.source_name_pattern = rf'^Fed Census: {year}, ([^,]+), ([^\]]+)'
+    # =========================================================================
+    # 1790 Census
+    # =========================================================================
+    configs[1790] = CensusYearConfig(
+        year=1790,
+        description="First U.S. Census - heads of household only",
+        # Source name
+        source_name_prefix="Fed Census: 1790,",
+        source_name_requires_ed=False,
+        source_name_ed_pattern=None,
+        source_name_requires_sheet=False,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=False,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1790 U.S. census",
+        footnote_requires_ed=False,
+        footnote_ed_pattern=None,
+        footnote_requires_sheet=False,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=False,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1790,",
+        # Short footnote
+        short_census_ref="1790 U.S. census",
+        short_requires_ed=False,
+        short_ed_abbreviation=None,
+        short_requires_sheet=False,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=False,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1790.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
 
-    elif year <= 1870:
-        # 1850-1870: Population schedule, page/sheet, dwelling/family
-        config.has_ed = False
-        config.has_dwelling_number = True
-        config.has_family_number = True
-        config.source_name_pattern = rf'^Fed Census: {year}, ([^,]+), ([^\[]+) \[.*\]'
+    # =========================================================================
+    # 1800 Census
+    # =========================================================================
+    configs[1800] = CensusYearConfig(
+        year=1800,
+        description="Second U.S. Census - heads of household only",
+        # Source name
+        source_name_prefix="Fed Census: 1800,",
+        source_name_requires_ed=False,
+        source_name_ed_pattern=None,
+        source_name_requires_sheet=False,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=False,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1800 U.S. census",
+        footnote_requires_ed=False,
+        footnote_ed_pattern=None,
+        footnote_requires_sheet=False,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=False,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1800,",
+        # Short footnote
+        short_census_ref="1800 U.S. census",
+        short_requires_ed=False,
+        short_ed_abbreviation=None,
+        short_requires_sheet=False,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=False,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1800.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
 
-    elif year == 1880:
-        # 1880: First year with ED
-        config.has_ed = True
-        config.has_dwelling_number = True
-        config.has_family_number = True
-        config.source_name_pattern = rf'^Fed Census: {year}, ([^,]+), ([^\[]+) \[ED (\d+[A-Z]?), .*\]'
+    # =========================================================================
+    # 1810 Census
+    # =========================================================================
+    configs[1810] = CensusYearConfig(
+        year=1810,
+        description="Third U.S. Census - heads of household only",
+        # Source name
+        source_name_prefix="Fed Census: 1810,",
+        source_name_requires_ed=False,
+        source_name_ed_pattern=None,
+        source_name_requires_sheet=False,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=False,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1810 U.S. census",
+        footnote_requires_ed=False,
+        footnote_ed_pattern=None,
+        footnote_requires_sheet=False,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=False,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1810,",
+        # Short footnote
+        short_census_ref="1810 U.S. census",
+        short_requires_ed=False,
+        short_ed_abbreviation=None,
+        short_requires_sheet=False,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=False,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1810.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
 
-    elif year <= 1940:
-        # 1900-1940: ED with suffix format (e.g., 7-36A)
-        config.has_ed = True
-        config.has_family_number = True
-        config.source_name_pattern = rf'^Fed Census: {year}, ([^,]+), ([^\[]+) \[ED (\d+[A-Z]?-\d+[A-Z]?), sheet (\d+[AB]?), line (\d+)\]'
+    # =========================================================================
+    # 1820 Census
+    # =========================================================================
+    configs[1820] = CensusYearConfig(
+        year=1820,
+        description="Fourth U.S. Census - heads of household only",
+        # Source name
+        source_name_prefix="Fed Census: 1820,",
+        source_name_requires_ed=False,
+        source_name_ed_pattern=None,
+        source_name_requires_sheet=False,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=False,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1820 U.S. census",
+        footnote_requires_ed=False,
+        footnote_ed_pattern=None,
+        footnote_requires_sheet=False,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=False,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1820,",
+        # Short footnote
+        short_census_ref="1820 U.S. census",
+        short_requires_ed=False,
+        short_ed_abbreviation=None,
+        short_requires_sheet=False,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=False,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1820.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
 
-    elif year == 1950:
-        # 1950: Can use either "sheet X, line Y" or "stamp XXXXX" format
-        config.has_ed = True
-        config.has_family_number = False
-        config.has_sheet_or_stamp = True  # Special flag for 1950
-        config.source_name_pattern = rf'^Fed Census: {year}, ([^,]+), ([^\[]+) \[ED (\d+-\d+), (?:sheet (\d+), line (\d+)|stamp (\d+(?:-\d+)?))\]'
+    # =========================================================================
+    # 1830 Census
+    # =========================================================================
+    configs[1830] = CensusYearConfig(
+        year=1830,
+        description="Fifth U.S. Census - heads of household only",
+        # Source name
+        source_name_prefix="Fed Census: 1830,",
+        source_name_requires_ed=False,
+        source_name_ed_pattern=None,
+        source_name_requires_sheet=False,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=False,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1830 U.S. census",
+        footnote_requires_ed=False,
+        footnote_ed_pattern=None,
+        footnote_requires_sheet=False,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=False,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1830,",
+        # Short footnote
+        short_census_ref="1830 U.S. census",
+        short_requires_ed=False,
+        short_ed_abbreviation=None,
+        short_requires_sheet=False,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=False,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1830.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
 
-    # Titles (same for all years with minor variations)
-    config.footnote_title = f"United States Census, {year},"
-    config.bibliography_title = f"United States Census, {year}."
+    # =========================================================================
+    # 1840 Census
+    # =========================================================================
+    configs[1840] = CensusYearConfig(
+        year=1840,
+        description="Sixth U.S. Census - heads of household only",
+        # Source name
+        source_name_prefix="Fed Census: 1840,",
+        source_name_requires_ed=False,
+        source_name_ed_pattern=None,
+        source_name_requires_sheet=False,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=False,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1840 U.S. census",
+        footnote_requires_ed=False,
+        footnote_ed_pattern=None,
+        footnote_requires_sheet=False,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=False,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1840,",
+        # Short footnote
+        short_census_ref="1840 U.S. census",
+        short_requires_ed=False,
+        short_ed_abbreviation=None,
+        short_requires_sheet=False,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=False,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1840.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
 
-    return config
+    # =========================================================================
+    # 1850 Census - First census to enumerate all individuals
+    # =========================================================================
+    configs[1850] = CensusYearConfig(
+        year=1850,
+        description="Seventh U.S. Census - first to enumerate all individuals",
+        # Source name
+        source_name_prefix="Fed Census: 1850,",
+        source_name_requires_ed=False,
+        source_name_ed_pattern=None,
+        source_name_requires_sheet=True,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=True,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1850 U.S. census",
+        footnote_requires_ed=False,
+        footnote_ed_pattern=None,
+        footnote_requires_sheet=True,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=True,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1850,",
+        # Short footnote
+        short_census_ref="1850 U.S. census",
+        short_requires_ed=False,
+        short_ed_abbreviation=None,
+        short_requires_sheet=True,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=True,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1850.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
+
+    # =========================================================================
+    # 1860 Census
+    # =========================================================================
+    configs[1860] = CensusYearConfig(
+        year=1860,
+        description="Eighth U.S. Census",
+        # Source name
+        source_name_prefix="Fed Census: 1860,",
+        source_name_requires_ed=False,
+        source_name_ed_pattern=None,
+        source_name_requires_sheet=True,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=True,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1860 U.S. census",
+        footnote_requires_ed=False,
+        footnote_ed_pattern=None,
+        footnote_requires_sheet=True,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=True,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1860,",
+        # Short footnote
+        short_census_ref="1860 U.S. census",
+        short_requires_ed=False,
+        short_ed_abbreviation=None,
+        short_requires_sheet=True,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=True,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1860.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
+
+    # =========================================================================
+    # 1870 Census
+    # =========================================================================
+    configs[1870] = CensusYearConfig(
+        year=1870,
+        description="Ninth U.S. Census",
+        # Source name
+        source_name_prefix="Fed Census: 1870,",
+        source_name_requires_ed=False,
+        source_name_ed_pattern=None,
+        source_name_requires_sheet=True,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=True,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1870 U.S. census",
+        footnote_requires_ed=False,
+        footnote_ed_pattern=None,
+        footnote_requires_sheet=True,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=True,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1870,",
+        # Short footnote
+        short_census_ref="1870 U.S. census",
+        short_requires_ed=False,
+        short_ed_abbreviation=None,
+        short_requires_sheet=True,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=True,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1870.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
+
+    # =========================================================================
+    # 1880 Census - First census with Enumeration Districts
+    # =========================================================================
+    configs[1880] = CensusYearConfig(
+        year=1880,
+        description="Tenth U.S. Census - first with Enumeration Districts (ED)",
+        # Source name
+        source_name_prefix="Fed Census: 1880,",
+        source_name_requires_ed=True,
+        source_name_ed_pattern=r'\[ED (\d+[A-Z]?),',  # Simple ED number, e.g., ED 95
+        source_name_requires_sheet=True,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=True,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1880 U.S. census",
+        footnote_requires_ed=True,
+        footnote_ed_pattern=r'enumeration district \(ED\)',
+        footnote_requires_sheet=True,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=True,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1880,",
+        # Short footnote
+        short_census_ref="1880 U.S. census",
+        short_requires_ed=True,
+        short_ed_abbreviation="E.D.",
+        short_requires_sheet=True,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=True,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1880.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
+
+    # =========================================================================
+    # 1890 Census - Mostly destroyed by fire
+    # =========================================================================
+    configs[1890] = CensusYearConfig(
+        year=1890,
+        description="Eleventh U.S. Census - mostly destroyed by 1921 fire",
+        # Source name
+        source_name_prefix="Fed Census: 1890,",
+        source_name_requires_ed=True,
+        source_name_ed_pattern=r'\[ED (\d+[A-Z]?),',
+        source_name_requires_sheet=True,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=True,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1890 U.S. census",
+        footnote_requires_ed=True,
+        footnote_ed_pattern=r'enumeration district \(ED\)',
+        footnote_requires_sheet=True,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=True,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1890,",
+        # Short footnote
+        short_census_ref="1890 U.S. census",
+        short_requires_ed=True,
+        short_ed_abbreviation="E.D.",
+        short_requires_sheet=True,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=True,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1890.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
+
+    # =========================================================================
+    # 1900 Census - ED format changes to XX-YY
+    # =========================================================================
+    configs[1900] = CensusYearConfig(
+        year=1900,
+        description="Twelfth U.S. Census - ED format XX-YY",
+        # Source name
+        source_name_prefix="Fed Census: 1900,",
+        source_name_requires_ed=True,
+        source_name_ed_pattern=r'\[ED (\d+[A-Z]?-\d+[A-Z]?),',  # ED format like 7-36A
+        source_name_requires_sheet=True,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=True,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1900 U.S. census",
+        footnote_requires_ed=True,
+        footnote_ed_pattern=r'enumeration district \(ED\)',
+        footnote_requires_sheet=True,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=True,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1900,",
+        # Short footnote
+        short_census_ref="1900 U.S. census",
+        short_requires_ed=True,
+        short_ed_abbreviation="E.D.",
+        short_requires_sheet=True,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=True,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1900.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
+
+    # =========================================================================
+    # 1910 Census
+    # =========================================================================
+    configs[1910] = CensusYearConfig(
+        year=1910,
+        description="Thirteenth U.S. Census",
+        # Source name
+        source_name_prefix="Fed Census: 1910,",
+        source_name_requires_ed=True,
+        source_name_ed_pattern=r'\[ED (\d+[A-Z]?-\d+[A-Z]?),',
+        source_name_requires_sheet=True,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=True,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1910 U.S. census",
+        footnote_requires_ed=True,
+        footnote_ed_pattern=r'enumeration district \(ED\)',
+        footnote_requires_sheet=True,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=True,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1910,",
+        # Short footnote
+        short_census_ref="1910 U.S. census",
+        short_requires_ed=True,
+        short_ed_abbreviation="E.D.",
+        short_requires_sheet=True,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=True,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1910.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
+
+    # =========================================================================
+    # 1920 Census
+    # =========================================================================
+    configs[1920] = CensusYearConfig(
+        year=1920,
+        description="Fourteenth U.S. Census",
+        # Source name
+        source_name_prefix="Fed Census: 1920,",
+        source_name_requires_ed=True,
+        source_name_ed_pattern=r'\[ED (\d+[A-Z]?-\d+[A-Z]?),',
+        source_name_requires_sheet=True,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=True,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1920 U.S. census",
+        footnote_requires_ed=True,
+        footnote_ed_pattern=r'enumeration district \(ED\)',
+        footnote_requires_sheet=True,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=True,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1920,",
+        # Short footnote
+        short_census_ref="1920 U.S. census",
+        short_requires_ed=True,
+        short_ed_abbreviation="E.D.",
+        short_requires_sheet=True,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=True,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1920.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
+
+    # =========================================================================
+    # 1930 Census
+    # =========================================================================
+    configs[1930] = CensusYearConfig(
+        year=1930,
+        description="Fifteenth U.S. Census",
+        # Source name
+        source_name_prefix="Fed Census: 1930,",
+        source_name_requires_ed=True,
+        source_name_ed_pattern=r'\[ED (\d+[A-Z]?-\d+[A-Z]?),',
+        source_name_requires_sheet=True,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=True,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1930 U.S. census",
+        footnote_requires_ed=True,
+        footnote_ed_pattern=r'enumeration district \(ED\)',
+        footnote_requires_sheet=True,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=True,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1930,",
+        # Short footnote
+        short_census_ref="1930 U.S. census",
+        short_requires_ed=True,
+        short_ed_abbreviation="E.D.",
+        short_requires_sheet=True,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=True,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1930.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
+
+    # =========================================================================
+    # 1940 Census
+    # =========================================================================
+    configs[1940] = CensusYearConfig(
+        year=1940,
+        description="Sixteenth U.S. Census",
+        # Source name
+        source_name_prefix="Fed Census: 1940,",
+        source_name_requires_ed=True,
+        source_name_ed_pattern=r'\[ED (\d+[A-Z]?-\d+[A-Z]?),',
+        source_name_requires_sheet=True,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=True,
+        source_name_line_required_with_sheet_only=False,
+        # Footnote
+        footnote_census_ref="1940 U.S. census",
+        footnote_requires_ed=True,
+        footnote_ed_pattern=r'enumeration district \(ED\)',
+        footnote_requires_sheet=True,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=True,
+        footnote_line_required_with_sheet_only=False,
+        footnote_quoted_title="United States Census, 1940,",
+        # Short footnote
+        short_census_ref="1940 U.S. census",
+        short_requires_ed=True,
+        short_ed_abbreviation="E.D.",
+        short_requires_sheet=True,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=True,
+        short_line_required_with_sheet_only=False,
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1940.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
+
+    # =========================================================================
+    # 1950 Census - Dual format: sheet/line OR stamp
+    # =========================================================================
+    configs[1950] = CensusYearConfig(
+        year=1950,
+        description="Seventeenth U.S. Census - uses sheet/line OR stamp format",
+        # Source name
+        source_name_prefix="Fed Census: 1950,",
+        source_name_requires_ed=True,
+        source_name_ed_pattern=r'\[ED (\d+-\d+),',  # ED format like 10-93
+        source_name_requires_sheet=False,  # Not strictly required
+        source_name_requires_stamp=False,  # Not strictly required
+        source_name_allows_sheet_or_stamp=True,  # Either format is valid
+        source_name_requires_line=False,  # Not strictly required
+        source_name_line_required_with_sheet_only=True,  # Line only required with sheet format
+        # Footnote
+        footnote_census_ref="1950 U.S. census",
+        footnote_requires_ed=True,
+        footnote_ed_pattern=r'enumeration district \(ED\)',
+        footnote_requires_sheet=False,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=True,  # Either format is valid
+        footnote_requires_line=False,
+        footnote_line_required_with_sheet_only=True,  # Line only required with sheet format
+        footnote_quoted_title="United States Census, 1950,",
+        # Short footnote
+        short_census_ref="1950 U.S. census",
+        short_requires_ed=True,
+        short_ed_abbreviation="E.D.",
+        short_requires_sheet=False,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=True,  # Either format is valid
+        short_requires_line=False,
+        short_line_required_with_sheet_only=True,  # Line only required with sheet format
+        short_requires_ending_period=True,
+        # Bibliography
+        bibliography_quoted_title="United States Census, 1950.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
+
+    return configs
+
+
+# Build configs once at module load
+CENSUS_CONFIGS = build_census_configs()
+
+# Valid census years
+VALID_CENSUS_YEARS = set(CENSUS_CONFIGS.keys())
+
+
+def get_census_config(year: int) -> CensusYearConfig | None:
+    """Get configuration for a specific census year.
+
+    Returns None if year is not a valid census year.
+    """
+    return CENSUS_CONFIGS.get(year)
 
 
 # Known valid US state names
@@ -173,8 +881,7 @@ def connect_database(db_path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
 
     # Try to load ICU extension for RMNOCASE collation
-    # Look in multiple locations
-    script_dir = Path(__file__).parent.parent  # Go up from scripts/ to project root
+    script_dir = Path(__file__).parent.parent
     possible_paths = [
         script_dir / 'sqlite-extension/icu.dylib',
         Path('sqlite-extension/icu.dylib'),
@@ -187,16 +894,13 @@ def connect_database(db_path: Path) -> sqlite3.Connection:
             try:
                 conn.enable_load_extension(True)
                 conn.load_extension(str(icu_path))
-
-                # Register RMNOCASE collation using ICU
                 conn.execute(
                     "SELECT icu_load_collation("
                     "'en_US@colStrength=primary;caseLevel=off;normalization=on',"
                     "'RMNOCASE')"
                 )
-
                 conn.enable_load_extension(False)
-                logger.debug(f"Loaded ICU extension and registered RMNOCASE from {icu_path}")
+                logger.debug(f"Loaded ICU extension from {icu_path}")
                 icu_loaded = True
                 break
             except Exception as e:
@@ -227,23 +931,23 @@ def extract_field_from_blob(fields_blob: bytes, field_name: str) -> str:
 
 
 def check_source_name(source_id: int, name: str, config: CensusYearConfig) -> list[Issue]:
-    """Check source name format and content."""
+    """Check source name format and content using explicit config rules."""
     issues = []
     year = config.year
 
-    # Check basic pattern
-    if not name.startswith(f'Fed Census: {year},'):
+    # Check prefix
+    if not name.startswith(config.source_name_prefix):
         issues.append(Issue(
             source_id=source_id,
             issue_type="source_name_format",
             severity="error",
-            message=f"Source name doesn't start with 'Fed Census: {year},'",
+            message=f"Source name doesn't start with '{config.source_name_prefix}'",
             field="source_name",
             current_value=name[:50]
         ))
         return issues
 
-    # Extract state name
+    # Extract and validate state name
     state_match = re.match(rf'Fed Census: {year}, ([^,]+),', name)
     if state_match:
         state = state_match.group(1).strip()
@@ -257,63 +961,69 @@ def check_source_name(source_id: int, name: str, config: CensusYearConfig) -> li
                 current_value=state
             ))
 
-    # Check for required components based on year
-    if config.has_ed and '[ED' not in name:
-        issues.append(Issue(
-            source_id=source_id,
-            issue_type="source_name_missing_ed",
-            severity="error",
-            message="Missing ED (enumeration district) in source name",
-            field="source_name",
-            current_value=name[:80]
-        ))
+    # Check ED requirement
+    if config.source_name_requires_ed:
+        if '[ED' not in name:
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="source_name_missing_ed",
+                severity="error",
+                message="Missing ED (enumeration district) in source name",
+                field="source_name",
+                current_value=name[:80]
+            ))
 
-    # Handle sheet/stamp validation
-    if config.has_sheet_or_stamp:
-        # 1950 census: can use either "sheet X, line Y" or "stamp XXXXX"
-        has_sheet = 'sheet' in name.lower()
-        has_stamp = 'stamp' in name.lower()
+    # Check sheet/stamp requirements
+    has_sheet = 'sheet' in name.lower()
+    has_stamp = 'stamp' in name.lower()
+
+    if config.source_name_allows_sheet_or_stamp:
+        # Either format is acceptable
         if not has_sheet and not has_stamp:
             issues.append(Issue(
                 source_id=source_id,
                 issue_type="source_name_missing_sheet_or_stamp",
                 severity="error",
-                message="Missing sheet or stamp number in source name (1950 census)",
+                message=f"Missing sheet or stamp number in source name ({year} census)",
                 field="source_name",
                 current_value=name[:80]
             ))
-    elif config.has_sheet and 'sheet' not in name.lower():
-        issues.append(Issue(
-            source_id=source_id,
-            issue_type="source_name_missing_sheet",
-            severity="error",
-            message="Missing sheet number in source name",
-            field="source_name",
-            current_value=name[:80]
-        ))
-    elif config.has_stamp and 'stamp' not in name.lower():
-        issues.append(Issue(
-            source_id=source_id,
-            issue_type="source_name_missing_stamp",
-            severity="error",
-            message="Missing stamp number in source name (1950 census)",
-            field="source_name",
-            current_value=name[:80]
-        ))
+    else:
+        # Specific format required
+        if config.source_name_requires_sheet and not has_sheet:
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="source_name_missing_sheet",
+                severity="error",
+                message="Missing sheet number in source name",
+                field="source_name",
+                current_value=name[:80]
+            ))
+        if config.source_name_requires_stamp and not has_stamp:
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="source_name_missing_stamp",
+                severity="error",
+                message=f"Missing stamp number in source name ({year} census)",
+                field="source_name",
+                current_value=name[:80]
+            ))
 
-    # Line number check - skip for stamp format in 1950
-    if config.has_sheet_or_stamp:
-        # For 1950: line required only if using sheet format
-        if 'sheet' in name.lower() and 'line' not in name.lower():
+    # Check line requirement
+    has_line = 'line' in name.lower()
+
+    if config.source_name_line_required_with_sheet_only:
+        # Line only required if using sheet format
+        if has_sheet and not has_line:
             issues.append(Issue(
                 source_id=source_id,
                 issue_type="source_name_missing_line",
                 severity="error",
-                message="Missing line number in source name",
+                message="Missing line number in source name (required with sheet format)",
                 field="source_name",
                 current_value=name[:80]
             ))
-    elif config.has_line and 'line' not in name.lower():
+    elif config.source_name_requires_line and not has_line:
         issues.append(Issue(
             source_id=source_id,
             issue_type="source_name_missing_line",
@@ -327,7 +1037,7 @@ def check_source_name(source_id: int, name: str, config: CensusYearConfig) -> li
 
 
 def check_footnote(source_id: int, footnote: str, config: CensusYearConfig) -> list[Issue]:
-    """Check footnote format and content."""
+    """Check footnote format and content using explicit config rules."""
     issues = []
     year = config.year
 
@@ -347,69 +1057,71 @@ def check_footnote(source_id: int, footnote: str, config: CensusYearConfig) -> l
             source_id=source_id,
             issue_type="footnote_missing_census_ref",
             severity="error",
-            message=f"Missing '{year} U.S. census' reference",
+            message=f"Missing '{config.footnote_census_ref}' reference",
             field="footnote",
             current_value=footnote[:100]
         ))
 
-    # Check for ED (if required)
-    if config.has_ed and not re.search(r'enumeration district \(ED\)', footnote, re.IGNORECASE):
-        issues.append(Issue(
-            source_id=source_id,
-            issue_type="footnote_missing_ed",
-            severity="error",
-            message="Missing 'enumeration district (ED)' in footnote",
-            field="footnote",
-            current_value=footnote[:100]
-        ))
+    # Check ED requirement
+    if config.footnote_requires_ed:
+        if config.footnote_ed_pattern and not re.search(config.footnote_ed_pattern, footnote, re.IGNORECASE):
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="footnote_missing_ed",
+                severity="error",
+                message="Missing 'enumeration district (ED)' in footnote",
+                field="footnote",
+                current_value=footnote[:100]
+            ))
 
-    # Check for sheet/stamp
-    if config.has_sheet_or_stamp:
-        # 1950 census: can use either sheet or stamp
-        has_sheet = bool(re.search(r'sheet \d+', footnote, re.IGNORECASE))
-        has_stamp = bool(re.search(r'stamp \d+', footnote, re.IGNORECASE))
+    # Check sheet/stamp requirements
+    has_sheet = bool(re.search(r'sheet \d+', footnote, re.IGNORECASE))
+    has_stamp = bool(re.search(r'stamp \d+', footnote, re.IGNORECASE))
+
+    if config.footnote_allows_sheet_or_stamp:
         if not has_sheet and not has_stamp:
             issues.append(Issue(
                 source_id=source_id,
                 issue_type="footnote_missing_sheet_or_stamp",
                 severity="error",
-                message="Missing sheet or stamp number in footnote (1950 census)",
+                message=f"Missing sheet or stamp number in footnote ({year} census)",
                 field="footnote",
                 current_value=footnote[:100]
             ))
-    elif config.has_sheet and not re.search(r'sheet \d+[AB]?', footnote, re.IGNORECASE):
-        issues.append(Issue(
-            source_id=source_id,
-            issue_type="footnote_missing_sheet",
-            severity="error",
-            message="Missing sheet number in footnote",
-            field="footnote",
-            current_value=footnote[:100]
-        ))
-    elif config.has_stamp and not re.search(r'stamp \d+', footnote, re.IGNORECASE):
-        issues.append(Issue(
-            source_id=source_id,
-            issue_type="footnote_missing_stamp",
-            severity="error",
-            message="Missing stamp number in footnote (1950 census)",
-            field="footnote",
-            current_value=footnote[:100]
-        ))
+    else:
+        if config.footnote_requires_sheet and not has_sheet:
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="footnote_missing_sheet",
+                severity="error",
+                message="Missing sheet number in footnote",
+                field="footnote",
+                current_value=footnote[:100]
+            ))
+        if config.footnote_requires_stamp and not has_stamp:
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="footnote_missing_stamp",
+                severity="error",
+                message=f"Missing stamp number in footnote ({year} census)",
+                field="footnote",
+                current_value=footnote[:100]
+            ))
 
-    # Check for line number - skip for stamp format in 1950
-    if config.has_sheet_or_stamp:
-        # For 1950: line required only if using sheet format
-        has_sheet = bool(re.search(r'sheet \d+', footnote, re.IGNORECASE))
-        if has_sheet and not re.search(r'line \d+', footnote, re.IGNORECASE):
+    # Check line requirement
+    has_line = bool(re.search(r'line \d+', footnote, re.IGNORECASE))
+
+    if config.footnote_line_required_with_sheet_only:
+        if has_sheet and not has_line:
             issues.append(Issue(
                 source_id=source_id,
                 issue_type="footnote_missing_line",
                 severity="error",
-                message="Missing line number in footnote",
+                message="Missing line number in footnote (required with sheet format)",
                 field="footnote",
                 current_value=footnote[:100]
             ))
-    elif config.has_line and not re.search(r'line \d+', footnote, re.IGNORECASE):
+    elif config.footnote_requires_line and not has_line:
         issues.append(Issue(
             source_id=source_id,
             issue_type="footnote_missing_line",
@@ -424,15 +1136,15 @@ def check_footnote(source_id: int, footnote: str, config: CensusYearConfig) -> l
                   re.search(r'&quot;([^&]+)&quot;', footnote)
     if title_match:
         title = title_match.group(1)
-        if title != config.footnote_title:
+        if title != config.footnote_quoted_title:
             issues.append(Issue(
                 source_id=source_id,
                 issue_type="footnote_wrong_title",
                 severity="warning",
-                message=f"Wrong quoted title in footnote",
+                message="Wrong quoted title in footnote",
                 field="footnote",
                 current_value=title,
-                expected_value=config.footnote_title
+                expected_value=config.footnote_quoted_title
             ))
 
     # Check for double spaces
@@ -449,7 +1161,7 @@ def check_footnote(source_id: int, footnote: str, config: CensusYearConfig) -> l
 
 
 def check_short_footnote(source_id: int, short_footnote: str, config: CensusYearConfig) -> list[Issue]:
-    """Check short footnote format and content."""
+    """Check short footnote format and content using explicit config rules."""
     issues = []
     year = config.year
 
@@ -469,21 +1181,20 @@ def check_short_footnote(source_id: int, short_footnote: str, config: CensusYear
             source_id=source_id,
             issue_type="short_missing_census_ref",
             severity="error",
-            message=f"Missing '{year} U.S. census' reference",
+            message=f"Missing '{config.short_census_ref}' reference",
             field="short_footnote",
             current_value=short_footnote[:100]
         ))
 
-    # Check for ED abbreviation (should use E.D. not enumeration district)
-    if config.has_ed:
-        if not re.search(rf'{config.short_ed_format}\s+\d+', short_footnote):
-            # Check if using long form instead
+    # Check ED abbreviation
+    if config.short_requires_ed and config.short_ed_abbreviation:
+        if not re.search(rf'{re.escape(config.short_ed_abbreviation)}\s+\d+', short_footnote):
             if 'enumeration district' in short_footnote.lower():
                 issues.append(Issue(
                     source_id=source_id,
                     issue_type="short_ed_not_abbreviated",
                     severity="warning",
-                    message=f"Short footnote should use '{config.short_ed_format}' not 'enumeration district'",
+                    message=f"Short footnote should use '{config.short_ed_abbreviation}' not 'enumeration district'",
                     field="short_footnote",
                     current_value=short_footnote[:100]
                 ))
@@ -492,58 +1203,59 @@ def check_short_footnote(source_id: int, short_footnote: str, config: CensusYear
                     source_id=source_id,
                     issue_type="short_missing_ed",
                     severity="error",
-                    message=f"Missing '{config.short_ed_format}' in short footnote",
+                    message=f"Missing '{config.short_ed_abbreviation}' in short footnote",
                     field="short_footnote",
                     current_value=short_footnote[:100]
                 ))
 
-    # Check for sheet/stamp
-    if config.has_sheet_or_stamp:
-        # 1950 census: can use either sheet or stamp
-        has_sheet = bool(re.search(r'sheet \d+', short_footnote, re.IGNORECASE))
-        has_stamp = bool(re.search(r'stamp \d+', short_footnote, re.IGNORECASE))
+    # Check sheet/stamp requirements
+    has_sheet = bool(re.search(r'sheet \d+', short_footnote, re.IGNORECASE))
+    has_stamp = bool(re.search(r'stamp \d+', short_footnote, re.IGNORECASE))
+
+    if config.short_allows_sheet_or_stamp:
         if not has_sheet and not has_stamp:
             issues.append(Issue(
                 source_id=source_id,
                 issue_type="short_missing_sheet_or_stamp",
                 severity="error",
-                message="Missing sheet or stamp number in short footnote (1950 census)",
+                message=f"Missing sheet or stamp number in short footnote ({year} census)",
                 field="short_footnote",
                 current_value=short_footnote[:100]
             ))
-    elif config.has_sheet and not re.search(r'sheet \d+[AB]?', short_footnote, re.IGNORECASE):
-        issues.append(Issue(
-            source_id=source_id,
-            issue_type="short_missing_sheet",
-            severity="error",
-            message="Missing sheet number in short footnote",
-            field="short_footnote",
-            current_value=short_footnote[:100]
-        ))
-    elif config.has_stamp and not re.search(r'stamp \d+', short_footnote, re.IGNORECASE):
-        issues.append(Issue(
-            source_id=source_id,
-            issue_type="short_missing_stamp",
-            severity="error",
-            message="Missing stamp number in short footnote",
-            field="short_footnote",
-            current_value=short_footnote[:100]
-        ))
+    else:
+        if config.short_requires_sheet and not has_sheet:
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="short_missing_sheet",
+                severity="error",
+                message="Missing sheet number in short footnote",
+                field="short_footnote",
+                current_value=short_footnote[:100]
+            ))
+        if config.short_requires_stamp and not has_stamp:
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="short_missing_stamp",
+                severity="error",
+                message=f"Missing stamp number in short footnote ({year} census)",
+                field="short_footnote",
+                current_value=short_footnote[:100]
+            ))
 
-    # Check for line number - skip for stamp format in 1950
-    if config.has_sheet_or_stamp:
-        # For 1950: line required only if using sheet format
-        has_sheet = bool(re.search(r'sheet \d+', short_footnote, re.IGNORECASE))
-        if has_sheet and not re.search(r'line \d+', short_footnote, re.IGNORECASE):
+    # Check line requirement
+    has_line = bool(re.search(r'line \d+', short_footnote, re.IGNORECASE))
+
+    if config.short_line_required_with_sheet_only:
+        if has_sheet and not has_line:
             issues.append(Issue(
                 source_id=source_id,
                 issue_type="short_missing_line",
                 severity="error",
-                message="Missing line number in short footnote",
+                message="Missing line number in short footnote (required with sheet format)",
                 field="short_footnote",
                 current_value=short_footnote[:100]
             ))
-    elif config.has_line and not re.search(r'line \d+', short_footnote, re.IGNORECASE):
+    elif config.short_requires_line and not has_line:
         issues.append(Issue(
             source_id=source_id,
             issue_type="short_missing_line",
@@ -554,7 +1266,7 @@ def check_short_footnote(source_id: int, short_footnote: str, config: CensusYear
         ))
 
     # Check ending period
-    if not short_footnote.strip().endswith('.'):
+    if config.short_requires_ending_period and not short_footnote.strip().endswith('.'):
         issues.append(Issue(
             source_id=source_id,
             issue_type="short_no_ending_period",
@@ -578,7 +1290,7 @@ def check_short_footnote(source_id: int, short_footnote: str, config: CensusYear
 
 
 def check_bibliography(source_id: int, bibliography: str, config: CensusYearConfig) -> list[Issue]:
-    """Check bibliography format and content."""
+    """Check bibliography format and content using explicit config rules."""
     issues = []
 
     if not bibliography:
@@ -596,7 +1308,7 @@ def check_bibliography(source_id: int, bibliography: str, config: CensusYearConf
                   re.search(r'&quot;([^&]+)&quot;', bibliography)
     if title_match:
         title = title_match.group(1)
-        if title != config.bibliography_title:
+        if title != config.bibliography_quoted_title:
             issues.append(Issue(
                 source_id=source_id,
                 issue_type="bibliography_wrong_title",
@@ -604,12 +1316,12 @@ def check_bibliography(source_id: int, bibliography: str, config: CensusYearConf
                 message="Wrong quoted title in bibliography",
                 field="bibliography",
                 current_value=title,
-                expected_value=config.bibliography_title
+                expected_value=config.bibliography_quoted_title
             ))
 
-    # Check for trailing period after closing quote
-    if f'"{config.bibliography_title}".' in bibliography or \
-       f'&quot;{config.bibliography_title}&quot;.' in bibliography:
+    # Check for trailing period after closing quote (common error)
+    if f'"{config.bibliography_quoted_title}".' in bibliography or \
+       f'&quot;{config.bibliography_quoted_title}&quot;.' in bibliography:
         issues.append(Issue(
             source_id=source_id,
             issue_type="bibliography_trailing_period",
@@ -631,7 +1343,7 @@ def check_bibliography(source_id: int, bibliography: str, config: CensusYearConf
     return issues
 
 
-def check_citation_quality(conn: sqlite3.Connection, year: int) -> tuple[list[Issue], dict]:
+def check_citation_quality(conn: sqlite3.Connection, year: int, config: CensusYearConfig) -> tuple[list[Issue], dict]:
     """Check citation quality settings."""
     cursor = conn.cursor()
 
@@ -651,21 +1363,18 @@ def check_citation_quality(conn: sqlite3.Connection, year: int) -> tuple[list[Is
     issues = []
     quality_counts = Counter()
 
-    # Expected quality: PDO = Primary, Direct, Original
-    expected_quality = "PDO"
-
     for link_id, cit_id, quality, source_id, source_name in cursor.fetchall():
         quality_counts[quality or '(empty)'] += 1
 
-        if quality != expected_quality:
+        if quality != config.expected_citation_quality:
             issues.append(Issue(
                 source_id=source_id,
                 issue_type="wrong_citation_quality",
                 severity="warning",
-                message=f"Citation quality should be '{expected_quality}' (Primary, Direct, Original)",
+                message=f"Citation quality should be '{config.expected_citation_quality}'",
                 field="quality",
                 current_value=quality or '(empty)',
-                expected_value=expected_quality
+                expected_value=config.expected_citation_quality
             ))
 
     return issues, dict(quality_counts)
@@ -715,13 +1424,11 @@ def check_media(conn: sqlite3.Connection, year: int) -> tuple[list[Issue], dict]
                 current_value=name[:60]
             ))
 
-    media_summary = {
+    return issues, {
         "no_media": no_media,
         "single_media": single_media,
         "multiple_media": multiple_media
     }
-
-    return issues, media_summary
 
 
 # =============================================================================
@@ -732,14 +1439,30 @@ def run_quality_check(db_path: Path, year: int) -> QualityCheckResult:
     """Run comprehensive quality check on census sources."""
 
     config = get_census_config(year)
+
     result = QualityCheckResult(
         success=True,
         census_year=year,
         total_sources=0,
         issues=[],
         summary={},
-        metadata={"config": asdict(config)}
+        metadata={}
     )
+
+    if config is None:
+        result.success = False
+        result.metadata["error"] = f"No configuration defined for census year {year}"
+        result.metadata["valid_years"] = sorted(VALID_CENSUS_YEARS)
+        return result
+
+    result.metadata["config"] = {
+        "year": config.year,
+        "description": config.description,
+        "requires_ed": config.source_name_requires_ed,
+        "requires_sheet": config.source_name_requires_sheet,
+        "requires_stamp": config.source_name_requires_stamp,
+        "allows_sheet_or_stamp": config.source_name_allows_sheet_or_stamp,
+    }
 
     try:
         conn = connect_database(db_path)
@@ -769,21 +1492,18 @@ def run_quality_check(db_path: Path, year: int) -> QualityCheckResult:
     all_issues = []
 
     for source_id, name, fields_blob in sources:
-        # Source name checks
         all_issues.extend(check_source_name(source_id, name, config))
 
-        # Extract fields from BLOB
         footnote = extract_field_from_blob(fields_blob, "Footnote")
         short_footnote = extract_field_from_blob(fields_blob, "ShortFootnote")
         bibliography = extract_field_from_blob(fields_blob, "Bibliography")
 
-        # Field checks
         all_issues.extend(check_footnote(source_id, footnote, config))
         all_issues.extend(check_short_footnote(source_id, short_footnote, config))
         all_issues.extend(check_bibliography(source_id, bibliography, config))
 
     # Citation quality checks
-    quality_issues, quality_summary = check_citation_quality(conn, year)
+    quality_issues, quality_summary = check_citation_quality(conn, year, config)
     all_issues.extend(quality_issues)
 
     # Media checks
@@ -795,7 +1515,6 @@ def run_quality_check(db_path: Path, year: int) -> QualityCheckResult:
     # Compile results
     result.issues = [asdict(issue) for issue in all_issues]
 
-    # Create summary by issue type
     issue_summary = Counter(issue.issue_type for issue in all_issues)
     severity_summary = Counter(issue.severity for issue in all_issues)
     field_summary = Counter(issue.field for issue in all_issues)
@@ -823,25 +1542,36 @@ def format_text_output(result: QualityCheckResult) -> str:
     lines.append(f"{'=' * 60}")
     lines.append(f"CENSUS QUALITY CHECK: {result.census_year}")
     lines.append(f"{'=' * 60}")
+
+    # Show config info
+    if result.metadata.get('config'):
+        cfg = result.metadata['config']
+        lines.append(f"Description: {cfg.get('description', 'N/A')}")
+        lines.append(f"Requires ED: {cfg.get('requires_ed', 'N/A')}")
+        if cfg.get('allows_sheet_or_stamp'):
+            lines.append("Reference format: sheet/line OR stamp")
+        elif cfg.get('requires_sheet'):
+            lines.append("Reference format: sheet/line")
+        elif cfg.get('requires_stamp'):
+            lines.append("Reference format: stamp")
+        lines.append("")
+
     lines.append(f"Total sources: {result.total_sources}")
     lines.append(f"Total issues: {result.summary.get('total_issues', 0)}")
     lines.append("")
 
-    # Severity breakdown
     if result.summary.get('by_severity'):
         lines.append("Issues by severity:")
         for severity, count in sorted(result.summary['by_severity'].items()):
             lines.append(f"  {severity}: {count}")
         lines.append("")
 
-    # Issue type breakdown
     if result.summary.get('by_type'):
         lines.append("Issues by type:")
         for issue_type, count in sorted(result.summary['by_type'].items(), key=lambda x: -x[1]):
             lines.append(f"  {issue_type}: {count}")
         lines.append("")
 
-    # Quality summary
     if result.summary.get('quality'):
         lines.append("Citation quality values:")
         for quality, count in result.summary['quality'].items():
@@ -849,7 +1579,6 @@ def format_text_output(result: QualityCheckResult) -> str:
             lines.append(f"  {status} {quality}: {count}")
         lines.append("")
 
-    # Media summary
     if result.summary.get('media'):
         media = result.summary['media']
         lines.append("Media attachments:")
@@ -858,7 +1587,6 @@ def format_text_output(result: QualityCheckResult) -> str:
         lines.append(f"  Multiple media: {media.get('multiple_media', 0)}")
         lines.append("")
 
-    # Sample issues (first 10)
     if result.issues:
         lines.append("Sample issues (first 10):")
         for issue in result.issues[:10]:
@@ -886,7 +1614,8 @@ def main() -> int:
     parser.add_argument(
         "year",
         type=int,
-        help="Census year to check (1790-1950)"
+        nargs='?',  # Make optional when using --list-years
+        help=f"Census year to check. Valid years: {sorted(VALID_CENSUS_YEARS)}"
     )
 
     parser.add_argument(
@@ -915,26 +1644,39 @@ def main() -> int:
         help="Include all issues in output (default: summary only for JSON)"
     )
 
+    parser.add_argument(
+        "--list-years",
+        action="store_true",
+        help="List all supported census years and exit"
+    )
+
     args = parser.parse_args()
 
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
+    if args.list_years:
+        print("Supported census years:")
+        for year in sorted(VALID_CENSUS_YEARS):
+            config = get_census_config(year)
+            if config:
+                print(f"  {year}: {config.description}")
+        return 0
+
+    # Require year if not listing
+    if args.year is None:
+        parser.error("year is required (use --list-years to see valid years)")
+
     # Validate year
-    if args.year < 1790 or args.year > 1950:
+    if args.year not in VALID_CENSUS_YEARS:
         error = {
             "success": False,
-            "error": f"Invalid census year: {args.year}. Must be between 1790 and 1950.",
-            "error_type": "ValueError"
+            "error": f"Invalid census year: {args.year}",
+            "error_type": "ValueError",
+            "valid_years": sorted(VALID_CENSUS_YEARS)
         }
-        print(json.dumps(error), file=sys.stderr)
+        print(json.dumps(error, indent=2), file=sys.stderr)
         return 1
-
-    # Valid census years
-    valid_years = list(range(1790, 1850, 10)) + list(range(1850, 1890, 10)) + \
-                  list(range(1900, 1960, 10))
-    if args.year not in valid_years:
-        logger.warning(f"Year {args.year} is not a standard census year. Valid years: {valid_years}")
 
     # Run quality check
     logger.debug(f"Running quality check for {args.year} census")
@@ -944,7 +1686,6 @@ def main() -> int:
     if args.format == "json":
         output = asdict(result)
         if not args.include_all_issues and len(output.get('issues', [])) > 20:
-            # Truncate issues for summary
             output['issues'] = output['issues'][:20]
             output['metadata']['issues_truncated'] = True
             output['metadata']['total_issues'] = result.summary.get('total_issues', 0)
