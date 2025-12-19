@@ -2,7 +2,7 @@
 
 > Complete documentation index for developers.
 > For LLM-optimized compact map, see `claude_code_docs_map.md` in repo root.
-> Last generated: 2025-12-16 16:45:36 UTC
+> Last generated: 2025-12-19 22:57:24 UTC
 
 ## Summary
 
@@ -87,6 +87,7 @@
   - Working Copy Architecture
   - RMNOCASE Collation (Required)
   - Free-Form Citations (TemplateID=0)
+  - CRITICAL: Never Use Raw SQL String Functions on BLOB Fields
   - Census Events are Shared Facts
 - Citation Formatting
   - Evidence Explained Format
