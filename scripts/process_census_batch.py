@@ -64,7 +64,8 @@ def retrieve_formatted_citations(citation_id: int, db_path: Path, icu_path: Path
 
         # For free-form sources (TemplateID=0), parse SourceTable.Fields BLOB
         if template_id == 0 and fields_blob:
-            root = ET.fromstring(fields_blob.decode('utf-8'))
+            fields_str = fields_blob.decode('utf-8') if isinstance(fields_blob, bytes) else fields_blob
+            root = ET.fromstring(fields_str)
             footnote_elem = root.find('.//Field[Name="Footnote"]/Value')
             short_elem = root.find('.//Field[Name="ShortFootnote"]/Value')
             bib_elem = root.find('.//Field[Name="Bibliography"]/Value')
@@ -338,7 +339,8 @@ def find_census_citations(
 
             if fields_blob:
                 try:
-                    root = ET.fromstring(fields_blob.decode('utf-8'))
+                    fields_str = fields_blob.decode('utf-8') if isinstance(fields_blob, bytes) else fields_blob
+                    root = ET.fromstring(fields_str)
                     footnote_elem = root.find('.//Field[Name="Footnote"]/Value')
                     if footnote_elem is not None and footnote_elem.text:
                         footnote = footnote_elem.text
@@ -352,7 +354,8 @@ def find_census_citations(
             # Also check CitationTable.Fields for Page field
             if not familysearch_url and citation_fields_blob:
                 try:
-                    root = ET.fromstring(citation_fields_blob.decode('utf-8'))
+                    citation_fields_str = citation_fields_blob.decode('utf-8') if isinstance(citation_fields_blob, bytes) else citation_fields_blob
+                    root = ET.fromstring(citation_fields_str)
                     page_elem = root.find('.//Field[Name="Page"]/Value')
                     if page_elem is not None and page_elem.text:
                         page_text = page_elem.text
@@ -384,7 +387,8 @@ def find_census_citations(
 
                 if fields_blob:
                     try:
-                        root = ET.fromstring(fields_blob.decode('utf-8'))
+                        fields_str = fields_blob.decode('utf-8') if isinstance(fields_blob, bytes) else fields_blob
+                        root = ET.fromstring(fields_str)
                         footnote_elem = root.find('.//Field[Name="Footnote"]/Value')
                         short_elem = root.find('.//Field[Name="ShortFootnote"]/Value')
                         bib_elem = root.find('.//Field[Name="Bibliography"]/Value')
