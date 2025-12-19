@@ -131,9 +131,9 @@ class CitationFormatter:
         footnote_parts.append(f"{c.person_name};")
 
         # Add FamilySearch citation - correct format per Evidence Explained
-        # Collection title format: "United States Census, YYYY" (not "YYYY United States Federal Census")
+        # Collection title format: "United States, Census, YYYY" per FamilySearch official naming
         footnote_parts.append(
-            f'imaged, "United States Census, {c.census_year}," '
+            f'imaged, "United States, Census, {c.census_year}," '
             f"<i>FamilySearch</i>, ({c.familysearch_url} : accessed {c.access_date})."
         )
 
@@ -222,7 +222,7 @@ class CitationFormatter:
 
         bib_parts.extend([
             "Imaged.",
-            f'"{c.census_year} United States Federal Census."',
+            f'"United States, Census, {c.census_year}."',
             "<i>FamilySearch</i>",
             f"{c.familysearch_url} : {year_match.group(1) if year_match else ''}.",
         ])
@@ -260,9 +260,9 @@ class CitationFormatter:
 
         footnote_parts.append(f"{c.person_name};")
 
-        # Add FamilySearch citation
+        # Add FamilySearch citation - FamilySearch official naming
         footnote_parts.append(
-            f'imaged, "{c.census_year} United States Federal Census," '
+            f'imaged, "United States, Census, {c.census_year}," '
             f"<i>FamilySearch</i> ({c.familysearch_url} : accessed {c.access_date})."
         )
 
@@ -296,7 +296,7 @@ class CitationFormatter:
             f"{c.census_year} U.S Census.",
             "Population Schedule.",
             "Imaged.",
-            f'"{c.census_year} United States Federal Census".',
+            f'"United States, Census, {c.census_year}."',
             "<i>FamilySearch</i>",
             f"{c.familysearch_url} : {c.access_date[:4] if c.access_date else ''}.",
         ]
@@ -325,9 +325,9 @@ class CitationFormatter:
 
         footnote_parts.append(f"{c.person_name};")
 
-        # Add FamilySearch citation
+        # Add FamilySearch citation - FamilySearch official naming
         footnote_parts.append(
-            f'imaged, "{c.census_year} United States Federal Census," '
+            f'imaged, "United States, Census, {c.census_year}," '
             f"<i>FamilySearch</i> ({c.familysearch_url} : accessed {c.access_date})."
         )
 
@@ -359,7 +359,7 @@ class CitationFormatter:
             f"{c.county} County.",
             f"{c.census_year} U.S Census.",
             "Imaged.",
-            f'"{c.census_year} United States Federal Census".',
+            f'"United States, Census, {c.census_year}."',
             "<i>FamilySearch</i>",
             f"{c.familysearch_url} : {c.access_date[:4] if c.access_date else ''}.",
         ]

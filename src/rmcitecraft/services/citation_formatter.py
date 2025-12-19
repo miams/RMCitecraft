@@ -71,7 +71,7 @@ def format_1930_census_footnote(
     Format:
         1930 U.S. census, Greene County, Pennsylvania, Jefferson Township,
         enumeration district (ED) 30-17, sheet 13-A, line 15, George B Iams;
-        imaged, "United States Census, 1930," <i>FamilySearch</i>,
+        imaged, "United States, Census, 1930," <i>FamilySearch</i>,
         (https://www.familysearch.org/ark:/61903/1:1:XH3Z-4J8 : accessed 7 November 2020).
 
     Args:
@@ -108,7 +108,7 @@ def format_1930_census_footnote(
         f"sheet {extraction.sheet}"
         f"{line_str}, "
         f"{extraction.person_name}; "
-        f'imaged, "United States Census, {extraction.year}," '
+        f'imaged, "United States, Census, {extraction.year}," '
         f"<i>FamilySearch</i>, "
         f"({extraction.familysearch_url} : accessed {extraction.access_date})."
     )
@@ -187,7 +187,7 @@ def format_1930_census_bibliography(
 
     Format:
         U.S. Pennsylvania. Greene County. 1930 U.S Census.
-        Imaged. "1930 United States Federal Census". <i>FamilySearch</i>
+        Imaged. "United States, Census, 1930." <i>FamilySearch</i>
         https://www.familysearch.org/ark:/61903/1:1:XH3Z-4J8 : 2020.
 
     Note: "Population Schedule" is omitted for 1910-1940 because only population
@@ -208,11 +208,12 @@ def format_1930_census_bibliography(
 
     # For 1910-1940: Omit "Population Schedule" (only schedules that survived)
     # For 1900 and 1950: Include "Population Schedule" (multiple schedule types)
+    # Title format: FamilySearch official collection title with comma after States
     bibliography = (
         f"U.S. {place.state}. {place.county} County. "
         f"{extraction.year} U.S Census. "
         f"Imaged. "
-        f'"{extraction.year} United States Federal Census." '
+        f'"United States, Census, {extraction.year}." '
         f"<i>FamilySearch</i> "
         f"{extraction.familysearch_url} : {access_year}."
     )
@@ -340,7 +341,7 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
     footnote = (
         f"{year} U.S. census, {county} County, {state}{locality_str}"
         f"{ed_str}, {page_label} {page_value}, {household_label} {household_value}, {person}; "
-        f"imaged, \"United States Census, {year},\" <i>FamilySearch</i> "
+        f"imaged, \"United States, Census, {year},\" <i>FamilySearch</i> "
         f"({url} : accessed {access_date})."
     )
 
@@ -372,9 +373,10 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
     schedule_str = "" if 1910 <= year <= 1940 else "Population Schedule. "
     # Extract year from access_date for bibliography (e.g., "24 July 2015" -> "2015")
     access_year = access_date.split()[-1] if access_date else str(datetime.now().year)
+    # Title format: FamilySearch official collection title with comma after States
     bibliography = (
         f"U.S. {state}. {county} County. {year} U.S Census. {schedule_str}"
-        f"Imaged. \"United States Census, {year}\". <i>FamilySearch</i> "
+        f"Imaged. \"United States, Census, {year}.\" <i>FamilySearch</i> "
         f"{url} : {access_year}."
     )
 
