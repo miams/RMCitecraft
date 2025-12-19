@@ -120,6 +120,25 @@ See [DATABASE_PATTERNS.md](docs/reference/DATABASE_PATTERNS.md) for connection p
 
 For census citations, RootsMagic stores Footnote/ShortFootnote/Bibliography in **SourceTable.Fields BLOB**, NOT CitationTable TEXT fields. See [DATABASE_PATTERNS.md](docs/reference/DATABASE_PATTERNS.md#free-form-citation-architecture).
 
+### CRITICAL: Never Use Raw SQL String Functions on BLOB Fields
+
+**NEVER use SQLite string functions (REPLACE, SUBSTR, etc.) directly on BLOB columns via raw SQL commands.** These functions silently convert BLOB to TEXT, corrupting the data type and breaking applications that expect BLOB.
+
+```sql
+-- WRONG: Corrupts BLOB to TEXT
+UPDATE SourceTable SET Fields = REPLACE(Fields, 'old', 'new') WHERE ...;
+
+-- WRONG even with CAST (still corrupts internal encoding)
+UPDATE SourceTable SET Fields = CAST(REPLACE(Fields, 'old', 'new') AS BLOB) WHERE ...;
+```
+
+**Always use Python scripts** that properly decode/encode the BLOB:
+- `scripts/fix_census_titles.py` - Fix bibliography/footnote titles
+- `scripts/fix_1930_missing_sheet.py` - Fix missing sheet numbers
+- `scripts/fix_1930_short_footnote_ed.py` - Fix ED in short footnotes
+
+These scripts use `update_field_in_blob()` which correctly handles XML structure and BLOB encoding.
+
 ### Census Events are Shared Facts
 
 Census records are often shared via WitnessTable. Always check both owned events (EventTable) AND witnessed events (WitnessTable). See [DATABASE_PATTERNS.md](docs/reference/DATABASE_PATTERNS.md#census-events-shared-facts).

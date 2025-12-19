@@ -137,6 +137,21 @@ class CensusBatchTranscriptionTab:
                     ).props("color=purple").classes("w-full")
                     self._process_btn.disable()
 
+                    # Connection status section (initially hidden)
+                    self._connection_status_container = ui.column().classes("w-full mt-2")
+                    with self._connection_status_container:
+                        with ui.row().classes("w-full items-center gap-2 p-2 bg-red-50 rounded border border-red-200"):
+                            ui.icon("error", size="sm").classes("text-red-500")
+                            self._connection_status_text = ui.label("").classes(
+                                "text-sm text-red-700 flex-1"
+                            )
+                        self._reconnect_btn = ui.button(
+                            "Reconnect to Chrome",
+                            icon="refresh",
+                            on_click=self._attempt_reconnect,
+                        ).props("color=orange").classes("w-full mt-1")
+                    self._connection_status_container.set_visibility(False)
+
                     # Progress section
                     self._progress_container = ui.column().classes("w-full mt-4")
                     with self._progress_container:
@@ -370,25 +385,38 @@ class CensusBatchTranscriptionTab:
                 on_edge_warning=on_edge_warning,
             )
 
-            # Show results
-            self._progress_text.set_text(
-                f"Complete! {result.completed} imported, {result.errors} errors, "
-                f"{result.skipped} skipped, {result.edge_warnings} edge warnings"
-            )
-            self._progress_spinner.set_visibility(False)
+            # Check for connection error
+            if result.connection_error:
+                self._progress_spinner.set_visibility(False)
+                self._progress_text.set_text("Stopped: Browser connection failed")
+                self._show_connection_error(
+                    result.connection_error_message or "Browser connection lost"
+                )
+                ui.notify(
+                    "Processing stopped due to browser connection failure. "
+                    "Please reconnect and try again.",
+                    type="negative",
+                )
+            else:
+                # Show results
+                self._progress_text.set_text(
+                    f"Complete! {result.completed} imported, {result.errors} errors, "
+                    f"{result.skipped} skipped, {result.edge_warnings} edge warnings"
+                )
+                self._progress_spinner.set_visibility(False)
 
-            if edge_warnings_added[0] == 0:
-                self._edge_warnings_container.clear()
-                with self._edge_warnings_container:
-                    ui.label("No edge warnings").classes("text-gray-400 italic text-sm")
+                if edge_warnings_added[0] == 0:
+                    self._edge_warnings_container.clear()
+                    with self._edge_warnings_container:
+                        ui.label("No edge warnings").classes("text-gray-400 italic text-sm")
 
-            ui.notify(
-                f"Batch import complete: {result.completed} imported",
-                type="positive" if result.errors == 0 else "warning",
-            )
+                ui.notify(
+                    f"Batch import complete: {result.completed} imported",
+                    type="positive" if result.errors == 0 else "warning",
+                )
 
-            # Reload the queue to reflect processed items
-            await self._load_batch_queue()
+                # Reload the queue to reflect processed items
+                await self._load_batch_queue()
 
         except Exception as e:
             logger.error(f"Batch processing failed: {e}")
@@ -398,3 +426,47 @@ class CensusBatchTranscriptionTab:
         finally:
             self.batch_processing = False
             self._process_btn.enable()
+
+    def _show_connection_error(self, message: str) -> None:
+        """Show connection error status and reconnect button."""
+        self._connection_status_text.set_text(message)
+        self._connection_status_container.set_visibility(True)
+
+    def _hide_connection_error(self) -> None:
+        """Hide connection error status."""
+        self._connection_status_container.set_visibility(False)
+
+    async def _attempt_reconnect(self) -> None:
+        """Attempt to reconnect to Chrome browser."""
+        if not self.batch_service:
+            ui.notify("Batch service not initialized", type="warning")
+            return
+
+        self._reconnect_btn.disable()
+        self._connection_status_text.set_text("Reconnecting...")
+        ui.notify("Attempting to reconnect to Chrome...", type="info")
+
+        try:
+            success = await self.batch_service.reconnect_browser()
+
+            if success:
+                self._hide_connection_error()
+                ui.notify(
+                    "Successfully reconnected to Chrome! You can now resume processing.",
+                    type="positive",
+                )
+            else:
+                self._connection_status_text.set_text(
+                    "Reconnection failed. Please ensure Chrome is running with "
+                    "remote debugging enabled (port 9222) and has a tab open."
+                )
+                ui.notify(
+                    "Reconnection failed. Check Chrome is running with debugging enabled.",
+                    type="negative",
+                )
+        except Exception as e:
+            logger.error(f"Reconnection attempt failed: {e}")
+            self._connection_status_text.set_text(f"Reconnection error: {e}")
+            ui.notify(f"Reconnection failed: {e}", type="negative")
+        finally:
+            self._reconnect_btn.enable()

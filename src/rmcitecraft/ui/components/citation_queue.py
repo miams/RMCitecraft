@@ -130,6 +130,7 @@ class CitationQueueComponent:
         """Render batch action buttons."""
         with ui.row().classes("w-full items-center gap-2 p-2"):
             selected_count = len(self.selected_ids)
+            total_count = len(self.citations)
 
             # Count incomplete citations
             incomplete_count = sum(
@@ -137,15 +138,21 @@ class CitationQueueComponent:
                 if c.needs_manual_entry or c.status == CitationStatus.QUEUED
             )
 
-            # Toggle select/deselect button
-            all_incomplete_selected = (
-                selected_count == incomplete_count and incomplete_count > 0
-            )
+            # Select All / Deselect All button
+            all_selected = selected_count == total_count and total_count > 0
             ui.button(
-                "Deselect All" if all_incomplete_selected else f"Select Incomplete ({incomplete_count})",
-                icon="check_box_outline_blank" if all_incomplete_selected else "check_box",
-                on_click=self._toggle_select_incomplete,
+                "Deselect All" if all_selected else f"Select All ({total_count})",
+                icon="check_box_outline_blank" if all_selected else "select_all",
+                on_click=self._toggle_select_all,
             ).props("dense").classes("text-xs")
+
+            # Select Incomplete button (only show if there are incomplete items)
+            if incomplete_count > 0 and incomplete_count < total_count:
+                ui.button(
+                    f"Select Incomplete ({incomplete_count})",
+                    icon="check_box",
+                    on_click=self._toggle_select_incomplete,
+                ).props("dense").classes("text-xs")
 
     def _get_status_icon_color(self, status: CitationStatus) -> tuple[str, str]:
         """Get icon and color for citation status.
@@ -276,6 +283,21 @@ class CitationQueueComponent:
             value: New sort value
         """
         self.sort_by = value
+        self.refresh()
+
+    def _toggle_select_all(self) -> None:
+        """Toggle between selecting all citations and deselecting all."""
+        total_count = len(self.citations)
+
+        # If all are selected, deselect all
+        if len(self.selected_ids) == total_count and total_count > 0:
+            self.selected_ids.clear()
+        else:
+            # Otherwise, select all
+            self.selected_ids = {c.citation_id for c in self.citations}
+
+        if self.on_selection_change:
+            self.on_selection_change(self.selected_ids)
         self.refresh()
 
     def _toggle_select_incomplete(self) -> None:

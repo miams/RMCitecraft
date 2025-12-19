@@ -104,6 +104,9 @@ class CensusYearConfig:
     # Description for output
     description: str
 
+    # Optional: Alternative acceptable bibliography titles (e.g., Ancestry vs FamilySearch)
+    bibliography_alt_titles: list[str] | None = None
+
 
 def build_census_configs() -> dict[int, CensusYearConfig]:
     """Build explicit configurations for each census year.
@@ -687,15 +690,17 @@ def build_census_configs() -> dict[int, CensusYearConfig]:
     )
 
     # =========================================================================
-    # 1930 Census
+    # 1930 Census - Uses different source name format than 1940/1950
+    # Source names use: [citing enumeration district (ED) XXX, sheet YY, line ZZ, family FF]
+    # ED numbers are simple integers (not XX-YY format)
     # =========================================================================
     configs[1930] = CensusYearConfig(
         year=1930,
-        description="Fifteenth U.S. Census",
-        # Source name
+        description="Fifteenth U.S. Census - ED as simple integer",
+        # Source name - uses "[citing enumeration district (ED) XXX," format
         source_name_prefix="Fed Census: 1930,",
         source_name_requires_ed=True,
-        source_name_ed_pattern=r'\[ED (\d+[A-Z]?-\d+[A-Z]?),',
+        source_name_ed_pattern=r'\[citing enumeration district \(ED\) (\d+),',
         source_name_requires_sheet=True,
         source_name_requires_stamp=False,
         source_name_allows_sheet_or_stamp=False,
@@ -710,7 +715,7 @@ def build_census_configs() -> dict[int, CensusYearConfig]:
         footnote_allows_sheet_or_stamp=False,
         footnote_requires_line=True,
         footnote_line_required_with_sheet_only=False,
-        footnote_quoted_title="United States Census, 1930,",
+        footnote_quoted_title="United States, Census, 1930,",
         # Short footnote
         short_census_ref="1930 U.S. census",
         short_requires_ed=True,
@@ -721,8 +726,8 @@ def build_census_configs() -> dict[int, CensusYearConfig]:
         short_requires_line=True,
         short_line_required_with_sheet_only=False,
         short_requires_ending_period=True,
-        # Bibliography
-        bibliography_quoted_title="United States Census, 1930.",
+        # Bibliography - FamilySearch official title with trailing period
+        bibliography_quoted_title="United States, Census, 1930.",
         # Quality
         expected_citation_quality="PDO",
     )
@@ -751,7 +756,7 @@ def build_census_configs() -> dict[int, CensusYearConfig]:
         footnote_allows_sheet_or_stamp=False,
         footnote_requires_line=True,
         footnote_line_required_with_sheet_only=False,
-        footnote_quoted_title="United States Census, 1940,",
+        footnote_quoted_title="United States, Census, 1940,",
         # Short footnote
         short_census_ref="1940 U.S. census",
         short_requires_ed=True,
@@ -762,8 +767,8 @@ def build_census_configs() -> dict[int, CensusYearConfig]:
         short_requires_line=True,
         short_line_required_with_sheet_only=False,
         short_requires_ending_period=True,
-        # Bibliography
-        bibliography_quoted_title="United States Census, 1940.",
+        # Bibliography - FamilySearch official title with trailing period
+        bibliography_quoted_title="United States, Census, 1940.",
         # Quality
         expected_citation_quality="PDO",
     )
@@ -792,7 +797,7 @@ def build_census_configs() -> dict[int, CensusYearConfig]:
         footnote_allows_sheet_or_stamp=True,  # Either format is valid
         footnote_requires_line=False,
         footnote_line_required_with_sheet_only=True,  # Line only required with sheet format
-        footnote_quoted_title="United States Census, 1950,",
+        footnote_quoted_title="United States, Census, 1950,",
         # Short footnote
         short_census_ref="1950 U.S. census",
         short_requires_ed=True,
@@ -803,8 +808,8 @@ def build_census_configs() -> dict[int, CensusYearConfig]:
         short_requires_line=False,
         short_line_required_with_sheet_only=True,  # Line only required with sheet format
         short_requires_ending_period=True,
-        # Bibliography
-        bibliography_quoted_title="United States Census, 1950.",
+        # Bibliography - FamilySearch official title with trailing period (overriding FS's lack of period)
+        bibliography_quoted_title="United States, Census, 1950.",
         # Quality
         expected_citation_quality="PDO",
     )
@@ -840,6 +845,30 @@ VALID_STATES = {
     'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington',
     'West Virginia', 'Wisconsin', 'Wyoming', 'District of Columbia'
 }
+
+# State name to abbreviation mapping (Evidence Explained format for short footnotes)
+STATE_ABBREVIATIONS = {
+    'Alabama': 'Ala.', 'Alaska': 'Alaska', 'Arizona': 'Ariz.',
+    'Arkansas': 'Ark.', 'California': 'Calif.', 'Colorado': 'Colo.',
+    'Connecticut': 'Conn.', 'Delaware': 'Del.', 'Florida': 'Fla.',
+    'Georgia': 'Ga.', 'Hawaii': 'Hawaii', 'Idaho': 'Idaho',
+    'Illinois': 'Ill.', 'Indiana': 'Ind.', 'Iowa': 'Iowa',
+    'Kansas': 'Kans.', 'Kentucky': 'Ky.', 'Louisiana': 'La.',
+    'Maine': 'Maine', 'Maryland': 'Md.', 'Massachusetts': 'Mass.',
+    'Michigan': 'Mich.', 'Minnesota': 'Minn.', 'Mississippi': 'Miss.',
+    'Missouri': 'Mo.', 'Montana': 'Mont.', 'Nebraska': 'Nebr.',
+    'Nevada': 'Nev.', 'New Hampshire': 'N.H.', 'New Jersey': 'N.J.',
+    'New Mexico': 'N.M.', 'New York': 'N.Y.', 'North Carolina': 'N.C.',
+    'North Dakota': 'N.D.', 'Ohio': 'Ohio', 'Oklahoma': 'Okla.',
+    'Oregon': 'Oreg.', 'Pennsylvania': 'Pa.', 'Rhode Island': 'R.I.',
+    'South Carolina': 'S.C.', 'South Dakota': 'S.D.', 'Tennessee': 'Tenn.',
+    'Texas': 'Tex.', 'Utah': 'Utah', 'Vermont': 'Vt.', 'Virginia': 'Va.',
+    'Washington': 'Wash.', 'West Virginia': 'W.Va.', 'Wisconsin': 'Wis.',
+    'Wyoming': 'Wyo.', 'District of Columbia': 'D.C.'
+}
+
+# States that don't need abbreviation (already short enough)
+STATES_NO_ABBREVIATION_NEEDED = {'Alaska', 'Hawaii', 'Idaho', 'Iowa', 'Maine', 'Ohio', 'Utah'}
 
 
 # =============================================================================
@@ -962,8 +991,11 @@ def check_source_name(source_id: int, name: str, config: CensusYearConfig) -> li
             ))
 
     # Check ED requirement
+    # 1930 uses "[citing enumeration district (ED) XXX," format
+    # 1940+ uses "[ED XX-YY," format
     if config.source_name_requires_ed:
-        if '[ED' not in name:
+        has_ed = '[ED' in name or '[citing enumeration district (ED)' in name
+        if not has_ed:
             issues.append(Issue(
                 source_id=source_id,
                 issue_type="source_name_missing_ed",
@@ -1289,6 +1321,179 @@ def check_short_footnote(source_id: int, short_footnote: str, config: CensusYear
     return issues
 
 
+def check_short_footnote_state_abbreviation(
+    source_id: int,
+    short_footnote: str,
+    source_name: str,
+    config: CensusYearConfig
+) -> list[Issue]:
+    """Check that state name in short footnote is properly abbreviated.
+
+    For 1940 and 1950 Census short footnotes, state names should use
+    Evidence Explained abbreviations (e.g., Tennessee → Tenn., Michigan → Mich.)
+
+    Args:
+        source_id: Database source ID
+        short_footnote: Short footnote text
+        source_name: Source name (to extract expected state)
+        config: Census year configuration
+
+    Returns:
+        List of issues found
+    """
+    issues = []
+    year = config.year
+
+    # Only check 1940 and 1950 for now (can expand later)
+    if year not in (1940, 1950):
+        return issues
+
+    if not short_footnote:
+        return issues
+
+    # Extract state from source name
+    state_match = re.match(rf'Fed Census: {year}, ([^,]+),', source_name)
+    if not state_match:
+        return issues
+
+    state_from_source = state_match.group(1).strip()
+
+    # Skip if state name is not in our valid states list
+    if state_from_source not in VALID_STATES:
+        return issues
+
+    # Get expected abbreviation
+    expected_abbr = STATE_ABBREVIATIONS.get(state_from_source)
+    if not expected_abbr:
+        return issues
+
+    # Check if full state name appears in short footnote (should be abbreviated)
+    # Skip states that don't need abbreviation (Alaska, Hawaii, Idaho, Iowa, Maine, Ohio, Utah)
+    if state_from_source in STATES_NO_ABBREVIATION_NEEDED:
+        return issues
+
+    # Look for unabbreviated state name in short footnote
+    # Pattern: state name followed by comma (to avoid matching county names that include state name)
+    # e.g., "Tennessee," or "Michigan," instead of "Tenn.," or "Mich.,"
+    # Be careful not to match "New York Co." (county name) as state issue
+    found_issue = False
+
+    unabbr_pattern = rf'\b{re.escape(state_from_source)},(?!\s*Co\.)'
+    if re.search(unabbr_pattern, short_footnote):
+        found_issue = True
+
+    # Also check for state name appearing after "census, County Co.,"
+    # Short footnote format: "1940 U.S. census, County Co., State Abbr., E.D. xx-xx, ..."
+    if not found_issue:
+        county_state_pattern = rf'census,\s+[^,]+\s+Co\.,\s+({re.escape(state_from_source)})[,\s]'
+        if re.search(county_state_pattern, short_footnote):
+            found_issue = True
+
+    if found_issue:
+        issues.append(Issue(
+            source_id=source_id,
+            issue_type="short_state_not_abbreviated",
+            severity="error",
+            message=f"State name '{state_from_source}' should be abbreviated to '{expected_abbr}'",
+            field="short_footnote",
+            current_value=state_from_source,
+            expected_value=expected_abbr
+        ))
+
+    return issues
+
+
+def check_bibliography_state(
+    source_id: int,
+    bibliography: str,
+    source_name: str,
+    config: CensusYearConfig
+) -> list[Issue]:
+    """Check that state is present in bibliography and matches source name.
+
+    Bibliography format should include state, e.g.:
+    "U.S. State. County County. 1950 U.S Census..."
+
+    Args:
+        source_id: Database source ID
+        bibliography: Bibliography text
+        source_name: Source name (to extract expected state)
+        config: Census year configuration
+
+    Returns:
+        List of issues found
+    """
+    issues = []
+    year = config.year
+
+    # Only check 1940 and 1950 for now (can expand later)
+    if year not in (1940, 1950):
+        return issues
+
+    if not bibliography:
+        return issues
+
+    # Extract state from source name
+    state_match = re.match(rf'Fed Census: {year}, ([^,]+),', source_name)
+    if not state_match:
+        return issues
+
+    state_from_source = state_match.group(1).strip()
+
+    # Skip if state name is not in our valid states list
+    if state_from_source not in VALID_STATES:
+        return issues
+
+    # Check if state appears in bibliography
+    # Bibliography format: "U.S. State. County County. 1950 U.S Census..."
+    # Pattern: "U.S. State." at beginning
+    bib_state_pattern = rf'^U\.S\.\s+{re.escape(state_from_source)}\.'
+
+    if not re.search(bib_state_pattern, bibliography):
+        # Check for empty state pattern "U.S. . County"
+        empty_state_pattern = r'^U\.S\.\s+\.\s+'
+        if re.search(empty_state_pattern, bibliography):
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="bibliography_missing_state",
+                severity="error",
+                message=f"Bibliography has empty state, should be '{state_from_source}'",
+                field="bibliography",
+                current_value="(empty)",
+                expected_value=state_from_source
+            ))
+        else:
+            # Check if a different state is present
+            other_state_pattern = r'^U\.S\.\s+([^.]+)\.'
+            other_match = re.search(other_state_pattern, bibliography)
+            if other_match:
+                found_state = other_match.group(1).strip()
+                # Only report if found_state is a valid state but different
+                if found_state in VALID_STATES and found_state != state_from_source:
+                    issues.append(Issue(
+                        source_id=source_id,
+                        issue_type="bibliography_wrong_state",
+                        severity="error",
+                        message=f"Bibliography has wrong state '{found_state}', should be '{state_from_source}'",
+                        field="bibliography",
+                        current_value=found_state,
+                        expected_value=state_from_source
+                    ))
+                elif found_state and found_state not in VALID_STATES:
+                    # Something else is in the state position
+                    issues.append(Issue(
+                        source_id=source_id,
+                        issue_type="bibliography_invalid_state",
+                        severity="error",
+                        message=f"Bibliography has invalid state value '{found_state}', should be '{state_from_source}'",
+                        field="bibliography",
+                        current_value=found_state,
+                        expected_value=state_from_source
+                    ))
+
+    return issues
+
+
 def check_bibliography(source_id: int, bibliography: str, config: CensusYearConfig) -> list[Issue]:
     """Check bibliography format and content using explicit config rules."""
     issues = []
@@ -1303,12 +1508,17 @@ def check_bibliography(source_id: int, bibliography: str, config: CensusYearConf
         ))
         return issues
 
-    # Check quoted title
+    # Check quoted title - accept primary title or any alternative titles
     title_match = re.search(r'["\u201c]([^"\u201d]+)["\u201d]', bibliography) or \
                   re.search(r'&quot;([^&]+)&quot;', bibliography)
     if title_match:
         title = title_match.group(1)
-        if title != config.bibliography_quoted_title:
+        # Build list of acceptable titles
+        acceptable_titles = [config.bibliography_quoted_title]
+        if config.bibliography_alt_titles:
+            acceptable_titles.extend(config.bibliography_alt_titles)
+
+        if title not in acceptable_titles:
             issues.append(Issue(
                 source_id=source_id,
                 issue_type="bibliography_wrong_title",
@@ -1319,16 +1529,8 @@ def check_bibliography(source_id: int, bibliography: str, config: CensusYearConf
                 expected_value=config.bibliography_quoted_title
             ))
 
-    # Check for trailing period after closing quote (common error)
-    if f'"{config.bibliography_quoted_title}".' in bibliography or \
-       f'&quot;{config.bibliography_quoted_title}&quot;.' in bibliography:
-        issues.append(Issue(
-            source_id=source_id,
-            issue_type="bibliography_trailing_period",
-            severity="warning",
-            message="Trailing period after closing quote in bibliography",
-            field="bibliography"
-        ))
+    # Note: Period after closing quote (e.g., "Title".) is CORRECT for bibliography format
+    # This is standard Evidence Explained style, so we don't flag it as an error
 
     # Check for double spaces
     if '  ' in bibliography:
@@ -1431,6 +1633,80 @@ def check_media(conn: sqlite3.Connection, year: int) -> tuple[list[Issue], dict]
     }
 
 
+def check_unused_sources(conn: sqlite3.Connection, year: int) -> tuple[list[Issue], dict]:
+    """Check for sources with no citations attached (orphaned sources)."""
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT s.SourceID, s.Name
+        FROM SourceTable s
+        WHERE s.Name LIKE ?
+        AND NOT EXISTS (SELECT 1 FROM CitationTable c WHERE c.SourceID = s.SourceID)
+    ''', (f'Fed Census: {year},%',))
+
+    issues = []
+    unused_count = 0
+
+    for source_id, name in cursor.fetchall():
+        unused_count += 1
+        issues.append(Issue(
+            source_id=source_id,
+            issue_type="unused_source",
+            severity="warning",
+            message="Source has no citations attached",
+            field="source",
+            current_value=name
+        ))
+
+    return issues, {"unused_sources": unused_count}
+
+
+def check_duplicate_sources(conn: sqlite3.Connection, year: int) -> tuple[list[Issue], dict]:
+    """Check for duplicate sources with same ED/sheet/line combination."""
+    cursor = conn.cursor()
+
+    # Find sources that share the same location key (everything except person name)
+    # Extract the bracketed portion which contains ED, sheet, line
+    cursor.execute('''
+        SELECT
+            s.SourceID,
+            s.Name
+        FROM SourceTable s
+        WHERE s.Name LIKE ?
+        ORDER BY s.Name
+    ''', (f'Fed Census: {year},%',))
+
+    # Group by location key (everything up to the person name in brackets)
+    location_groups: dict[str, list[tuple[int, str]]] = {}
+    for source_id, name in cursor.fetchall():
+        # Extract location key: everything up to and including the line number
+        # Pattern: Fed Census: YYYY, State, County [ED/citing... sheet X, line Y
+        match = re.search(r'^(Fed Census: \d+, [^[]+\[[^\]]+line \d+)', name)
+        if match:
+            location_key = match.group(1)
+            if location_key not in location_groups:
+                location_groups[location_key] = []
+            location_groups[location_key].append((source_id, name))
+
+    issues = []
+    duplicate_groups = 0
+
+    for location_key, sources in location_groups.items():
+        if len(sources) > 1:
+            duplicate_groups += 1
+            for source_id, name in sources:
+                issues.append(Issue(
+                    source_id=source_id,
+                    issue_type="duplicate_source",
+                    severity="error",
+                    message=f"Duplicate source ({len(sources)} sources share same ED/sheet/line)",
+                    field="source",
+                    current_value=name
+                ))
+
+    return issues, {"duplicate_groups": duplicate_groups, "duplicate_sources": len(issues)}
+
+
 # =============================================================================
 # Main Quality Check Function
 # =============================================================================
@@ -1500,7 +1776,9 @@ def run_quality_check(db_path: Path, year: int) -> QualityCheckResult:
 
         all_issues.extend(check_footnote(source_id, footnote, config))
         all_issues.extend(check_short_footnote(source_id, short_footnote, config))
+        all_issues.extend(check_short_footnote_state_abbreviation(source_id, short_footnote, name, config))
         all_issues.extend(check_bibliography(source_id, bibliography, config))
+        all_issues.extend(check_bibliography_state(source_id, bibliography, name, config))
 
     # Citation quality checks
     quality_issues, quality_summary = check_citation_quality(conn, year, config)
@@ -1509,6 +1787,14 @@ def run_quality_check(db_path: Path, year: int) -> QualityCheckResult:
     # Media checks
     media_issues, media_summary = check_media(conn, year)
     all_issues.extend(media_issues)
+
+    # Unused sources (no citations attached)
+    unused_issues, unused_summary = check_unused_sources(conn, year)
+    all_issues.extend(unused_issues)
+
+    # Duplicate sources (same ED/sheet/line)
+    duplicate_issues, duplicate_summary = check_duplicate_sources(conn, year)
+    all_issues.extend(duplicate_issues)
 
     conn.close()
 
@@ -1525,7 +1811,9 @@ def run_quality_check(db_path: Path, year: int) -> QualityCheckResult:
         "by_severity": dict(severity_summary),
         "by_field": dict(field_summary),
         "quality": quality_summary,
-        "media": media_summary
+        "media": media_summary,
+        "unused": unused_summary,
+        "duplicates": duplicate_summary
     }
 
     return result
@@ -1586,6 +1874,18 @@ def format_text_output(result: QualityCheckResult) -> str:
         lines.append(f"  Single media: {media.get('single_media', 0)}")
         lines.append(f"  Multiple media: {media.get('multiple_media', 0)}")
         lines.append("")
+
+    if result.summary.get('unused'):
+        unused = result.summary['unused']
+        if unused.get('unused_sources', 0) > 0:
+            lines.append(f"Unused sources (no citations): {unused.get('unused_sources', 0)}")
+            lines.append("")
+
+    if result.summary.get('duplicates'):
+        dups = result.summary['duplicates']
+        if dups.get('duplicate_sources', 0) > 0:
+            lines.append(f"Duplicate sources: {dups.get('duplicate_sources', 0)} sources in {dups.get('duplicate_groups', 0)} groups")
+            lines.append("")
 
     if result.issues:
         lines.append("Sample issues (first 10):")

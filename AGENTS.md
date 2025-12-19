@@ -72,6 +72,7 @@ LLM coding agents should:
 - **Never use deprecated datetime.utcnow()** (use `datetime.now(timezone.utc)`)
 - **Never write citations to CitationTable TEXT fields for free-form sources** (TemplateID=0 uses SourceTable.Fields BLOB)
 - **Never assume census events are owned by the person** (check WitnessTable for shared facts)
+- **NEVER use SQLite string functions (REPLACE, SUBSTR, etc.) on BLOB columns** - they silently convert BLOB to TEXT, corrupting the database. Always use Python scripts with proper BLOB encoding/decoding (see `scripts/fix_census_titles.py` for pattern)
 - **Never confuse `rmtree_citation_id` column** in batch_state.db - it actually contains Source IDs, not Citation IDs
 - **Never extract "Vacant" entries** from FamilySearch census as persons (these are empty dwelling markers)
 - **Never rely on exact name match only** - FamilySearch often has initials while RootsMagic has full names

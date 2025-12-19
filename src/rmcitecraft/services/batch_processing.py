@@ -226,12 +226,18 @@ class BatchProcessingController:
         self.session: BatchProcessingSession | None = None
         self.validator = CensusDataValidator()
 
-    def create_session(self, census_year: int, citations_data: list[dict]) -> BatchProcessingSession:
+    def create_session(
+        self,
+        census_year: int,
+        citations_data: list[dict],
+        force_reprocess: bool = False,
+    ) -> BatchProcessingSession:
         """Create a new batch processing session.
 
         Args:
             census_year: Census year being processed
             citations_data: List of citation data dictionaries from database query
+            force_reprocess: If True, mark all citations as QUEUED even if they appear complete
 
         Returns:
             New BatchProcessingSession instance
@@ -254,8 +260,11 @@ class BatchProcessingController:
                 if re.match(r'^\d{4}\s+U\.S\.\s+census,', footnote):
                     is_evidence_explained = True
 
-            # Determine initial status based on whether Evidence Explained citations exist
-            initial_status = CitationStatus.COMPLETE if is_evidence_explained else CitationStatus.QUEUED
+            # Determine initial status - force_reprocess overrides Evidence Explained check
+            if force_reprocess:
+                initial_status = CitationStatus.QUEUED
+            else:
+                initial_status = CitationStatus.COMPLETE if is_evidence_explained else CitationStatus.QUEUED
 
             # Use citation's own census_year if available, fallback to session-level
             item_census_year = data.get('census_year') or census_year

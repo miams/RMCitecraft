@@ -29,6 +29,7 @@ from rmcitecraft.database.census_transcription_repository import (
 from rmcitecraft.database.connection import connect_rmtree
 from rmcitecraft.services.census_edge_detection import detect_edge_conditions
 from rmcitecraft.services.census_rmtree_matcher import create_matcher
+from rmcitecraft.services.familysearch_automation import CDPConnectionError
 from rmcitecraft.services.familysearch_census_extractor import (
     FamilySearchCensusExtractor,
 )
@@ -44,6 +45,8 @@ class BatchResult:
     skipped: int = 0
     edge_warnings: int = 0
     error_messages: list[str] | None = None
+    connection_error: bool = False  # True if stopped due to CDPConnectionError
+    connection_error_message: str | None = None
 
     @property
     def success_rate(self) -> float:
@@ -105,6 +108,43 @@ class CensusTranscriptionBatchService:
         if self._extractor is None:
             self._extractor = FamilySearchCensusExtractor()
         return self._extractor
+
+    async def reconnect_browser(self) -> bool:
+        """Attempt to reconnect to Chrome browser.
+
+        Resets failure count and attempts a fresh connection.
+        Call this after fixing browser issues (starting Chrome, opening tab).
+
+        Returns:
+            True if reconnection successful, False otherwise
+        """
+        logger.info("Attempting browser reconnection...")
+
+        # Disconnect existing connection first
+        await self.extractor.disconnect()
+
+        # Reset the failure count in automation service
+        self.extractor.automation.reset_failure_count()
+
+        # Try to connect
+        success = await self.extractor.connect()
+
+        if success:
+            logger.info("Browser reconnection successful")
+        else:
+            logger.warning("Browser reconnection failed")
+
+        return success
+
+    @property
+    def connection_status(self) -> str:
+        """Get current browser connection status as string for UI."""
+        return self.extractor.automation.connection_status.value
+
+    @property
+    def connection_error_message(self) -> str | None:
+        """Get last connection error message, if any."""
+        return self.extractor.automation.last_error
 
     @property
     def matcher(self):
@@ -428,6 +468,15 @@ class CensusTranscriptionBatchService:
                         edge_warning_count=result.edge_warnings,
                     )
 
+                except CDPConnectionError as e:
+                    # Browser connection failed - stop batch immediately
+                    logger.error(f"Browser connection failed: {e}")
+                    result.connection_error = True
+                    result.connection_error_message = str(e)
+                    result.error_messages.append(f"CONNECTION ERROR: {str(e)}")
+                    # Break out of the loop - don't continue processing
+                    break
+
                 except Exception as e:
                     logger.error(f"Error processing item {item.item_id}: {e}")
                     result.errors += 1
@@ -438,6 +487,13 @@ class CensusTranscriptionBatchService:
                         "error",
                         error_message=str(e),
                     )
+
+        except CDPConnectionError as e:
+            # Catch CDPConnectionError from extractor.connect() or initial setup
+            logger.error(f"Browser connection failed during batch setup: {e}")
+            result.connection_error = True
+            result.connection_error_message = str(e)
+            result.error_messages.append(f"CONNECTION ERROR: {str(e)}")
 
         finally:
             # Complete session
