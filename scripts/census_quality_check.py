@@ -608,19 +608,19 @@ def build_census_configs() -> dict[int, CensusYearConfig]:
     )
 
     # =========================================================================
-    # 1910 Census
+    # 1910 Census - FamilySearch does NOT extract line numbers for 1910
     # =========================================================================
     configs[1910] = CensusYearConfig(
         year=1910,
-        description="Thirteenth U.S. Census",
+        description="Thirteenth U.S. Census (no line numbers from FamilySearch)",
         # Source name
         source_name_prefix="Fed Census: 1910,",
         source_name_requires_ed=True,
-        source_name_ed_pattern=r'\[ED (\d+[A-Z]?-\d+[A-Z]?),',
+        source_name_ed_pattern=r'\[citing enumeration district \(ED\) (\d+),',
         source_name_requires_sheet=True,
         source_name_requires_stamp=False,
         source_name_allows_sheet_or_stamp=False,
-        source_name_requires_line=True,
+        source_name_requires_line=False,  # FamilySearch doesn't provide line numbers for 1910
         source_name_line_required_with_sheet_only=False,
         # Footnote
         footnote_census_ref="1910 U.S. census",
@@ -629,9 +629,9 @@ def build_census_configs() -> dict[int, CensusYearConfig]:
         footnote_requires_sheet=True,
         footnote_requires_stamp=False,
         footnote_allows_sheet_or_stamp=False,
-        footnote_requires_line=True,
+        footnote_requires_line=False,  # FamilySearch doesn't provide line numbers for 1910
         footnote_line_required_with_sheet_only=False,
-        footnote_quoted_title="United States Census, 1910,",
+        footnote_quoted_title="United States, Census, 1910,",
         # Short footnote
         short_census_ref="1910 U.S. census",
         short_requires_ed=True,
@@ -639,11 +639,11 @@ def build_census_configs() -> dict[int, CensusYearConfig]:
         short_requires_sheet=True,
         short_requires_stamp=False,
         short_allows_sheet_or_stamp=False,
-        short_requires_line=True,
+        short_requires_line=False,  # FamilySearch doesn't provide line numbers for 1910
         short_line_required_with_sheet_only=False,
         short_requires_ending_period=True,
         # Bibliography
-        bibliography_quoted_title="United States Census, 1910.",
+        bibliography_quoted_title="United States, Census, 1910.",
         # Quality
         expected_citation_quality="PDO",
     )
@@ -945,13 +945,13 @@ def connect_database(db_path: Path) -> sqlite3.Connection:
 # Validation Functions
 # =============================================================================
 
-def extract_field_from_blob(fields_blob: bytes, field_name: str) -> str:
+def extract_field_from_blob(fields_blob: bytes | str | None, field_name: str) -> str:
     """Extract a field value from the Fields BLOB XML structure."""
     if not fields_blob:
         return ""
 
     try:
-        fields_text = fields_blob.decode('utf-8', errors='ignore')
+        fields_text = fields_blob.decode('utf-8', errors='ignore') if isinstance(fields_blob, bytes) else fields_blob
         pattern = rf'<Name>{field_name}</Name>\s*<Value>(.*?)</Value>'
         match = re.search(pattern, fields_text, re.DOTALL)
         return match.group(1) if match else ""
