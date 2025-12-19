@@ -795,7 +795,9 @@ class BatchProcessingTab:
             ui.label('Census Batch Processing').classes('text-lg font-bold mb-4')
 
             progress_label = ui.label('Starting...').classes('text-sm mb-2')
-            progress_bar = ui.linear_progress(value=0).props('instant-feedback')
+            with ui.row().classes('w-full items-center gap-2'):
+                progress_bar = ui.linear_progress(value=0, show_value=False).props('instant-feedback').classes('flex-grow')
+                progress_pct = ui.label('0.0%').classes('text-sm font-medium w-16 text-right')
 
             status_label = ui.label('').classes('text-xs text-gray-600 mt-2')
             health_label = ui.label('').classes('text-xs text-blue-600 mt-1')
@@ -817,7 +819,9 @@ class BatchProcessingTab:
         for i, citation in enumerate(citations_to_process, 1):
             # Update progress
             progress_label.text = f"Processing {i} of {total}: {citation.full_name}"
+            pct = (i / total) * 100
             progress_bar.value = i / total
+            progress_pct.text = f"{pct:.1f}%"
             status_label.text = f"{processed} completed, {errors} errors, {skipped} skipped"
 
             start_time = time.time()
