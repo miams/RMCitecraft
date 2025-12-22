@@ -96,7 +96,7 @@ tests/
 └── e2e/                   # Browser automation tests
 ```
 
-## Critical: Database Safety
+## Database Safety (Critical)
 
 ### Working Copy Architecture
 
@@ -120,24 +120,25 @@ See [DATABASE_PATTERNS.md](docs/reference/DATABASE_PATTERNS.md) for connection p
 
 For census citations, RootsMagic stores Footnote/ShortFootnote/Bibliography in **SourceTable.Fields BLOB**, NOT CitationTable TEXT fields. See [DATABASE_PATTERNS.md](docs/reference/DATABASE_PATTERNS.md#free-form-citation-architecture).
 
-### CRITICAL: Never Use Raw SQL String Functions on BLOB Fields
+### Working with SourceTable.Fields BLOB
 
-**NEVER use SQLite string functions (REPLACE, SUBSTR, etc.) directly on BLOB columns via raw SQL commands.** These functions silently convert BLOB to TEXT, corrupting the data type and breaking applications that expect BLOB.
+The `Fields` column is an **XML document** stored as BLOB. It contains HTML formatting tags (`<i>`, `<b>`, `<u>`) that must be XML entity-encoded (e.g., `&lt;i&gt;FamilySearch&lt;/i&gt;`).
 
-```sql
--- WRONG: Corrupts BLOB to TEXT
-UPDATE SourceTable SET Fields = REPLACE(Fields, 'old', 'new') WHERE ...;
+**Rules:**
+1. **Never use SQL string functions** (REPLACE, SUBSTR) on BLOB - they corrupt the data type
+2. **Reading**: Use `CAST(Fields AS TEXT)` - entities stay encoded
+3. **Writing**: Use `.encode('utf-8')` - don't decode entities
 
--- WRONG even with CAST (still corrupts internal encoding)
-UPDATE SourceTable SET Fields = CAST(REPLACE(Fields, 'old', 'new') AS BLOB) WHERE ...;
+```python
+# CORRECT pattern
+cursor.execute('SELECT CAST(Fields AS TEXT) FROM SourceTable WHERE SourceID = ?', (id,))
+fields = cursor.fetchone()[0]
+new_fields = fields.replace('old text', 'new text')  # Entities preserved
+cursor.execute('UPDATE SourceTable SET Fields = ? WHERE SourceID = ?',
+               (new_fields.encode('utf-8'), id))
 ```
 
-**Always use Python scripts** that properly decode/encode the BLOB:
-- `scripts/fix_census_titles.py` - Fix bibliography/footnote titles
-- `scripts/fix_1930_missing_sheet.py` - Fix missing sheet numbers
-- `scripts/fix_1930_short_footnote_ed.py` - Fix ED in short footnotes
-
-These scripts use `update_field_in_blob()` which correctly handles XML structure and BLOB encoding.
+**Note:** Other tables (PersonTable.Note, etc.) use raw HTML since they're TEXT fields, not XML.
 
 ### Census Events are Shared Facts
 
@@ -295,22 +296,14 @@ browser = await playwright.chromium.connect_over_cdp("http://localhost:9222")
 2. Check year-specific rules (1950 uses "stamp", 1900+ requires ED)
 3. Run validation tests: `uv run pytest tests/unit/test_formatted_citation_validator.py -v`
 
-## Notes
+## Key Rules
 
-- **Read-heavy, write-sensitive**: All database writes must be atomic and logged
-- **User approval required** before modifying database
-- **Always load ICU extension** for RMNOCASE collation
-- **Never commit `.env`** with secrets to version control
-
-## Evolving This File
-
-This file loads with every Claude Code conversation. Keep it concise:
-
-- **Add instructions you repeat** using `#` during conversations
-- **Move detailed content** to reference docs in `docs/`
-- **Remove theoretical content** that doesn't reflect actual practice
-- **Update when implementation changes** to stay accurate
+1. **Get user approval** before any database writes
+2. **Load ICU extension** before all database queries (use `connect_rmtree()`)
+3. **Read files first** before modifying them
+4. **Run tests** after changes: `uv run pytest tests/unit/test_<module>.py -v`
+5. **Never commit** `.env` files with secrets
 
 ---
 
-*Last updated: 2025-12-05*
+*Keep this file concise. Move detailed content to `docs/`. Update when implementation changes.*

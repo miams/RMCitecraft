@@ -134,9 +134,12 @@ class YearSpecificHandler:
         )
 
         # Sheet vs page vs stamp depends on year
-        uses_sheet = self._year >= 1880 and self._year < 1950
-        uses_page = self._year < 1880 or self._year == 1950
-        uses_stamp = self._year == 1950
+        # 1880: uses stamped page numbers, not sheets
+        # 1890-1940: uses sheet numbers with letter suffix (e.g., 5A, 12B)
+        # 1950: uses stamp numbers
+        uses_sheet = self._year >= 1890 and self._year < 1950
+        uses_page = self._year <= 1880 or self._year == 1950
+        uses_stamp = self._year == 1950 or self._year == 1880  # 1880 uses "(stamped)"
 
         # Dwelling and family numbers exist for individual-era censuses
         uses_dwelling = has_individual
