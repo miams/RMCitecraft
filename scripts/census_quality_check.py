@@ -1412,6 +1412,37 @@ def check_cross_field_consistency(
                 category="consistency",
             ))
 
+    # Check ED number is present in footnote when source name has ED
+    # This catches cases where footnote has "enumeration district (ED) ," with no number
+    if name_comp.ed and config.footnote_requires_ed:
+        # Check footnote has actual ED number
+        has_ed_in_footnote = bool(re.search(r'enumeration district \(ED\)\s*\d+', footnote, re.IGNORECASE))
+        if not has_ed_in_footnote:
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="missing_ed_number_footnote",
+                severity="error",
+                message="Footnote has 'enumeration district (ED)' but no number",
+                field="footnote",
+                current_value="ED number missing after 'enumeration district (ED)'",
+                expected_value=f"ED {name_comp.ed}",
+                category="missing",
+            ))
+
+        # Check short footnote has actual ED number
+        has_ed_in_short = bool(re.search(r'E\.D\.\s*\d+', short_footnote))
+        if not has_ed_in_short:
+            issues.append(Issue(
+                source_id=source_id,
+                issue_type="missing_ed_number_short",
+                severity="error",
+                message="Short footnote has 'E.D.' but no number",
+                field="short_footnote",
+                current_value="ED number missing after 'E.D.'",
+                expected_value=f"E.D. {name_comp.ed}",
+                category="missing",
+            ))
+
     # Check sheet consistency
     if name_comp.sheet and fn_comp.sheet:
         if name_comp.sheet != fn_comp.sheet:
