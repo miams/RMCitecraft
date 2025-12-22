@@ -2,7 +2,7 @@
 
 > **For LLMs**: This compact index contains essential docs only.
 > For complete documentation, see `docs/FULL_INDEX.md`.
-> Last generated: 2025-12-19 22:57:24 UTC
+> Last generated: 2025-12-22 15:23:03 UTC
 
 **Essential docs**: 15 | 
 **Total docs**: 81 (use Glob/Grep for full search)
@@ -46,7 +46,7 @@
 - Project Overview
 - Before Modifying Code
 - Project Structure
-- Critical: Database Safety
+- Database Safety (Critical)
 - Citation Formatting
 - Testing
 - Configuration

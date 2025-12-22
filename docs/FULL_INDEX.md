@@ -2,7 +2,7 @@
 
 > Complete documentation index for developers.
 > For LLM-optimized compact map, see `claude_code_docs_map.md` in repo root.
-> Last generated: 2025-12-19 22:57:24 UTC
+> Last generated: 2025-12-22 15:23:03 UTC
 
 ## Summary
 
@@ -83,11 +83,11 @@
   - Core Features
 - Before Modifying Code
 - Project Structure
-- Critical: Database Safety
+- Database Safety (Critical)
   - Working Copy Architecture
   - RMNOCASE Collation (Required)
   - Free-Form Citations (TemplateID=0)
-  - CRITICAL: Never Use Raw SQL String Functions on BLOB Fields
+  - Working with SourceTable.Fields BLOB
   - Census Events are Shared Facts
 - Citation Formatting
   - Evidence Explained Format
@@ -107,8 +107,7 @@
   - Adding a New Database Record Type
   - Modifying Batch Processing
   - Updating Citation Validation
-- Notes
-- Evolving This File
+- Key Rules
 
 ### [Product Requirements Document: RMCitecraft (v2.0)](https://github.com/mikeiacovacci/RMCitecraft/blob/main/PRD.md) 
 
