@@ -192,6 +192,13 @@ class DetailPageStrategy(PlaywrightExtractionStrategy):
             elif dwelling:
                 person["dwelling_number"] = dwelling
 
+        # Process house_number for 1850: FamilySearch's "House Number" is the dwelling number
+        if "house_number" in extended and census_year == 1850:
+            dwelling = handler.parse_house_number(extended["house_number"])
+            if dwelling and "dwelling_number" not in person:
+                person["dwelling_number"] = dwelling
+                logger.debug(f"[{self.get_strategy_name()}] 1850: house_number -> dwelling_number: {dwelling}")
+
         # Process enumeration district
         if "enumeration_district" in page_data:
             parsed_ed = handler.parse_enumeration_district(

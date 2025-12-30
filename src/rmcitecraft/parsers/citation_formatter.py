@@ -12,6 +12,19 @@ from rmcitecraft.models.citation import ParsedCitation
 class CitationFormatter:
     """Format parsed citations according to Evidence Explained standards."""
 
+    @staticmethod
+    def _format_sheet_with_hyphen(sheet: str) -> str:
+        """Format sheet number with hyphen for 1900-1940 census.
+
+        Converts: 6B → 6-B, 12A → 12-A
+        Already hyphenated values pass through unchanged.
+        """
+        import re
+        # Add hyphen if not already present: 6B → 6-B
+        if re.match(r'^\d+[AB]$', sheet):
+            return f"{sheet[:-1]}-{sheet[-1]}"
+        return sheet
+
     def format(
         self,
         citation: ParsedCitation,
@@ -25,12 +38,21 @@ class CitationFormatter:
             Tuple of (footnote, short_footnote, bibliography).
         """
         year = citation.census_year
+        schedule_type = getattr(citation, 'schedule_type', 'population')
 
-        # Select template based on census year
+        # Route slave schedules to dedicated formatter
+        if schedule_type == "slave":
+            return self._format_slave_schedule(citation)
+
+        # Select template based on census year for population schedules
         if year <= 1840:
             return self._format_1790_1840(citation)
-        elif year < 1880:
-            return self._format_1850_1870(citation)
+        elif year == 1850:
+            return self._format_1850(citation)
+        elif year == 1860:
+            return self._format_1860(citation)
+        elif year == 1870:
+            return self._format_1870(citation)
         elif year == 1880:
             return self._format_1880(citation)
         elif year == 1890:
@@ -55,18 +77,38 @@ class CitationFormatter:
             1880: "[citing enumeration district (ED) 146, page 92 (stamped), line 9]"
             1850-1870: "[citing sheet 3B, dwelling 123, family 57]"
             1790-1840: "[citing sheet 3B]"
+            Slave: "[citing page 21, line 40, column 1]"
         """
         import re
 
         year = citation.census_year
+        schedule_type = getattr(citation, 'schedule_type', 'population')
         parts = []
+
+        # Slave schedule format: page, line, column
+        if schedule_type == "slave":
+            if citation.sheet:
+                parts.append(f"page {citation.sheet}")
+            if citation.line:
+                column = getattr(citation, 'column', None)
+                if column:
+                    parts.append(f"line {citation.line}")
+                    parts.append(f"column {column}")
+                else:
+                    parts.append(f"line {citation.line}")
+            if parts:
+                return f"[{', '.join(parts)}]"
+            else:
+                return "[]"
 
         # 1900-1950: ED, sheet, line
         if year >= 1900:
             if citation.enumeration_district:
                 parts.append(f"enumeration district (ED) {citation.enumeration_district}")
             if citation.sheet:
-                parts.append(f"sheet {citation.sheet}")
+                # 1900-1940 use hyphenated sheet format (e.g., 6-B), 1950 as-is
+                sheet_fmt = self._format_sheet_with_hyphen(citation.sheet) if year < 1950 else citation.sheet
+                parts.append(f"sheet {sheet_fmt}")
             if citation.line:
                 parts.append(f"line {citation.line}")
 
@@ -81,7 +123,29 @@ class CitationFormatter:
             if citation.line:
                 parts.append(f"line {citation.line}")
 
-        # 1850-1870: sheet, dwelling, family (no ED)
+        # 1860: page, dwelling, family (no ED, no line)
+        elif year == 1860:
+            if citation.sheet:
+                parts.append(f"page {citation.sheet}")
+            if citation.dwelling_number and citation.family_number:
+                parts.append(f"dwelling {citation.dwelling_number}")
+                parts.append(f"family {citation.family_number}")
+            elif citation.family_number:
+                parts.append(f"family {citation.family_number}")
+
+        # 1850: page, line only in brackets (no "citing" prefix)
+        elif year == 1850:
+            if citation.sheet:
+                parts.append(f"page {citation.sheet}")
+            if citation.line:
+                parts.append(f"line {citation.line}")
+            # 1850 uses simpler bracket format without "citing"
+            if parts:
+                return f"[{', '.join(parts)}]"
+            else:
+                return "[]"
+
+        # 1870: sheet, dwelling, family, line (no ED)
         elif year >= 1850:
             if citation.sheet:
                 parts.append(f"sheet {citation.sheet}")
@@ -90,6 +154,8 @@ class CitationFormatter:
                 parts.append(f"family {citation.family_number}")
             elif citation.family_number:
                 parts.append(f"family {citation.family_number}")
+            if citation.line:
+                parts.append(f"line {citation.line}")
 
         # 1790-1840: sheet only (minimal info)
         else:
@@ -134,7 +200,9 @@ class CitationFormatter:
             footnote_parts.append(f"enumeration district (ED) {c.enumeration_district},")
 
         if c.sheet:
-            footnote_parts.append(f"sheet {c.sheet},")
+            # 1900-1940 use hyphenated sheet format (e.g., 6-B)
+            sheet_fmt = self._format_sheet_with_hyphen(c.sheet) if c.census_year < 1950 else c.sheet
+            footnote_parts.append(f"sheet {sheet_fmt},")
 
         # Family number (1900 census may include this)
         if c.family_number:
@@ -206,7 +274,9 @@ class CitationFormatter:
             short_parts.append(f"E.D. {c.enumeration_district},")
 
         if c.sheet:
-            short_parts.append(f"sheet {c.sheet},")
+            # 1900-1940 use hyphenated sheet format (e.g., 6-B)
+            sheet_fmt = self._format_sheet_with_hyphen(c.sheet) if c.census_year < 1950 else c.sheet
+            short_parts.append(f"sheet {sheet_fmt},")
 
         if c.family_number:
             short_parts.append(f"family {c.family_number},")
@@ -249,11 +319,208 @@ class CitationFormatter:
 
         return footnote, short_footnote, bibliography
 
-    def _format_1850_1870(
+    def _format_1860(
         self,
         c: ParsedCitation,
     ) -> tuple[str, str, str]:
-        """Format citations for 1850-1870 federal census."""
+        """Format citations for 1860 federal census.
+
+        1860 uses "page" (not sheet) and requires family number (not line).
+        """
+        import re
+
+        # Footnote
+        footnote_parts = [
+            f"{c.census_year} U.S. census,",
+            f"{c.county} County,",
+            f"{c.state},",
+            "population schedule,",
+        ]
+
+        if c.town_ward:
+            footnote_parts.append(f"{c.town_ward},")
+
+        if c.sheet:
+            # 1860 uses "page", not "sheet"
+            footnote_parts.append(f"page {c.sheet},")
+
+        # 1860 uses dwelling/family
+        if c.dwelling_number and c.family_number:
+            footnote_parts.append(f"dwelling {c.dwelling_number}, family {c.family_number},")
+        elif c.family_number:
+            footnote_parts.append(f"family {c.family_number},")
+
+        footnote_parts.append(f"{c.person_name};")
+
+        # Add FamilySearch citation
+        footnote_parts.append(
+            f'imaged, "United States, Census, {c.census_year}," '
+            f"<i>FamilySearch</i> ({c.familysearch_url} : accessed {c.access_date})."
+        )
+
+        footnote = " ".join(footnote_parts)
+
+        # Short Footnote
+        state_abbrev = STATE_ABBREVIATIONS.get(c.state, c.state[:2].upper())
+        short_parts = [
+            f"{c.census_year} U.S. census,",
+            f"{c.county} Co.,",
+            f"{state_abbrev},",
+            "pop. sch.,",
+        ]
+
+        if c.town_ward:
+            town_short = c.town_ward.split(",")[0]
+            short_parts.append(f"{town_short},")
+
+        if c.sheet:
+            # 1860 uses "p." for page in short footnote
+            short_parts.append(f"p. {c.sheet},")
+
+        # 1860 requires family number in short footnote
+        if c.family_number:
+            short_parts.append(f"family {c.family_number},")
+
+        short_parts.append(f"{c.person_name}.")
+
+        short_footnote = " ".join(short_parts)
+
+        # Bibliography
+        # Extract year from access_date (e.g., "25 December 2024" -> "2024")
+        access_year = ""
+        if c.access_date:
+            year_match = re.search(r'\b(\d{4})\b', c.access_date)
+            access_year = year_match.group(1) if year_match else ""
+
+        bib_parts = [
+            "U.S.",
+            f"{c.state}.",
+            f"{c.county} County.",
+            f"{c.census_year} U.S Census.",
+            "Population Schedule.",
+            "Imaged.",
+            f'"United States, Census, {c.census_year}."',
+            "<i>FamilySearch</i>",
+            f"{c.familysearch_url} : {access_year}.",
+        ]
+
+        bibliography = " ".join(bib_parts)
+
+        return footnote, short_footnote, bibliography
+
+    def _format_1850(
+        self,
+        c: ParsedCitation,
+    ) -> tuple[str, str, str]:
+        """Format citations for 1850 federal census.
+
+        1850 uses:
+        - Population schedule terminology
+        - Page (penned), dwelling, family, line - in that order
+        - No enumeration districts (EDs started in 1880)
+        - Current date for access date (reviewer verifies each record)
+        """
+        from datetime import date
+
+        # Get current date for access date (reviewer reviews each record)
+        today = date.today()
+        current_date = today.strftime("%d %B %Y").lstrip("0")  # "25 December 2024"
+        current_year = str(today.year)
+
+        # Footnote
+        footnote_parts = [
+            f"{c.census_year} U.S. census,",
+            f"{c.county} County,",
+            f"{c.state},",
+            "population schedule,",
+        ]
+
+        if c.town_ward:
+            footnote_parts.append(f"{c.town_ward},")
+
+        # 1850: page (penned), dwelling, family, line - in that order
+        if c.sheet:
+            footnote_parts.append(f"page {c.sheet} (penned),")
+
+        if c.dwelling_number:
+            footnote_parts.append(f"dwelling {c.dwelling_number},")
+
+        if c.family_number:
+            footnote_parts.append(f"family {c.family_number},")
+
+        if c.line:
+            footnote_parts.append(f"line {c.line},")
+
+        footnote_parts.append(f"{c.person_name};")
+
+        # Add FamilySearch citation with current access date
+        footnote_parts.append(
+            f'imaged, "United States, Census, {c.census_year}," '
+            f"<i>FamilySearch</i> ({c.familysearch_url} : accessed {current_date})."
+        )
+
+        footnote = " ".join(footnote_parts)
+
+        # Short Footnote
+        state_abbrev = STATE_ABBREVIATIONS.get(c.state, c.state[:2].upper())
+        short_parts = [
+            f"{c.census_year} U.S. census,",
+            f"{c.county} Co.,",
+            f"{state_abbrev},",
+            "pop. sch.,",
+        ]
+
+        if c.town_ward:
+            town_short = c.town_ward.split(",")[0]
+            short_parts.append(f"{town_short},")
+
+        # 1850 short: p. X (penned), dwelling Y, family Z, line W
+        if c.sheet:
+            short_parts.append(f"p. {c.sheet} (penned),")
+
+        if c.dwelling_number:
+            short_parts.append(f"dwelling {c.dwelling_number},")
+
+        if c.family_number:
+            short_parts.append(f"family {c.family_number},")
+
+        if c.line:
+            short_parts.append(f"line {c.line},")
+
+        short_parts.append(f"{c.person_name}.")
+
+        short_footnote = " ".join(short_parts)
+
+        # Bibliography with current year
+        bib_parts = [
+            "U.S.",
+            f"{c.state}.",
+            f"{c.county} County.",
+            f"{c.census_year} U.S Census.",
+            "Population Schedule.",
+            "Imaged.",
+            f'"United States, Census, {c.census_year}."',
+            "<i>FamilySearch</i>",
+            f"{c.familysearch_url} : {current_year}.",
+        ]
+
+        bibliography = " ".join(bib_parts)
+
+        return footnote, short_footnote, bibliography
+
+    def _format_1870(
+        self,
+        c: ParsedCitation,
+    ) -> tuple[str, str, str]:
+        """Format citations for 1870 federal census.
+
+        1870 uses:
+        - Population schedule terminology
+        - Sheet, dwelling, family, line
+        - No enumeration districts (EDs started in 1880)
+        """
+        import re
+
         # Footnote
         footnote_parts = [
             f"{c.census_year} U.S. census,",
@@ -268,15 +535,19 @@ class CitationFormatter:
         if c.sheet:
             footnote_parts.append(f"sheet {c.sheet},")
 
-        # 1850-1880 used dwelling/family, not just family
-        if c.dwelling_number and c.family_number:
-            footnote_parts.append(f"dwelling {c.dwelling_number}, family {c.family_number},")
-        elif c.family_number:
+        # 1870 uses dwelling/family numbers
+        if c.dwelling_number:
+            footnote_parts.append(f"dwelling {c.dwelling_number},")
+
+        if c.family_number:
             footnote_parts.append(f"family {c.family_number},")
+
+        if c.line:
+            footnote_parts.append(f"line {c.line},")
 
         footnote_parts.append(f"{c.person_name};")
 
-        # Add FamilySearch citation - FamilySearch official naming
+        # Add FamilySearch citation
         footnote_parts.append(
             f'imaged, "United States, Census, {c.census_year}," '
             f"<i>FamilySearch</i> ({c.familysearch_url} : accessed {c.access_date})."
@@ -300,11 +571,26 @@ class CitationFormatter:
         if c.sheet:
             short_parts.append(f"sheet {c.sheet},")
 
+        if c.dwelling_number:
+            short_parts.append(f"dwelling {c.dwelling_number},")
+
+        if c.family_number:
+            short_parts.append(f"family {c.family_number},")
+
+        if c.line:
+            short_parts.append(f"line {c.line},")
+
         short_parts.append(f"{c.person_name}.")
 
         short_footnote = " ".join(short_parts)
 
         # Bibliography
+        # Extract year from access_date (e.g., "25 December 2024" -> "2024")
+        access_year = ""
+        if c.access_date:
+            year_match = re.search(r'\b(\d{4})\b', c.access_date)
+            access_year = year_match.group(1) if year_match else ""
+
         bib_parts = [
             "U.S.",
             f"{c.state}.",
@@ -314,7 +600,7 @@ class CitationFormatter:
             "Imaged.",
             f'"United States, Census, {c.census_year}."',
             "<i>FamilySearch</i>",
-            f"{c.familysearch_url} : {c.access_date[:4] if c.access_date else ''}.",
+            f"{c.familysearch_url} : {access_year}.",
         ]
 
         bibliography = " ".join(bib_parts)
@@ -441,6 +727,8 @@ class CitationFormatter:
         c: ParsedCitation,
     ) -> tuple[str, str, str]:
         """Format citations for 1790-1840 federal census."""
+        import re
+
         # Footnote (simpler, no population schedule, no ED)
         footnote_parts = [
             f"{c.census_year} U.S. census,",
@@ -484,6 +772,12 @@ class CitationFormatter:
         short_footnote = " ".join(short_parts)
 
         # Bibliography
+        # Extract year from access_date (e.g., "25 December 2024" -> "2024")
+        access_year = ""
+        if c.access_date:
+            year_match = re.search(r'\b(\d{4})\b', c.access_date)
+            access_year = year_match.group(1) if year_match else ""
+
         bib_parts = [
             "U.S.",
             f"{c.state}.",
@@ -492,7 +786,7 @@ class CitationFormatter:
             "Imaged.",
             f'"United States, Census, {c.census_year}."',
             "<i>FamilySearch</i>",
-            f"{c.familysearch_url} : {c.access_date[:4] if c.access_date else ''}.",
+            f"{c.familysearch_url} : {access_year}.",
         ]
 
         bibliography = " ".join(bib_parts)
@@ -506,3 +800,106 @@ class CitationFormatter:
         """Format citations for 1890 federal census (special case - mostly destroyed)."""
         # 1890 is similar to 1900-1950 but with special note
         return self._format_1900_1950(c)
+
+    def _format_slave_schedule(
+        self,
+        c: ParsedCitation,
+    ) -> tuple[str, str, str]:
+        """Format citations for 1850/1860 slave schedules.
+
+        Slave schedules list slaveholders (owners) and counts of enslaved persons,
+        but do not name the enslaved individuals. The citation format differs from
+        population schedules:
+        - Uses "slave schedule" instead of "population schedule"
+        - Uses "United States, Census (Slave Schedule), YEAR" as quoted title
+        - Person is identified as "owner" (the slaveholder)
+        - May include page, line, and column references
+        """
+        import re
+
+        # Get person role (default to "owner" for slave schedules)
+        person_role = getattr(c, 'person_role', None) or "owner"
+        column = getattr(c, 'column', None)
+
+        # Footnote
+        footnote_parts = [
+            f"{c.census_year} U.S. census,",
+            f"{c.county} County,",
+            f"{c.state},",
+            "slave schedule,",
+        ]
+
+        if c.town_ward:
+            footnote_parts.append(f"{c.town_ward},")
+
+        # Page reference
+        if c.sheet:
+            footnote_parts.append(f"page {c.sheet},")
+
+        # Line and column (slave schedules may have complex line/column refs)
+        if c.line:
+            if column:
+                footnote_parts.append(f"line {c.line}, column {column},")
+            else:
+                footnote_parts.append(f"line {c.line},")
+
+        # Person as owner
+        footnote_parts.append(f'{c.person_name}, "{person_role}";')
+
+        # Add FamilySearch citation with slave schedule title format
+        footnote_parts.append(
+            f'imaged, "United States, Census (Slave Schedule), {c.census_year}," '
+            f"<i>FamilySearch</i> ({c.familysearch_url} : accessed {c.access_date})."
+        )
+
+        footnote = " ".join(footnote_parts)
+
+        # Short Footnote
+        state_abbrev = STATE_ABBREVIATIONS.get(c.state, c.state[:2].upper())
+        short_parts = [
+            f"{c.census_year} U.S. census,",
+            f"{c.county} Co.,",
+            f"{state_abbrev},",
+            "slave sch.,",
+        ]
+
+        if c.town_ward:
+            town_short = c.town_ward.split(",")[0]
+            short_parts.append(f"{town_short},")
+
+        if c.sheet:
+            short_parts.append(f"page {c.sheet},")
+
+        if c.line:
+            if column:
+                short_parts.append(f"line {c.line}, column {column},")
+            else:
+                short_parts.append(f"line {c.line},")
+
+        # Person as owner with period inside quotes
+        short_parts.append(f'{c.person_name}, "{person_role}."')
+
+        short_footnote = " ".join(short_parts)
+
+        # Bibliography
+        year_match = None
+        if c.access_date:
+            year_match = re.search(r'\b(\d{4})\b', c.access_date)
+
+        bib_parts = [
+            "U.S.",
+            f"{c.state}.",
+            f"{c.county} County.",
+            f"{c.census_year} U.S. Census.",
+            "Slave Schedule.",
+            "Imaged.",
+            f'"United States, Census (Slave Schedule), {c.census_year}."',
+            "<i>FamilySearch</i>",
+            f"{c.familysearch_url} : {year_match.group(1) if year_match else ''}.",
+        ]
+
+        bibliography = " ".join(bib_parts)
+
+        logger.debug(f"Formatted slave schedule citation {c.citation_id} ({c.census_year})")
+
+        return footnote, short_footnote, bibliography

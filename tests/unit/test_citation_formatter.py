@@ -86,7 +86,7 @@ class TestCitationFormatter:
         assert "population schedule" in footnote
         assert "Olive Township Caldwell village" in footnote
         assert "enumeration district (ED) 95" in footnote
-        assert "sheet 3B" in footnote
+        assert "sheet 3-B" in footnote  # Hyphenated per Evidence Explained
         assert "family 57" in footnote
         assert "Ella Ijams" in footnote
         assert "<i>FamilySearch</i>" in footnote
@@ -111,7 +111,7 @@ class TestCitationFormatter:
         assert "pop. sch." in short_footnote
         assert ("Olive Township" in short_footnote or "Olive Twp." in short_footnote)
         assert "E.D. 95" in short_footnote
-        assert "sheet 3B" in short_footnote
+        assert "sheet 3-B" in short_footnote  # Hyphenated per Evidence Explained
         assert "Ella Ijams" in short_footnote
 
     def test_format_1900_bibliography(
@@ -159,7 +159,7 @@ class TestCitationFormatter:
         assert "population schedule" not in footnote
         assert "Baltimore Ward 13" in footnote
         assert "enumeration district (ED) 214" in footnote
-        assert "sheet 3B" in footnote
+        assert "sheet 3-B" in footnote  # Hyphenated per Evidence Explained
         assert "family 52" in footnote
         assert "William H. Ijams" in footnote
         assert "<i>FamilySearch</i>" in footnote
@@ -183,11 +183,15 @@ class TestCitationFormatter:
         assert "pop. sch." not in short_footnote
         assert ("Baltimore Ward 13" in short_footnote or "Baltimore Ward" in short_footnote)
         assert "E.D. 214" in short_footnote
-        assert "sheet 3B" in short_footnote
+        assert "sheet 3-B" in short_footnote  # Hyphenated per Evidence Explained
         assert "William H. Ijams" in short_footnote
 
     def test_format_1850_citation(self, formatter: CitationFormatter) -> None:
-        """Test 1850 census formatting (no ED required)."""
+        """Test 1850 census formatting (no ED required).
+
+        1850 uses: page (penned), dwelling, family, line - in that order.
+        Access date uses current date (reviewer verifies each record).
+        """
         citation_1850 = ParsedCitation(
             citation_id=3,
             source_name="Fed Census: 1850, New York, Kings",
@@ -197,14 +201,15 @@ class TestCitationFormatter:
             county="Kings",
             town_ward="Brooklyn",
             enumeration_district=None,  # Not required for 1850
-            sheet="15",
+            sheet="15",  # Maps to "page X (penned)" for 1850
             family_number="200",
             dwelling_number="198",
+            line="7",
             person_name="John Smith",
             given_name="John",
             surname="Smith",
             familysearch_url="https://familysearch.org/ark:/12345/1:1:ABCD",
-            access_date="1 January 2020",
+            access_date="1 January 2020",  # Ignored - uses current date
             is_complete=True,
         )
 
@@ -214,11 +219,24 @@ class TestCitationFormatter:
         assert "population schedule" in footnote
         assert "enumeration district" not in footnote
         assert "Brooklyn" in footnote
-        assert "sheet 15" in footnote
 
-        # Should have dwelling and family
+        # 1850 uses "page X (penned)" format (not sheet)
+        assert "page 15 (penned)" in footnote
+        assert "sheet" not in footnote
+
+        # Should have dwelling, family, and line in correct order
         assert "dwelling 198" in footnote
         assert "family 200" in footnote
+        assert "line 7" in footnote
+
+        # Access date should use current date (not the one provided)
+        assert "accessed" in footnote
+
+        # Short footnote should use "p. X (penned)"
+        assert "p. 15 (penned)" in short_footnote
+        assert "dwelling 198" in short_footnote
+        assert "family 200" in short_footnote
+        assert "line 7" in short_footnote
 
     def test_format_1790_citation(self, formatter: CitationFormatter) -> None:
         """Test 1790 census formatting (no population schedule, no ED)."""

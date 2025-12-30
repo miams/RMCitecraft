@@ -12,6 +12,10 @@ class CensusExtraction(BaseModel):
     """
 
     year: int = Field(ge=1790, le=1950, description="Census year (1790-1950)")
+    schedule_type: str = Field(
+        default="population",
+        description="Schedule type: population, slave, mortality, etc."
+    )
     state: str = Field(min_length=2, description="US state or territory")
     county: str = Field(min_length=1, description="County name (without 'County' suffix)")
     locality: str | None = Field(
@@ -32,7 +36,13 @@ class CensusExtraction(BaseModel):
     dwelling_number: str | None = Field(
         None, description="Dwelling number (extracted but not used in 1930+ citations)"
     )
+    column: str | None = Field(
+        None, description="Column number for slave schedules (1 or 2)"
+    )
     person_name: str = Field(description="Person's name as it appears in census")
+    person_role: str | None = Field(
+        None, description="Person's role for slave schedules (typically 'owner')"
+    )
     familysearch_url: str = Field(
         description="FamilySearch ARK URL (query parameters stripped)"
     )

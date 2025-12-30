@@ -14,6 +14,10 @@ class ParsedCitation(BaseModel):
 
     # Parsed components
     census_year: int = Field(ge=1790, le=1950, description="Census year")
+    schedule_type: str = Field(
+        default="population",
+        description="Schedule type: population, slave, mortality, etc."
+    )
     state: str
     county: str
     town_ward: str | None = None
@@ -22,11 +26,13 @@ class ParsedCitation(BaseModel):
     line: str | None = None
     family_number: str | None = None
     dwelling_number: str | None = None
+    column: str | None = None  # For slave schedules: column 1 or 2
 
     # Person info
     person_name: str
     given_name: str
     surname: str
+    person_role: str | None = None  # For slave schedules: "owner"
 
     # URLs and references
     familysearch_url: str

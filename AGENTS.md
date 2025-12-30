@@ -464,9 +464,10 @@ def get_person_census_citations(person_id):
 
 **Challenge**: Census citation formats vary by year:
 - 1790-1840: No ED, no population schedule terminology
-- 1850-1870: Population schedule, page/sheet, dwelling/family
-- 1880: ED introduced (required for citations)
-- 1900-1940: Population schedule with ED, sheet, family number
+- 1850, 1870: Population schedule, sheet, dwelling/family, line number
+- 1860: Population schedule, page (not sheet), family/household ID (not line)
+- 1880: ED introduced, page (stamped), line number
+- 1900-1940: Population schedule with ED, sheet, family number, line number
 - 1950: Uses "stamp" instead of "sheet"
 
 **Solution**: Browser automation extracts FamilySearch data + `citation_formatter.py` applies Evidence Explained templates
@@ -545,6 +546,32 @@ rmcitecraft status
 
 ## Troubleshooting
 
+### Common Database Errors (Quick Reference)
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `no such collation sequence: RMNOCASE` | Used raw `sqlite3.connect()` | Use `connect_rmtree()` from `rmcitecraft.database.connection` |
+| `attempt to write a readonly database` | `connect_rmtree()` defaults to `read_only=True` | Pass `read_only=False` for write operations |
+| BLOB data corrupted | Used SQL string functions on BLOB columns | Use Python to decode/modify/encode BLOBs |
+| File not found (but exists) | Case mismatch (macOS case-insensitive, Python case-sensitive) | Use `.lower()` for path comparisons |
+| Invalid RootsMagic path | Paths have `?\` or `?/` prefix | Strip with `.lstrip('?').lstrip('/').lstrip('\\')` |
+
+### Database Connection Boilerplate
+
+```python
+# ALWAYS use this - never raw sqlite3.connect()
+from rmcitecraft.database.connection import connect_rmtree
+
+# Read operations (default)
+conn = connect_rmtree('data/Iiams.rmtree')
+
+# Write operations (explicit)
+conn = connect_rmtree('data/Iiams.rmtree', read_only=False)
+# ... do work ...
+conn.commit()
+conn.close()
+```
+
 ### Common Issues
 
 **"RMNOCASE collation not found"**
@@ -583,6 +610,6 @@ rmcitecraft status
 
 ---
 
-**Last Updated**: 2025-12-05
+**Last Updated**: 2025-12-23
 **For Human Developers**: See `CLAUDE.md` for development guidance
 **Documentation Index**: See `CLAUDE.md` for complete documentation reference

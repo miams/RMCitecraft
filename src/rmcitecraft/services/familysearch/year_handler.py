@@ -222,8 +222,8 @@ class YearSpecificHandler:
         """Parse sheet number, combining with letter if needed.
 
         Handles year-specific formats:
-        - 1910: Combines "5" + "A" -> "5A"
-        - Most years: Returns sheet_number as-is
+        - 1900-1940: Combines "5" + "A" -> "5-A" (hyphenated)
+        - Other years: Combines "5" + "A" -> "5A" (no hyphen)
 
         Args:
             sheet_number: The sheet number
@@ -239,12 +239,17 @@ class YearSpecificHandler:
         if not sheet_str:
             return None
 
-        # 1910 and some other years: combine number and letter
+        # 1900-1940: combine number and letter with hyphen (e.g., 5-A)
+        # Other years: combine without hyphen
         if sheet_letter:
             letter = str(sheet_letter).strip().upper()
             # Only add letter if not already present
             if letter and not sheet_str[-1].isalpha():
-                combined = f"{sheet_str}{letter}"
+                # 1900-1940 use hyphenated format
+                if 1900 <= self._year <= 1940:
+                    combined = f"{sheet_str}-{letter}"
+                else:
+                    combined = f"{sheet_str}{letter}"
                 logger.debug(f"Sheet combined: '{sheet_str}' + '{letter}' -> '{combined}'")
                 return combined
 
@@ -298,6 +303,33 @@ class YearSpecificHandler:
 
         # Default: treat as dwelling number
         return (value, None)
+
+    def parse_house_number(self, raw_value: str | None) -> str | None:
+        """Parse house number from FamilySearch for 1850 census.
+
+        For 1850 census, FamilySearch extracts "House Number" which represents
+        the dwelling number on the census form.
+
+        Args:
+            raw_value: Raw house number value from FamilySearch
+
+        Returns:
+            Dwelling number for 1850, None for other years
+        """
+        if not raw_value:
+            return None
+
+        value = str(raw_value).strip()
+        if not value:
+            return None
+
+        # 1850: House Number is the dwelling number
+        if self._year == 1850:
+            logger.debug(f"1850: house_number '{value}' mapped to dwelling_number")
+            return value
+
+        # Other years: house_number is street address info, not dwelling number
+        return None
 
     def uses_enumeration_district(self) -> bool:
         """Whether this census year uses enumeration districts."""

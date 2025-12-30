@@ -68,9 +68,10 @@ FAMILYSEARCH_FIELD_MAP: Final[dict[str, str]] = {
     "class of worker": "worker_class",
 
     # Family/dwelling numbers
-    # NOTE: "household id" maps to dwelling_number by default.
-    # For 1910 Census, YearSpecificHandler remaps to family_number.
+    # NOTE: "household id" and "household identifier" map to dwelling_number by default.
+    # For 1850, 1860, 1870, 1900, 1910 Census, YearSpecificHandler remaps to family_number.
     "household id": "dwelling_number",
+    "household identifier": "dwelling_number",  # 1850 uses "Household Identifier"
     "dwelling number": "dwelling_number",
     "family number": "family_number",
 

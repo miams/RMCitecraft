@@ -196,14 +196,16 @@ class DataEntryFormComponent:
         # Year-specific fields based on census structure
         if year and year < 1880:
             # 1850-1870: No enumeration districts, use page numbers
-            # FamilySearch doesn't extract line numbers for these years
-            fields.extend(['page_number', 'dwelling_number', 'family_number'])
+            # FamilySearch doesn't extract page numbers - requires manual entry
+            # Uses 'page' to match validation field name
+            # Uses 'line' to match extractor output field name
+            fields.extend(['page', 'dwelling_number', 'family_number', 'line'])
         elif year and year == 1950:
             # 1950: Uses stamp instead of sheet
-            fields.extend(['enumeration_district', 'stamp_number', 'line_number', 'family_number'])
+            fields.extend(['enumeration_district', 'stamp_number', 'line', 'family_number'])
         else:
             # 1880-1940: Enumeration districts and sheets
-            fields.extend(['enumeration_district', 'sheet_number', 'line_number'])
+            fields.extend(['enumeration_district', 'sheet_number', 'line'])
             if year and 1850 <= year <= 1940:
                 fields.append('family_number')
             if year and year == 1880:
@@ -251,6 +253,11 @@ class DataEntryFormComponent:
                 'Sheet number from census image (1880-1940)',
                 '5B',
             ),
+            'page': (
+                'Page',
+                'Page number (penned) from census image (1850-1870)',
+                '874',
+            ),
             'page_number': (
                 'Page Number',
                 'Page number from census image (1850-1870)',
@@ -260,6 +267,11 @@ class DataEntryFormComponent:
                 'Stamp Number',
                 'Stamp number from census image (1950)',
                 '42',
+            ),
+            'line': (
+                'Line',
+                'Line number on census page',
+                '15',
             ),
             'line_number': (
                 'Line Number',
@@ -451,3 +463,23 @@ class DataEntryFormComponent:
             logger.debug("Form received None citation")
 
         self.refresh()
+
+    def get_current_form_data(self) -> dict[str, str]:
+        """Get the current form data including any unsaved changes.
+
+        This method returns the form_data dictionary which contains
+        all manually entered values from the form fields.
+
+        Returns:
+            Dictionary of field names to values
+        """
+        return self.form_data.copy()
+
+    def sync_form_data(self) -> None:
+        """Force sync of current form data to the citation.
+
+        Call this before export to ensure any pending field changes
+        (from fields that haven't lost focus) are captured.
+        """
+        if self.form_data and self.on_data_change:
+            self.on_data_change(self.form_data)

@@ -682,7 +682,7 @@ def check_1850_duplicate_locality(
 
     In some cases, the city/locality field contains the county name,
     causing redundant text like:
-    "1850 U.S. census, Monongalia County, Virginia, Monongalia county, population schedule..."
+    "1850 U.S. census, Monongalia County, Virginia, population schedule, Monongalia county, page..."
 
     The locality should be removed in such cases.
     """
@@ -692,8 +692,8 @@ def check_1850_duplicate_locality(
         return issues
 
     # Pattern to extract county and locality from 1850 footnote
-    # Format: "1850 U.S. census, [County] County, [State], [Locality], population schedule"
-    pattern = r"1850 U\.S\. census,\s+(\w+(?:\s+\w+)?)\s+County,\s+[^,]+,\s+([^,]+),\s+population schedule"
+    # Format: "1850 U.S. census, [County] County, [State], population schedule, [Locality], page..."
+    pattern = r"1850 U\.S\. census,\s+(\w+(?:\s+\w+)?)\s+County,\s+[^,]+,\s+population schedule,\s+([^,]+),"
     match = re.search(pattern, footnote, re.IGNORECASE)
 
     if match:

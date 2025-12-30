@@ -110,11 +110,28 @@ tests/
 **Always load ICU extension before querying.** Many fields (Surname, Given, Name) require RMNOCASE collation.
 
 ```python
-from src.rmcitecraft.database.connection import connect_rmtree
-conn = connect_rmtree('data/Iiams.rmtree')  # Loads ICU extension automatically
+from rmcitecraft.database.connection import connect_rmtree
+
+# Read operations (default)
+conn = connect_rmtree('data/Iiams.rmtree')
+
+# Write operations - must explicitly enable
+conn = connect_rmtree('data/Iiams.rmtree', read_only=False)
+conn.commit()  # Don't forget to commit!
+conn.close()
 ```
 
 See [DATABASE_PATTERNS.md](docs/reference/DATABASE_PATTERNS.md) for connection patterns and SQL examples.
+
+### Common Database Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `no such collation sequence: RMNOCASE` | Used raw `sqlite3.connect()` | Use `connect_rmtree()` |
+| `attempt to write a readonly database` | Default is `read_only=True` | Pass `read_only=False` |
+| BLOB corruption | SQL string functions on BLOB | Use Python encode/decode |
+| File not found (exists on disk) | Case mismatch | Use `.lower()` for comparisons |
+| Invalid media path | RootsMagic `?\` or `?/` prefix | Strip with `.lstrip('?').lstrip('/').lstrip('\\')` |
 
 ### Free-Form Citations (TemplateID=0)
 
@@ -165,8 +182,9 @@ enumeration district (ED) 95, sheet 3B, family 57, Ella Ijams; imaged,
 | Years | Format |
 |-------|--------|
 | 1790-1840 | No ED, no population schedule terminology |
-| 1850-1870 | Population schedule, page/sheet, dwelling/family |
-| 1880 | ED introduced (required for citations) |
+| 1850, 1870 | Population schedule, sheet, dwelling/family, line |
+| 1860 | Population schedule, page (not sheet), family/household ID (not line) |
+| 1880 | ED introduced, page (stamped), line number |
 | 1900-1940 | Population schedule with ED, sheet, family number |
 | 1950 | Uses "stamp" instead of "sheet" |
 
