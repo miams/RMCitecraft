@@ -191,7 +191,7 @@ rmcitecraft help
 ### User Guides
 - **[Getting Started](docs/user-guides/GETTING-STARTED.md)** - Installation and first-time setup
 - **[Prerequisites](docs/user-guides/PREREQUISITES.md)** - System requirements and preparation
-- **[Census Batch Workflow](docs/user-guides/CENSUS-BATCH-WORKFLOW.md)** - Processing citations in batches
+- **[Census Batch Workflow](docs/misc/CENSUS-BATCH-WORKFLOW.md)** - Processing citations in batches
 - **[Image Workflow](docs/user-guides/IMAGE-WORKFLOW.md)** - Managing census images
 - **[Troubleshooting](docs/user-guides/TROUBLESHOOTING.md)** - Common issues and solutions
 - **[FAQ](docs/user-guides/FAQ.md)** - Frequently asked questions
