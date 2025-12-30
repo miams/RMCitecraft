@@ -6,8 +6,8 @@ topics: [database, census, citation, batch, ui]
 # Census Image Workflow Guide
 
 **For**: RMCitecraft Users
-**Version**: 1.0
-**Last Updated**: 2025-01-29
+**Version**: 2.0
+**Last Updated**: 2025-12-30
 
 ## Overview
 
@@ -15,75 +15,65 @@ This guide explains how RMCitecraft automates the process of downloading, organi
 
 ### What Gets Automated
 
-✅ **Downloading** census images from FamilySearch
-✅ **Renaming** files with standardized names
-✅ **Organizing** images into year-specific folders
-✅ **Linking** images to census events
-✅ **Linking** images to citations
+- **Downloading** census images from FamilySearch
+- **Renaming** files with standardized names
+- **Organizing** images into year-specific folders
+- **Linking** images to census events
+- **Linking** images to citations
 
 ### What You Do
 
-👤 **Extract citation** from FamilySearch (1 click)
-👤 **Review and save** citation data (1 click)
-👤 **Download missing images** for existing citations (1 click)
+- **Start batch processing** with citations from your database
+- **Review and save** citation data
+- **Download missing images** for existing citations
 
 ---
 
-## Workflow 1: New Citation with Image (Most Common)
+## Prerequisites
+
+Before using the image workflow:
+
+1. **Chrome running with remote debugging** - See [Prerequisites](PREREQUISITES.md)
+2. **Logged into FamilySearch** in that Chrome session
+3. **RMCitecraft connected** to your RootsMagic database
+
+---
+
+## Workflow 1: Census Batch Processing (Recommended)
+
+The primary workflow for processing census citations with images.
 
 ### Step-by-Step
 
-**1. Visit FamilySearch Census Page**
+**1. Start RMCitecraft**
 
-Open the census record in your browser:
-```
-https://familysearch.org/ark:/61903/1:1:XXXX-XXX
-```
-
-**2. Click "Extract Citation" in Browser Extension**
-
-The extension button appears in your browser toolbar. One click extracts:
-- Person name
-- Census year and location
-- Enumeration district, sheet, family numbers
-- FamilySearch URL
-- **Census image (automatic download)**
-
-**3. Citation Appears in RMCitecraft**
-
-Open RMCitecraft → **Pending Citations** tab
-
-You'll see:
-```
-┌─────────────────────────────────────────────────┐
-│  1930 Census - Jesse Dorsey Iams                │
-│  Tulsa, Oklahoma                                 │
-│  🖼️ Image: ⏳ Downloading...                    │
-│  [Process]                                       │
-└─────────────────────────────────────────────────┘
+```bash
+uv run python src/rmcitecraft/main.py
 ```
 
-**4. Wait for Image (Optional - work on other citations)**
+**2. Select Census Year and Start Batch**
 
-The image downloads in the background. When ready:
-```
-┌─────────────────────────────────────────────────┐
-│  1930 Census - Jesse Dorsey Iams                │
-│  Tulsa, Oklahoma                                 │
-│  🖼️ Image: ✅ Ready                              │
-│  [Process] [View Image]                          │
-└─────────────────────────────────────────────────┘
-```
+Navigate to the **Batch Processing** tab:
+- Select a census year (e.g., 1930)
+- Filter to "Incomplete" citations
+- Click **Start Batch**
 
-**5. Click "Process" to Review**
+**3. RMCitecraft Opens FamilySearch Pages**
 
-A dialog opens with:
+For each citation, the system:
+- Opens the FamilySearch census page in Chrome
+- Extracts person and household data
+- Downloads the census image automatically
+
+**4. Review Extracted Data**
+
+A dialog shows:
 - **Left side**: Citation data and any missing fields
 - **Right side**: Census image at 275% zoom (perfect for reading)
 
 Fill in any missing fields while looking at the image.
 
-**6. Click "Save to RootsMagic"**
+**5. Click "Save to RootsMagic"**
 
 One click:
 - Formats citation (Footnote, Short Footnote, Bibliography)
@@ -91,7 +81,7 @@ One click:
 - Links image to census event
 - Links image to citation
 
-**✅ Done! Citation and image are both saved and linked.**
+**Done! Citation and image are both saved and linked.**
 
 ---
 
@@ -106,11 +96,11 @@ You have citations in RootsMagic but no images linked to them.
 **In Citation Manager Tab**:
 ```
 ┌─────────────────────────────────────────────────┐
-│  📋 1930 Census Citations                        │
+│  1930 Census Citations                          │
 │                                                  │
-│  ⚠️  Jesse Dorsey Iams (No image) [Download]    │
-│  ✅ Frank W Iiams (Image linked)                │
-│  ⚠️  George B Iams (No image) [Download]        │
+│  [!] Jesse Dorsey Iams (No image) [Download]    │
+│  [OK] Frank W Iiams (Image linked)              │
+│  [!] George B Iams (No image) [Download]        │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -118,13 +108,16 @@ You have citations in RootsMagic but no images linked to them.
 
 **1. Click [Download] Next to Citation**
 
-**2. System Opens FamilySearch Page**
+**2. RMCitecraft Opens FamilySearch Page**
 
-Your browser opens the FamilySearch URL from the citation.
+Chrome navigates to the FamilySearch URL from the citation.
 
-**3. Extension Auto-Downloads Image**
+**3. Image Downloads Automatically**
 
-The image downloads automatically (no action needed).
+RMCitecraft uses Playwright automation to:
+- Navigate to the image viewer
+- Download the census image
+- Process it in the background
 
 **4. RMCitecraft Processes Image**
 
@@ -137,11 +130,11 @@ The image downloads automatically (no action needed).
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  ✅ Jesse Dorsey Iams (Image linked)            │
+│  [OK] Jesse Dorsey Iams (Image linked)          │
 └─────────────────────────────────────────────────┘
 ```
 
-**✅ Done! Image is now linked to the existing citation.**
+**Done! Image is now linked to the existing citation.**
 
 ---
 
@@ -313,28 +306,29 @@ To view in RootsMagic:
 
 ### Image Not Downloading
 
-**Problem**: Status shows "⏳ Downloading..." for more than 2 minutes
+**Problem**: Status shows "Downloading..." for more than 2 minutes
 
 **Solutions**:
-1. **Check browser extension**: Make sure it's installed and enabled
-2. **Check FamilySearch login**: Extension needs you to be logged into FamilySearch
+1. **Check Chrome is running**: Ensure Chrome was started with `--remote-debugging-port=9222`
+2. **Check FamilySearch login**: You must be logged into FamilySearch in that Chrome session
 3. **Check network**: Ensure internet connection is working
 4. **Retry**: Click "Download Image" button again
 
 ### Image Download Failed
 
-**Problem**: Status shows "⚠️ Failed"
+**Problem**: Status shows "Failed"
 
 **Common Causes**:
-- FamilySearch page requires login
+- Chrome not running with remote debugging
+- FamilySearch session expired (need to log in again)
 - Image not available (restricted or removed)
 - Network timeout
-- Browser blocked download
 
 **Solutions**:
 1. **Click [Retry]**: Try downloading again
-2. **Manual download**: Click "View FamilySearch Page" → right-click image → "Save Image As..."
-3. **Drag and drop**: Download manually, then drag file into RMCitecraft
+2. **Check Chrome**: Restart Chrome with `~/start-chrome.sh` and log into FamilySearch
+3. **Manual download**: Open FamilySearch page manually, right-click image, "Save Image As..."
+4. **Drag and drop**: Download manually, then drag file into RMCitecraft
 
 ### Wrong Image Downloaded
 
@@ -416,12 +410,13 @@ To view in RootsMagic:
 
 **A**: Currently defaults to 275%. In future versions, you'll be able to set custom zoom and position preferences per census year.
 
-### Q: What if I don't have the browser extension?
+### Q: What if Chrome automation isn't working?
 
-**A**: You can still use RMCitecraft! Manual workflow:
-1. Download census image from FamilySearch (right-click → Save Image As...)
-2. Drag image onto citation in RMCitecraft
-3. System will auto-rename and organize
+**A**: You can still use RMCitecraft with manual image downloads:
+1. Open the FamilySearch page manually
+2. Download census image (right-click → Save Image As...)
+3. Drag image onto citation in RMCitecraft
+4. System will auto-rename and organize
 
 ### Q: Can I download images for non-census records?
 
@@ -503,4 +498,5 @@ Plan storage accordingly for large family trees.
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-01-29 | Initial user guide |
+| 2.0 | 2025-12-30 | Updated to reflect Playwright automation (removed browser extension references) |
 

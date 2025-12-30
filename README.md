@@ -79,6 +79,37 @@ Genealogists using RootsMagic spend significant time manually formatting citatio
 - **Error Analysis**: Track failures with categorized error reporting
 - **Performance Metrics**: Processing times, success rates, throughput
 
+## How It Works
+
+RMCitecraft connects three systems to automate citation management:
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   RootsMagic    │     │   RMCitecraft   │     │  FamilySearch   │
+│   Database      │◄───►│   (Python)      │◄───►│   (via Chrome)  │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+      .rmtree             Playwright CDP          Census Records
+```
+
+**Workflow:**
+
+1. **Select citations** from your RootsMagic database (filtered by year, status)
+2. **RMCitecraft opens FamilySearch** using your logged-in Chrome session
+3. **Extracts census data** (person, location, ED, sheet, line, household members)
+4. **Downloads census image** automatically
+5. **You review/edit** extracted data while viewing the image
+6. **Formats citation** per *Evidence Explained* standards
+7. **Saves to database** with image linked to citation and census event
+
+**Prerequisites:**
+- Chrome running with `--remote-debugging-port=9222`
+- Logged into FamilySearch in that Chrome session
+- Working copy of your RootsMagic database
+
+See [Getting Started](docs/user-guides/GETTING-STARTED.md) for setup instructions.
+
+---
+
 ## Use Cases
 
 1. **Census Batch Transcription**: Extract and transcribe census pages from FamilySearch using AI
@@ -157,10 +188,22 @@ rmcitecraft help
 
 ## Documentation
 
+### User Guides
+- **[Getting Started](docs/user-guides/GETTING-STARTED.md)** - Installation and first-time setup
+- **[Prerequisites](docs/user-guides/PREREQUISITES.md)** - System requirements and preparation
+- **[Census Batch Workflow](docs/user-guides/CENSUS-BATCH-WORKFLOW.md)** - Processing citations in batches
+- **[Image Workflow](docs/user-guides/IMAGE-WORKFLOW.md)** - Managing census images
+- **[Troubleshooting](docs/user-guides/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[FAQ](docs/user-guides/FAQ.md)** - Frequently asked questions
+
+### Reference
+- **[Citation Style Guide](docs/reference/CITATION-STYLE-GUIDE.md)** - *Evidence Explained* formatting conventions
+- **[Database Schema](docs/reference/schema-reference.md)** - RootsMagic database structure
+
+### Development
 - **[CLAUDE.md](CLAUDE.md)** - Development guidance and architecture details
 - **[AGENTS.md](AGENTS.md)** - Machine-readable instructions for AI agents
 - **[PRD.md](PRD.md)** - Complete product requirements
-- **[docs/reference/schema-reference.md](docs/reference/schema-reference.md)** - RootsMagic database schema
 
 ## Caveats and Known Issues
 1. The 1950 Census tested the household-based form in a few jurisdictions in Ohio and Michigan, instead of the traditional multi-family form. The household form is not as well-parsed by FamilySearch, so RMCiteCraft asks for some fields.  The ED can be identified using the Information button when displaying the image. These forms do not have sheet/page numbers, nor line numbers.  Instead, I substitute a sequential stamped number and the image number, and I note the family form.  For example:
