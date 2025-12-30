@@ -1,5 +1,7 @@
-# Product Requirements Document: RMCitecraft (v2.0)
+# Product Requirements Document: RMCitecraft (v2.1)
 ## Active Genealogy Automation Agent
+
+**Last Updated**: 2025-12-30
 
 ---
 
@@ -15,8 +17,8 @@ RMCitecraft is an **active automation agent** for genealogy research. Unlike pas
 *   **Crash-Proof Workflow**: Robust state management ensures long-running batch processes can pause, resume, and recover from failures without data loss.
 
 ### 1.3 Target Platform
-*   **OS**: macOS (primary), Windows (secondary).
-*   **Integration**: RootsMagic 8/9/10 (SQLite format).
+*   **OS**: macOS (primary), Windows (planned).
+*   **Integration**: RootsMagic 8/9/10/11 (SQLite format).
 *   **Browser**: Google Chrome (via CDP/Playwright).
 
 ---
@@ -27,7 +29,7 @@ RMCitecraft is an **active automation agent** for genealogy research. Unlike pas
 RMCitecraft operates as a local agent with four distinct subsystems:
 
 1.  **The Orchestrator (Python/NiceGUI)**: The central brain that manages queues, user interaction, and state.
-2.  **The Driver (Playwright/CDP)**: A "headless" browser interface that navigates websites, manages sessions, and downloads media.
+2.  **The Driver (Playwright/CDP)**: Connects to a user's existing Chrome session (with FamilySearch login) to navigate websites, manage sessions, and download media.
 3.  **The Analyst (LLM/Regex)**: A processing layer that parses raw HTML/Text into structured data.
 4.  **The Archivist (Database Layer)**: Manages the `census.db` (transcription data) and synchronizes validated facts to the RootsMagic database.
 
@@ -47,16 +49,22 @@ RMCitecraft operates as a local agent with four distinct subsystems:
 ### 3.1 Census Batch Automation
 **Goal**: Convert thousands of placeholder citations into fully sourced, media-linked records.
 
-*   **Supported Years**: US Federal Census 1790-1950.
+*   **Supported Records**:
+    *   US Federal Census 1790-1950 (population schedules).
+    *   Slave Schedules (1850, 1860).
+    *   Mortality Schedules (1850-1880).
 *   **Extraction**:
     *   Metadata: Year, State, County, Township, ED, Sheet/Stamp, Line.
     *   Household: Full roster extraction (names, relationships, ages) for validation.
+    *   Hungarian algorithm for optimal person-to-RIN matching.
 *   **Formatting**:
     *   Generates `Footnote`, `Short Footnote`, and `Bibliography` strictly adhering to *Evidence Explained*.
-    *   Handling for "split page" households and special schedules.
+    *   Year-specific templates (1850 penned pages, 1880+ stamped, 1950 stamps).
+    *   Special schedule formatting (slave schedules with owner attribution, mortality schedules).
 *   **Validation**:
-    *   Logic checks (e.g., "Age 5" cannot be "Head of Household").
+    *   6-criterion validation: year format, census reference, sheet/stamp, ED (1880+), distinct footnote vs short footnote, all forms complete.
     *   Cross-referencing extracted data with existing RootsMagic data.
+    *   Quality check script for batch validation across census years.
 
 ### 3.2 Find a Grave Integration
 **Goal**: Automate the retrieval of burial details and memorial photos.
@@ -85,13 +93,23 @@ RMCitecraft operates as a local agent with four distinct subsystems:
     *   The `Event` (Census Fact).
     *   The `Source` (optional).
 
-### 3.5 Interactive Dashboard
+### 3.5 Census Extraction Viewer
+**Goal**: Browse and link extracted census data to RootsMagic persons.
+
+*   **Page View Mode**: Browse extracted census pages with all household members displayed.
+*   **Census Form Rendering**: Jinja2 templates render 30-line census forms matching original document layout.
+*   **Match Suggestions**: Confidence-scored candidate matches using fuzzy name matching.
+*   **Manual RIN Linking**: Enter RIN directly or select from household members.
+*   **Link Status Indicators**: Visual icons show linked (purple) vs citation-only (gray) status.
+*   **Hybrid Citation Lookup**: Finds valid citations via stored ID, RIN lookup, or location matching.
+
+### 3.6 Interactive Dashboard
 **Goal**: Real-time monitoring and manual intervention.
 
 *   **Live Progress**: Progress bars for batch operations.
 *   **Review Queue**: "Traffic light" system (Green=Auto-Approved, Yellow=Review, Red=Error).
 *   **Manual Override**: Form-based editor to correct extraction errors before syncing.
-*   **Image Viewer**: Side-by-side view of downloaded images vs. transcription data.
+*   **Image Viewer**: Side-by-side view of downloaded images vs. transcription data (275% zoom default).
 
 ---
 
@@ -120,15 +138,20 @@ RMCitecraft operates as a local agent with four distinct subsystems:
 
 ## 5. Roadmap
 
-### Phase 1: Core Consolidation (Current)
+### Phase 1: Core Consolidation (Complete)
 *   [x] Establish `census.db` sidecar architecture.
 *   [x] Implement robust batch processing state machine.
 *   [x] Deprecate passive file monitoring and Chrome Extension.
-*   [ ] Finalize Playwright/CDP transition for all extractors.
+*   [x] Finalize Playwright/CDP transition for all extractors.
+*   [x] Census Extraction Viewer with form rendering.
+*   [x] 6-criterion citation validation.
+*   [x] Slave and mortality schedule support.
 
-### Phase 2: Enhanced Transcription
-*   [ ] Full LLM integration for "hard to read" handwritten records.
+### Phase 2: Enhanced Transcription (Current)
+*   [x] LLM integration for census image transcription.
+*   [x] Hungarian algorithm for household member matching.
 *   [ ] "Household Reconstruction": Automatically creating missing family members in RootsMagic based on `census.db` data.
+*   [ ] Improved handling of "hard to read" handwritten records.
 
 ### Phase 3: State Census & Expansion
 *   [ ] Support for State Census records (NY, IA, KS, etc.).
@@ -140,5 +163,9 @@ RMCitecraft operates as a local agent with four distinct subsystems:
 *   **Agent**: The autonomous process performing tasks.
 *   **CDP (Chrome DevTools Protocol)**: The interface used to drive the browser.
 *   **EAV (Entity-Attribute-Value)**: Database pattern for flexible schema.
-*   **Sidecar**: The `census.db` database living alongside the main `.rmtree` file.
+*   **ED (Enumeration District)**: Geographic subdivision used for census taking (1880+).
+*   **Evidence Explained**: The citation style guide by Elizabeth Shown Mills; the standard for genealogical citations.
+*   **Hungarian Algorithm**: Optimal assignment algorithm used for matching extracted household members to RootsMagic persons.
+*   **RIN (Record Identification Number)**: Unique identifier for a person in RootsMagic.
 *   **RMNOCASE**: Custom collation used by RootsMagic; requires ICU extension.
+*   **Sidecar**: The `census.db` database living alongside the main `.rmtree` file.
