@@ -2,13 +2,13 @@
 
 > Complete documentation index for developers.
 > For LLM-optimized compact map, see `claude_code_docs_map.md` in repo root.
-> Last generated: 2025-12-22 15:23:03 UTC
+> Last generated: 2025-12-30 18:27:31 UTC
 
 ## Summary
 
 | Priority | Count | Included |
 |----------|-------|----------|
-| Essential | 15 | Yes |
+| Essential | 21 | Yes |
 | Reference | 61 | Yes |
 | Archive | 5 | No |
 
@@ -21,6 +21,7 @@
   - Census Records (1790-1950)
   - Find a Grave Records
   - Dashboard & Analytics
+- How It Works
 - Use Cases
 - Requirements
   - System
@@ -29,6 +30,9 @@
 - Installation
 - Quick Start
 - Documentation
+  - User Guides
+  - Reference
+  - Development
 - Caveats and Known Issues
 - License
 
@@ -135,7 +139,7 @@
   - Phase 3: State Census & Expansion
 - 6. Glossary
 
-## Reference (20 docs)
+## Reference (21 docs)
 
 ### [Batch State Database Schema Reference](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/BATCH_STATE_DATABASE_SCHEMA.md) [essential]
 
@@ -259,6 +263,36 @@
 - Adding New Census Years
 - File Locations
 - Related Documentation
+
+### [RMCitecraft Citation Style Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/CITATION-STYLE-GUIDE.md) [essential]
+
+- Overview
+- The Three Citation Forms
+- Citation Format by Census Era
+  - Era 1: 1790-1840 (Household Schedules)
+  - Era 2: 1850-1870 (Individual Enumeration, No ED)
+    - 1850 Census Format
+    - 1860 Census Format
+    - 1870 Census Format
+  - Era 3: 1880-1940 (Enumeration Districts)
+    - 1880 Census Format
+    - 1900-1940 Census Format
+  - Era 4: 1950 Census
+- Special Schedule Types
+  - Slave Schedules (1850, 1860)
+  - Mortality Schedules (1850-1880)
+- Abbreviations Used
+  - State Abbreviations
+  - Other Abbreviations
+- Bibliography Format
+- Source Name Format
+- Design Decisions
+  - Why These Specific Formats?
+- Validation Rules
+- Compatibility Notes
+  - Working with Existing Citations
+  - Citations That May Not Match
+- References
 
 ### [RootsMagic Database Patterns](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/DATABASE_PATTERNS.md) [essential]
 
@@ -2597,14 +2631,102 @@
 - Known Issues
 - Support
 
-## User Guides (1 docs)
+## User Guides (5 docs)
+
+### [Frequently Asked Questions](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/user-guides/FAQ.md) [essential]
+
+- General Questions
+  - What is RMCitecraft?
+  - What RootsMagic versions are supported?
+  - Is RMCitecraft free?
+  - Does RMCitecraft work on Windows?
+  - Do I need programming experience?
+- Setup Questions
+  - Why do I need to start Chrome with special flags?
+  - Can I use Safari or Firefox instead of Chrome?
+  - Why do I need a separate Chrome profile?
+  - Do I need an LLM API key?
+- Database Questions
+  - Will RMCitecraft modify my RootsMagic database?
+  - How do I merge changes back to my main database?
+  - What's this RMNOCASE error I keep seeing?
+  - Can I use RMCitecraft with multiple databases?
+- Citation Questions
+  - What citation style does RMCitecraft use?
+  - Why are there three citation forms?
+  - What source name format does RMCitecraft expect?
+  - Can RMCitecraft process non-census records?
+  - What about slave schedules and mortality schedules?
+- Processing Questions
+  - How does RMCitecraft identify incomplete citations?
+  - What if FamilySearch doesn't have a field indexed?
+  - Can I process citations without images?
+  - What happens if I skip a citation?
+  - How do I resume an interrupted batch?
+- Image Questions
+  - Where are census images stored?
+  - What's the image naming convention?
+  - Can I change the image storage location?
+  - What image formats are supported?
+  - How much disk space do census images use?
+- Technical Questions
+  - What's the difference between the working database and census.db?
+  - What's stored in ~/.rmcitecraft/?
+  - Can I back up the RMCitecraft state?
+  - How do I completely reset RMCitecraft state?
+- Error Questions
+  - "Connection refused" when starting batch
+  - "FamilySearch requires login"
+  - "No citations found"
+  - "RMNOCASE" error
+- Support
+  - Where can I report bugs?
+  - Where's the documentation?
+  - How can I contribute?
+
+### [Getting Started with RMCitecraft](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/user-guides/GETTING-STARTED.md) [essential]
+
+- What is RMCitecraft?
+  - What You'll Need
+- Step 1: Install RMCitecraft
+  - Install UV Package Manager
+  - Clone the Repository
+  - Install Dependencies
+- Step 2: Configure Your Environment
+  - Create Configuration File
+  - Edit Configuration
+  - Optional: Configure AI Features
+- Step 3: Set Up Chrome for FamilySearch
+  - Create a Chrome Launch Script
+  - Start Chrome and Log Into FamilySearch
+- Step 4: Prepare Your Database
+  - Critical: Work on a Copy
+  - Verify Database Connection
+- Step 5: Start RMCitecraft
+  - Start the Application
+  - First-Time Orientation
+- Step 6: Process Your First Citation
+  - Find Unprocessed Citations
+  - What Makes a Citation "Incomplete"?
+  - Process a Citation
+- Understanding RMCitecraft's Assumptions
+  - Source Name Format
+  - Citation Style
+- Next Steps
+- Getting Help
+- Quick Reference
+  - Start Chrome for FamilySearch
+  - Start RMCitecraft
+  - Stop RMCitecraft
+  - Check Status
 
 ### [Census Image Workflow Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/user-guides/IMAGE-WORKFLOW.md) 
 
 - Overview
   - What Gets Automated
   - What You Do
-- Workflow 1: New Citation with Image (Most Common)
+- Prerequisites
+- Workflow 1: Census Batch Processing (Recommended)
   - Step-by-Step
 - Workflow 2: Download Image for Existing Citation
   - When to Use
@@ -2633,7 +2755,7 @@
   - 5. Regular Backups
 - FAQ
   - Q: Can I change the zoom level default?
-  - Q: What if I don't have the browser extension?
+  - Q: What if Chrome automation isn't working?
   - Q: Can I download images for non-census records?
   - Q: Where are original filenames stored?
   - Q: Can I organize images differently?
@@ -2646,6 +2768,80 @@
   - Support
 - Document Version
 
+### [Prerequisites for RMCitecraft](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/user-guides/PREREQUISITES.md) [essential]
+
+- Overview
+- System Requirements
+  - Hardware
+  - Operating System
+- Required Software
+  - 1. Python 3.11 or Later
+  - 2. UV Package Manager
+  - 3. Git
+  - 4. Google Chrome
+- Required Accounts
+  - FamilySearch Account
+- Optional Components
+  - LLM API Key (For AI Transcription)
+    - Option A: Anthropic Claude (Recommended)
+    - Option B: OpenAI GPT-4
+  - OpenRouter (Multi-Provider)
+- RootsMagic Database Preparation
+  - Supported Versions
+  - Database Location
+  - Critical: Work on a Copy
+- Chrome Configuration for FamilySearch
+  - Create Launch Script
+  - First-Time Setup
+  - Why a Separate Chrome Profile?
+- Directory Structure
+- Verification Checklist
+- Common Issues
+  - "command not found: uv"
+  - Python version too old
+  - Chrome won't start with debugging
+  - Can't find RootsMagic database
+- Next Steps
+
+### [Troubleshooting Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/user-guides/TROUBLESHOOTING.md) [essential]
+
+- Quick Diagnostics
+- Installation Issues
+  - "command not found: uv"
+  - "No module named 'rmcitecraft'"
+  - "Python version 3.x is not supported"
+- Database Connection Issues
+  - "no such collation sequence: RMNOCASE"
+  - "attempt to write a readonly database"
+  - "database is locked"
+  - "unable to open database file"
+- Chrome/FamilySearch Issues
+  - "Failed to connect to Chrome"
+  - "Port 9222 already in use"
+  - "FamilySearch login required"
+  - "Page load timeout"
+- Citation Processing Issues
+  - "No citations found for year XXXX"
+  - "Citation already complete"
+  - "Missing ED number"
+  - "Short footnote same as footnote"
+- Image Issues
+  - "Image not downloading"
+  - "Image linked to wrong citation"
+  - "Media folder not found"
+- Performance Issues
+  - "Processing very slow"
+  - "Memory error" or "Out of memory"
+- Recovery
+  - "Batch processing interrupted"
+  - "Database corrupted"
+  - "Lost changes"
+- Getting More Help
+  - Check Logs
+  - Debug Mode
+  - Report Issues
+- Common Error Messages Reference
+
 ## Other (1 docs)
 
 ### [RMCitecraft Screenshots](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/screenshots/README.md) 
@@ -2657,3 +2853,57 @@
 - Screenshot Guidelines
 - Updating Screenshots
 - Notes
+
+## Archive (1 docs)
+
+### [Census Batch Workflow Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/misc/CENSUS-BATCH-WORKFLOW.md) [essential]
+
+- Overview
+- Before You Begin
+  - Prerequisites
+  - Understanding Citation States
+- Step 1: Select Census Year
+  - In the Batch Processing Tab
+  - What Appears
+- Step 2: Filter Citations
+  - Filter Options
+  - Recommended Approach
+- Step 3: Start Batch Processing
+  - Click "Start Batch"
+  - Progress Display
+- Step 4: Review Each Citation
+  - The Review Dialog
+  - Fill Missing Fields
+  - Verify Extracted Data
+- Step 5: Save or Skip
+  - Save Citation
+  - Skip Citation
+  - Stop Batch
+- Citation Format Output
+  - What Gets Generated
+- Year-Specific Notes
+  - 1790-1840 (Household Schedules)
+  - 1850-1870 (Pre-ED Era)
+  - 1880 (ED Introduction)
+  - 1900-1940 (Sheet Era)
+  - 1950 (Stamp Era)
+- Handling Special Cases
+  - Slave Schedules (1850, 1860)
+  - Mortality Schedules (1850-1880)
+  - Missing ED Numbers
+  - Household Forms (1950)
+- Batch Recovery
+  - If RMCitecraft Crashes
+  - If Chrome Disconnects
+- Best Practices
+  - 1. Process by Year
+  - 2. Batch Size
+  - 3. Verify First Few
+  - 4. Regular Saves
+  - 5. Keep Notes
+- Troubleshooting
+  - "No citations found for year"
+  - "Chrome connection failed"
+  - "FamilySearch page not loading"
+  - "ED field empty"
+- Next Steps

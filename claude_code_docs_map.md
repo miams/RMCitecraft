@@ -2,10 +2,10 @@
 
 > **For LLMs**: This compact index contains essential docs only.
 > For complete documentation, see `docs/FULL_INDEX.md`.
-> Last generated: 2025-12-22 15:23:03 UTC
+> Last generated: 2025-12-30 18:27:31 UTC
 
-**Essential docs**: 15 | 
-**Total docs**: 81 (use Glob/Grep for full search)
+**Essential docs**: 21 | 
+**Total docs**: 87 (use Glob/Grep for full search)
 
 ## Getting Started
 
@@ -14,6 +14,7 @@
 
 - Value Proposition
 - Key Features
+- How It Works
 - Use Cases
 - Requirements
 - Technology Stack
@@ -21,7 +22,6 @@
 - Quick Start
 - Documentation
 - Caveats and Known Issues
-- License
 
 ## Project Overview
 
@@ -96,6 +96,20 @@
 - Adding New Census Years
 - File Locations
 - Related Documentation
+
+### [RMCitecraft Citation Style Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/CITATION-STYLE-GUIDE.md)
+*Topics: citation, evidence-explained, formatting, reference*
+
+- Overview
+- The Three Citation Forms
+- Citation Format by Census Era
+- Special Schedule Types
+- Abbreviations Used
+- Bibliography Format
+- Source Name Format
+- Design Decisions
+- Validation Rules
+- Compatibility Notes
 
 ### [RootsMagic Database Patterns](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/reference/DATABASE_PATTERNS.md)
 *Topics: database, census, citation, batch, testing*
@@ -219,3 +233,76 @@
 - CI/CD Integration
 - Test Development
 - Performance Benchmarks
+
+## Archive
+
+### [Census Batch Workflow Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/misc/CENSUS-BATCH-WORKFLOW.md)
+*Topics: user-guide, census, batch-processing*
+
+- Overview
+- Before You Begin
+- Step 1: Select Census Year
+- Step 2: Filter Citations
+- Step 3: Start Batch Processing
+- Step 4: Review Each Citation
+- Step 5: Save or Skip
+- Citation Format Output
+- Year-Specific Notes
+- Handling Special Cases
+
+## User Guides
+
+### [Frequently Asked Questions](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/user-guides/FAQ.md)
+*Topics: faq, questions, help*
+
+- General Questions
+- Setup Questions
+- Database Questions
+- Citation Questions
+- Processing Questions
+- Image Questions
+- Technical Questions
+- Error Questions
+- Support
+
+### [Getting Started with RMCitecraft](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/user-guides/GETTING-STARTED.md)
+*Topics: user-guide, installation, setup*
+
+- What is RMCitecraft?
+- Step 1: Install RMCitecraft
+- Step 2: Configure Your Environment
+- Step 3: Set Up Chrome for FamilySearch
+- Step 4: Prepare Your Database
+- Step 5: Start RMCitecraft
+- Step 6: Process Your First Citation
+- Understanding RMCitecraft's Assumptions
+- Next Steps
+- Getting Help
+
+### [Prerequisites for RMCitecraft](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/user-guides/PREREQUISITES.md)
+*Topics: setup, installation, requirements*
+
+- Overview
+- System Requirements
+- Required Software
+- Required Accounts
+- Optional Components
+- RootsMagic Database Preparation
+- Chrome Configuration for FamilySearch
+- Directory Structure
+- Verification Checklist
+- Common Issues
+
+### [Troubleshooting Guide](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/user-guides/TROUBLESHOOTING.md)
+*Topics: troubleshooting, errors, support*
+
+- Quick Diagnostics
+- Installation Issues
+- Database Connection Issues
+- Chrome/FamilySearch Issues
+- Citation Processing Issues
+- Image Issues
+- Performance Issues
+- Recovery
+- Getting More Help
+- Common Error Messages Reference
