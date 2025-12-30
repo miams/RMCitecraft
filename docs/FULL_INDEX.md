@@ -2,7 +2,7 @@
 
 > Complete documentation index for developers.
 > For LLM-optimized compact map, see `claude_code_docs_map.md` in repo root.
-> Last generated: 2025-12-30 18:37:29 UTC
+> Last generated: 2025-12-30 18:40:21 UTC
 
 ## Summary
 
@@ -77,6 +77,8 @@
   - Validate Citation Format
   - Run Application
 - Troubleshooting
+  - Common Database Errors (Quick Reference)
+  - Database Connection Boilerplate
   - Common Issues
 - Additional Resources
 
@@ -90,6 +92,7 @@
 - Database Safety (Critical)
   - Working Copy Architecture
   - RMNOCASE Collation (Required)
+  - Common Database Errors
   - Free-Form Citations (TemplateID=0)
   - Working with SourceTable.Fields BLOB
   - Census Events are Shared Facts
