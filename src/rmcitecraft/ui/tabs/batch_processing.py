@@ -32,7 +32,10 @@ from rmcitecraft.services.batch_processing import (
     BatchProcessingState,
     CitationStatus,
 )
-from rmcitecraft.services.familysearch_automation import FamilySearchAutomation
+from rmcitecraft.services.familysearch_automation import (
+    FamilySearchAutomation,
+    CDPConnectionError,
+)
 from rmcitecraft.services.image_processing import get_image_processing_service
 from rmcitecraft.services.message_log import get_message_log, MessageType
 from rmcitecraft.services.page_health_monitor import (
@@ -75,6 +78,7 @@ class BatchProcessingTab:
         # State
         self.selected_census_year: int | None = None
         self.selected_citation_ids: set[int] = set()  # Track selected citations
+        self.open_browser_tabs: bool = True  # Open new tab for each citation during extraction
 
         # UI component references
         self.queue_component: CitationQueueComponent | None = None
@@ -142,11 +146,12 @@ class BatchProcessingTab:
             count = 0
             all_sessions = self.state_repository.get_all_sessions()
             for session in all_sessions:
-                items = self.state_repository.get_session_items(session['session_id'])
+                items = self.state_repository.get_session_items(session["session_id"])
                 count += sum(
-                    1 for item in items
-                    if item['status'] == 'complete'
-                    and item.get('export_status', 'pending') == 'pending'
+                    1
+                    for item in items
+                    if item["status"] == "complete"
+                    and item.get("export_status", "pending") == "pending"
                 )
             return count
         except Exception as e:
@@ -166,11 +171,11 @@ class BatchProcessingTab:
             count = 0
             all_sessions = self.state_repository.get_all_sessions()
             for session in all_sessions:
-                items = self.state_repository.get_session_items(session['session_id'])
+                items = self.state_repository.get_session_items(session["session_id"])
                 count += sum(
-                    1 for item in items
-                    if item['status'] == 'complete'
-                    and item.get('export_status') == 'exported'
+                    1
+                    for item in items
+                    if item["status"] == "complete" and item.get("export_status") == "exported"
                 )
             return count
         except Exception as e:
@@ -181,23 +186,27 @@ class BatchProcessingTab:
         """Render the batch processing tab with sub-tabs."""
         with ui.column().classes("w-full h-full"):
             # Create sub-tabs for Batch Processing and Dashboard
-            with ui.tabs().classes('w-full') as tabs:
-                batch_tab = ui.tab('Batch Processing', icon='playlist_add_check')
-                dashboard_tab = ui.tab('Dashboard', icon='dashboard')
+            with ui.tabs().classes("w-full") as tabs:
+                batch_tab = ui.tab("Batch Processing", icon="playlist_add_check")
+                dashboard_tab = ui.tab("Dashboard", icon="dashboard")
 
-            with ui.tab_panels(tabs, value=batch_tab).classes('w-full h-full'):
+            with ui.tab_panels(tabs, value=batch_tab).classes("w-full h-full"):
                 # Tab 1: Batch Processing
-                with ui.tab_panel(batch_tab).classes('w-full h-full'):
+                with ui.tab_panel(batch_tab).classes("w-full h-full"):
                     with ui.column().classes("w-full h-full gap-1 p-1"):
                         # Header with session controls (compact)
                         self._render_session_header()
 
                         # Three-panel layout container
-                        with ui.row().classes("w-full flex-grow flex-nowrap gap-0") as self.three_panel_container:
+                        with ui.row().classes(
+                            "w-full flex-grow flex-nowrap gap-0"
+                        ) as self.three_panel_container:
                             self._render_three_panels()
 
                         # Bottom status bar (only visible in Batch Processing)
-                        with ui.row().classes("w-full items-center bg-gray-100 px-2 py-1 border-t") as self.status_bar_container:
+                        with ui.row().classes(
+                            "w-full items-center bg-gray-100 px-2 py-1 border-t"
+                        ) as self.status_bar_container:
                             self._render_status_bar()
 
                         # Message log panel at bottom
@@ -205,7 +214,7 @@ class BatchProcessingTab:
                         self.message_log_panel.render()
 
                 # Tab 2: Census Dashboard
-                with ui.tab_panel(dashboard_tab).classes('w-full h-full'):
+                with ui.tab_panel(dashboard_tab).classes("w-full h-full"):
                     self._render_census_dashboard()
 
     def _render_three_panels(self) -> None:
@@ -249,7 +258,9 @@ class BatchProcessingTab:
                     )
 
         # Right panel: Census image viewer (35% width, extra compact)
-        with ui.card().classes("w-[35%] h-full flex-shrink-0 overflow-hidden p-1") as self.image_container:
+        with ui.card().classes(
+            "w-[35%] h-full flex-shrink-0 overflow-hidden p-1"
+        ) as self.image_container:
             with ui.column().classes("w-full h-full gap-0"):
                 # Header (compact)
                 with ui.row().classes("w-full items-center justify-between p-1 border-b"):
@@ -261,7 +272,9 @@ class BatchProcessingTab:
                             # Open in new tab button
                             ui.button(
                                 icon="open_in_new",
-                                on_click=lambda url=citation.familysearch_url: ui.run_javascript(f"window.open('{url}', '_blank')"),
+                                on_click=lambda url=citation.familysearch_url: ui.run_javascript(
+                                    f"window.open('{url}', '_blank')"
+                                ),
                             ).props("flat dense").tooltip("Open in new tab")
 
                 # Image viewer
@@ -269,7 +282,9 @@ class BatchProcessingTab:
                     citation = self.controller.session.current_citation
                     # Show local image if available, otherwise show FamilySearch viewer
                     if citation.local_image_path:
-                        self._render_local_image(citation.local_image_path, citation.familysearch_url)
+                        self._render_local_image(
+                            citation.local_image_path, citation.familysearch_url
+                        )
                     elif citation.familysearch_url:
                         self._render_familysearch_viewer(citation.familysearch_url)
                     else:
@@ -291,9 +306,9 @@ class BatchProcessingTab:
         with ui.row().classes("w-full items-center justify-between"):
             # Session status (compact)
             if self.controller.session:
-                self.session_status_label = ui.label(
-                    self._get_session_status_text()
-                ).classes("text-sm text-gray-700 font-medium")
+                self.session_status_label = ui.label(self._get_session_status_text()).classes(
+                    "text-sm text-gray-700 font-medium"
+                )
             else:
                 self.session_status_label = ui.label("No active session").classes(
                     "text-sm text-gray-500 italic"
@@ -324,11 +339,17 @@ class BatchProcessingTab:
                 pending_export_count = self._count_pending_exports()
                 if pending_export_count > 0 or self.controller.session:
                     ui.button(
-                        f"Export ({pending_export_count})" if pending_export_count > 0 and not self.controller.session else "Export",
+                        f"Export ({pending_export_count})"
+                        if pending_export_count > 0 and not self.controller.session
+                        else "Export",
                         icon="save",
                         on_click=self._export_results,
-                    ).props("dense outline color=green" if pending_export_count > 0 else "dense outline").tooltip(
-                        f"{pending_export_count} citations pending export" if pending_export_count > 0 else "Export citations"
+                    ).props(
+                        "dense outline color=green" if pending_export_count > 0 else "dense outline"
+                    ).tooltip(
+                        f"{pending_export_count} citations pending export"
+                        if pending_export_count > 0
+                        else "Export citations"
                     )
 
                 if self.controller.session:
@@ -365,28 +386,40 @@ class BatchProcessingTab:
 
             # Census year selector
             ui.label("Select Census Year:").classes("font-medium mb-2")
-            year_select = ui.select(
-                [1790 + (i * 10) for i in range(17)],  # 1790-1950
-                value=1920,
-            ).props("outlined").classes("w-full mb-4")
+            year_select = (
+                ui.select(
+                    [1790 + (i * 10) for i in range(17)],  # 1790-1950
+                    value=1920,
+                )
+                .props("outlined")
+                .classes("w-full mb-4")
+            )
 
             # Limit input
             ui.label("Number of Citations:").classes("font-medium mb-2")
-            limit_input = ui.number(
-                label="Limit",
-                value=10,
-                min=1,
-                max=1000,
-            ).props("outlined").classes("w-full mb-4")
+            limit_input = (
+                ui.number(
+                    label="Limit",
+                    value=10,
+                    min=1,
+                    max=1000,
+                )
+                .props("outlined")
+                .classes("w-full mb-4")
+            )
 
             # Offset input (for pagination)
             ui.label("Start at Entry # (Offset):").classes("font-medium mb-2")
-            offset_input = ui.number(
-                label="Offset",
-                value=0,
-                min=0,
-                max=10000,
-            ).props("outlined").classes("w-full mb-4")
+            offset_input = (
+                ui.number(
+                    label="Offset",
+                    value=0,
+                    min=0,
+                    max=10000,
+                )
+                .props("outlined")
+                .classes("w-full mb-4")
+            )
 
             # Actions
             with ui.row().classes("w-full justify-end gap-2"):
@@ -416,7 +449,9 @@ class BatchProcessingTab:
         dialog.close()
 
         offset_text = f" starting at entry {offset + 1}" if offset > 0 else ""
-        self._notify_and_log(f"Loading {limit} citations for {census_year} census{offset_text}...", type="info")
+        self._notify_and_log(
+            f"Loading {limit} citations for {census_year} census{offset_text}...", type="info"
+        )
 
         try:
             # Import the find function from batch script
@@ -426,21 +461,24 @@ class BatchProcessingTab:
             db_path = str(self.config.rm_database_path)
             result = find_census_citations(db_path, census_year, limit=limit, offset=offset)
 
-            if not result['citations']:
-                self._notify_and_log(f"No citations found for {census_year} census at offset {offset}", type="warning")
+            if not result["citations"]:
+                self._notify_and_log(
+                    f"No citations found for {census_year} census at offset {offset}",
+                    type="warning",
+                )
                 return
 
             # Create batch session
-            self.controller.create_session(census_year, result['citations'])
+            self.controller.create_session(census_year, result["citations"])
 
             # Clear any previous selections when loading new batch
             self.selected_citation_ids = set()
 
             # Provide feedback with explanation if count differs from requested
-            examined = result['examined']
-            found = result['found']
-            excluded = result['excluded']
-            skipped_processed = result.get('skipped_processed', 0)
+            examined = result["examined"]
+            found = result["found"]
+            excluded = result["excluded"]
+            skipped_processed = result.get("skipped_processed", 0)
 
             if excluded > 0 or skipped_processed > 0:
                 # Show which citations were excluded
@@ -463,18 +501,20 @@ class BatchProcessingTab:
                     self.message_log.log_info(
                         f"To find excluded citations: Go to Citation Manager tab → Select census year filter → "
                         f"Look for citations with 'No URL' status",
-                        source="Batch Processing - Info"
+                        source="Batch Processing - Info",
                     )
                 if skipped_processed > 0:
                     self.message_log.log_info(
                         f"{skipped_processed} citations already have properly formatted Footnote, ShortFootnote, "
                         f"and Bibliography fields and were skipped.",
-                        source="Batch Processing - Info"
+                        source="Batch Processing - Info",
                     )
                 # Offer to show excluded citations
                 with ui.dialog() as excluded_dialog, ui.card().classes("w-96"):
                     total_excluded = excluded + skipped_processed
-                    ui.label(f"{total_excluded} Citations Excluded").classes("font-bold text-lg mb-2")
+                    ui.label(f"{total_excluded} Citations Excluded").classes(
+                        "font-bold text-lg mb-2"
+                    )
 
                     if excluded > 0:
                         ui.label(
@@ -489,12 +529,18 @@ class BatchProcessingTab:
                         ).classes("text-sm mb-4")
 
                     if excluded > 0:
-                        ui.label("To find citations without URLs:").classes("font-semibold text-sm mb-2")
+                        ui.label("To find citations without URLs:").classes(
+                            "font-semibold text-sm mb-2"
+                        )
                         ui.label("1. Go to Citation Manager tab").classes("text-xs ml-4")
                         ui.label("2. Select census year filter").classes("text-xs ml-4")
-                        ui.label("3. Look for citations with 'No URL' status").classes("text-xs ml-4")
+                        ui.label("3. Look for citations with 'No URL' status").classes(
+                            "text-xs ml-4"
+                        )
 
-                    ui.button("OK", on_click=excluded_dialog.close).props("color=primary").classes("mt-4")
+                    ui.button("OK", on_click=excluded_dialog.close).props("color=primary").classes(
+                        "mt-4"
+                    )
 
                 ui.button(
                     icon="info",
@@ -538,32 +584,39 @@ class BatchProcessingTab:
 
             # Session table
             columns = [
-                {'name': 'session_id', 'label': 'Session ID', 'field': 'session_id', 'align': 'left'},
-                {'name': 'created', 'label': 'Created', 'field': 'created_at', 'align': 'left'},
-                {'name': 'status', 'label': 'Status', 'field': 'status', 'align': 'center'},
-                {'name': 'progress', 'label': 'Progress', 'field': 'progress', 'align': 'center'},
-                {'name': 'year', 'label': 'Census Year', 'field': 'census_year', 'align': 'center'},
+                {
+                    "name": "session_id",
+                    "label": "Session ID",
+                    "field": "session_id",
+                    "align": "left",
+                },
+                {"name": "created", "label": "Created", "field": "created_at", "align": "left"},
+                {"name": "status", "label": "Status", "field": "status", "align": "center"},
+                {"name": "progress", "label": "Progress", "field": "progress", "align": "center"},
+                {"name": "year", "label": "Census Year", "field": "census_year", "align": "center"},
             ]
 
             rows = []
             for s in sessions:
-                total = s['total_items']
-                completed = s['completed_count']
+                total = s["total_items"]
+                completed = s["completed_count"]
                 progress = f"{completed}/{total}" if total > 0 else "0/0"
-                rows.append({
-                    'session_id': s['session_id'],
-                    'created_at': s['created_at'][:19] if s['created_at'] else 'N/A',
-                    'status': s['status'],
-                    'progress': progress,
-                    'census_year': s['census_year'] or 'All',
-                })
+                rows.append(
+                    {
+                        "session_id": s["session_id"],
+                        "created_at": s["created_at"][:19] if s["created_at"] else "N/A",
+                        "status": s["status"],
+                        "progress": progress,
+                        "census_year": s["census_year"] or "All",
+                    }
+                )
 
             table = ui.table(
                 columns=columns,
                 rows=rows,
-                row_key='session_id',
-                selection='single',
-            ).classes('w-full')
+                row_key="session_id",
+                selection="single",
+            ).classes("w-full")
 
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
                 ui.button("Cancel", on_click=dialog.close).props("flat")
@@ -571,7 +624,7 @@ class BatchProcessingTab:
                 async def resume_selected():
                     selected = table.selected
                     if selected:
-                        session_id = selected[0]['session_id']
+                        session_id = selected[0]["session_id"]
                         dialog.close()
                         await self._resume_session(session_id)
 
@@ -602,8 +655,9 @@ class BatchProcessingTab:
         # Get incomplete items
         items = self.state_repository.get_session_items(session_id)
         incomplete_items = [
-            item for item in items
-            if item['status'] not in ('complete', 'extracted', 'created_citation')
+            item
+            for item in items
+            if item["status"] not in ("complete", "extracted", "created_citation")
         ]
 
         if not incomplete_items:
@@ -614,10 +668,9 @@ class BatchProcessingTab:
         self.current_session_id = session_id
 
         # Load citations for incomplete items
-        census_year = session.get('census_year')
+        census_year = session.get("census_year")
         self._notify_and_log(
-            f"Resuming session {session_id}: {len(incomplete_items)} items remaining",
-            type="info"
+            f"Resuming session {session_id}: {len(incomplete_items)} items remaining", type="info"
         )
 
         # Create a new controller session from incomplete items
@@ -625,11 +678,13 @@ class BatchProcessingTab:
         from scripts.process_census_batch import find_census_citations
 
         db_path = str(self.config.rm_database_path)
-        person_ids = [item['person_id'] for item in incomplete_items]
+        person_ids = [item["person_id"] for item in incomplete_items]
 
         # If no session-level census_year, get unique years from incomplete items
         if not census_year:
-            census_years = list(set(item['census_year'] for item in incomplete_items if item.get('census_year')))
+            census_years = list(
+                set(item["census_year"] for item in incomplete_items if item.get("census_year"))
+            )
             if not census_years:
                 ui.notify("Cannot determine census years from session items", type="warning")
                 return
@@ -641,18 +696,16 @@ class BatchProcessingTab:
         all_citations = []
         for year in census_years:
             result = find_census_citations(
-                db_path, year,
+                db_path,
+                year,
                 limit=len(incomplete_items) + 100,  # Get extra to account for completed ones
             )
-            if result['citations']:
-                all_citations.extend(result['citations'])
+            if result["citations"]:
+                all_citations.extend(result["citations"])
 
         if all_citations:
             # Filter to only incomplete items
-            citations_to_process = [
-                c for c in all_citations
-                if c['person_id'] in person_ids
-            ]
+            citations_to_process = [c for c in all_citations if c["person_id"] in person_ids]
 
             if citations_to_process:
                 # Use first census year for display, or None for mixed years
@@ -661,8 +714,7 @@ class BatchProcessingTab:
                 self.selected_citation_ids = set()
                 self._refresh_all_panels()
                 self._notify_and_log(
-                    f"Loaded {len(citations_to_process)} citations for resume",
-                    type="positive"
+                    f"Loaded {len(citations_to_process)} citations for resume", type="positive"
                 )
             else:
                 ui.notify("No matching citations found to resume", type="warning")
@@ -672,11 +724,13 @@ class BatchProcessingTab:
     def _show_reset_state_db_dialog(self) -> None:
         """Show confirmation dialog to reset the census state database."""
         with ui.dialog() as dialog, ui.card().classes("w-96"):
-            ui.label("Reset Census State Database").classes("font-bold text-lg text-orange-600 mb-4")
+            ui.label("Reset Census State Database").classes(
+                "font-bold text-lg text-orange-600 mb-4"
+            )
 
-            ui.label(
-                "This will delete ALL census batch state data including:"
-            ).classes("font-medium mb-2")
+            ui.label("This will delete ALL census batch state data including:").classes(
+                "font-medium mb-2"
+            )
 
             with ui.column().classes("ml-4 mb-4 text-sm text-gray-700"):
                 ui.label("• All census batch sessions")
@@ -689,9 +743,9 @@ class BatchProcessingTab:
                 "when the state database is out of sync."
             ).classes("text-sm text-gray-600 italic mb-4")
 
-            ui.label(
-                "This does NOT affect Find a Grave batch state data."
-            ).classes("text-sm font-medium text-blue-600 mb-4")
+            ui.label("This does NOT affect Find a Grave batch state data.").classes(
+                "text-sm font-medium text-blue-600 mb-4"
+            )
 
             with ui.row().classes("w-full justify-end gap-2"):
                 ui.button("Cancel", on_click=dialog.close).props("flat")
@@ -722,8 +776,7 @@ class BatchProcessingTab:
             self.checkpoint_counter = 0
 
             self._notify_and_log(
-                f"Census state database reset: {count} sessions deleted",
-                type="positive"
+                f"Census state database reset: {count} sessions deleted", type="positive"
             )
         except Exception as e:
             logger.error(f"Failed to reset state database: {e}")
@@ -755,20 +808,17 @@ class BatchProcessingTab:
         if self.selected_citation_ids:
             # Process only selected citations, maintaining queue order
             citations_to_process = [
-                c for c in queue_ordered_citations
-                if c.citation_id in self.selected_citation_ids
+                c for c in queue_ordered_citations if c.citation_id in self.selected_citation_ids
             ]
             self._notify_and_log(
-                f"Processing {len(citations_to_process)} selected citations...",
-                type="info"
+                f"Processing {len(citations_to_process)} selected citations...", type="info"
             )
         else:
             # No selections - process all incomplete citations in queue order
             # Exclude complete and error items (they don't need processing)
             excluded_statuses = ["complete", "error"]
             citations_to_process = [
-                c for c in queue_ordered_citations
-                if c.status.value not in excluded_statuses
+                c for c in queue_ordered_citations if c.status.value not in excluded_statuses
             ]
 
             # Log what we're skipping for transparency
@@ -780,7 +830,7 @@ class BatchProcessingTab:
             self._notify_and_log(
                 f"Processing {len(citations_to_process)} incomplete citations "
                 f"(skipping {complete_count} complete, {error_count} errors)...",
-                type="info"
+                type="info",
             )
 
         if not citations_to_process:
@@ -791,18 +841,22 @@ class BatchProcessingTab:
         self._create_state_session(citations_to_process)
 
         # Create progress dialog with detailed status
-        with ui.dialog().props('persistent') as progress_dialog, ui.card().classes('w-96'):
-            ui.label('Census Batch Processing').classes('text-lg font-bold mb-4')
+        with ui.dialog().props("persistent") as progress_dialog, ui.card().classes("w-96"):
+            ui.label("Census Batch Processing").classes("text-lg font-bold mb-4")
 
-            progress_label = ui.label('Starting...').classes('text-sm mb-2')
-            with ui.row().classes('w-full items-center gap-2'):
-                progress_bar = ui.linear_progress(value=0, show_value=False).props('instant-feedback').classes('flex-grow')
-                progress_pct = ui.label('0.0%').classes('text-sm font-medium w-16 text-right')
+            progress_label = ui.label("Starting...").classes("text-sm mb-2")
+            with ui.row().classes("w-full items-center gap-2"):
+                progress_bar = (
+                    ui.linear_progress(value=0, show_value=False)
+                    .props("instant-feedback")
+                    .classes("flex-grow")
+                )
+                progress_pct = ui.label("0.0%").classes("text-sm font-medium w-16 text-right")
 
-            status_label = ui.label('').classes('text-xs text-gray-600 mt-2')
-            health_label = ui.label('').classes('text-xs text-blue-600 mt-1')
+            status_label = ui.label("").classes("text-xs text-gray-600 mt-2")
+            health_label = ui.label("").classes("text-xs text-blue-600 mt-1")
 
-            with ui.row().classes('gap-2 mt-4'):
+            with ui.row().classes("gap-2 mt-4"):
                 ui.button("Pause", on_click=lambda: self._pause_batch_processing()).props("flat")
 
         progress_dialog.open()
@@ -838,6 +892,17 @@ class BatchProcessingTab:
                     skipped += 1
                 elif result == "error":
                     errors += 1
+                elif result == "connection_error":
+                    # Browser connection lost - stop batch processing
+                    errors += 1
+                    logger.error("Stopping batch: browser connection lost")
+                    ui.notify(
+                        "Batch stopped: Browser connection lost. "
+                        "Please check Chrome is running and click 'Reconnect'.",
+                        type="negative",
+                        timeout=10000,
+                    )
+                    break  # Exit the processing loop
 
                 # Refresh queue component only (don't destroy/recreate UI)
                 if self.queue_component:
@@ -852,14 +917,14 @@ class BatchProcessingTab:
                 # Record error in state DB
                 if self.state_repository and self.current_state_item_id:
                     self.state_repository.update_item_status(
-                        self.current_state_item_id, 'error', str(e)
+                        self.current_state_item_id, "error", str(e)
                     )
 
             # Record metrics
             duration_ms = int((time.time() - start_time) * 1000)
             if self.state_repository and self.current_session_id:
                 self.state_repository.record_metric(
-                    operation='citation_creation',
+                    operation="citation_creation",
                     duration_ms=duration_ms,
                     success=(result == "processed"),
                     session_id=self.current_session_id,
@@ -886,7 +951,7 @@ class BatchProcessingTab:
         # Show completion message
         self._notify_and_log(
             f"Batch processing complete! {processed} processed, {errors} errors, {skipped} skipped",
-            type="positive"
+            type="positive",
         )
 
         # Refresh queue component (don't destroy/recreate entire UI)
@@ -919,9 +984,9 @@ class BatchProcessingTab:
             total_items=len(citations),
             census_year=census_year,
             config_snapshot={
-                'base_timeout': self.config.census_base_timeout_seconds,
-                'max_retries': self.config.census_max_retries,
-                'adaptive_timeout': self.config.census_enable_adaptive_timeout,
+                "base_timeout": self.config.census_base_timeout_seconds,
+                "max_retries": self.config.census_max_retries,
+                "adaptive_timeout": self.config.census_enable_adaptive_timeout,
             },
         )
 
@@ -932,13 +997,15 @@ class BatchProcessingTab:
                 person_id=citation.person_id,
                 person_name=citation.full_name,
                 census_year=citation.census_year,
-                state=citation.extracted_data.get('state') if citation.extracted_data else None,
-                county=citation.extracted_data.get('county') if citation.extracted_data else None,
+                state=citation.extracted_data.get("state") if citation.extracted_data else None,
+                county=citation.extracted_data.get("county") if citation.extracted_data else None,
                 citation_id=citation.citation_id,
                 source_id=citation.source_id,
             )
 
-        logger.info(f"Created census batch session {self.current_session_id} with {len(citations)} items")
+        logger.info(
+            f"Created census batch session {self.current_session_id} with {len(citations)} items"
+        )
 
     def _get_queue_ordered_citations(self) -> list[CitationBatchItem]:
         """Get citations in the same order as displayed in the queue.
@@ -957,7 +1024,7 @@ class BatchProcessingTab:
         # Get sort setting from queue component (default to "name" if not available)
         sort_by = "name"
         if self.queue_component:
-            sort_by = getattr(self.queue_component, 'sort_by', 'name')
+            sort_by = getattr(self.queue_component, "sort_by", "name")
 
         # Apply same sorting as queue component
         if sort_by == "name":
@@ -1002,8 +1069,11 @@ class BatchProcessingTab:
         if self.state_repository and self.current_session_id:
             items = self.state_repository.get_session_items(self.current_session_id)
             for item in items:
-                if item['person_id'] == citation.person_id and item['census_year'] == citation.census_year:
-                    self.current_state_item_id = item['id']
+                if (
+                    item["person_id"] == citation.person_id
+                    and item["census_year"] == citation.census_year
+                ):
+                    self.current_state_item_id = item["id"]
                     break
 
         # Safety check: skip citations that are already complete
@@ -1015,7 +1085,18 @@ class BatchProcessingTab:
         if self.config.census_enable_crash_recovery:
             health_label.text = "Checking page health..."
 
-            page = await self.familysearch_automation.get_or_create_page()
+            try:
+                page = await self.familysearch_automation.get_or_create_page()
+            except CDPConnectionError as e:
+                # Browser connection lost during health check
+                logger.error(f"Browser connection lost during health check: {e}")
+                self.controller.mark_citation_error(citation, f"Browser connection lost: {e}")
+                if self.state_repository and self.current_state_item_id:
+                    self.state_repository.update_item_status(
+                        self.current_state_item_id, "error", f"Browser connection lost: {e}"
+                    )
+                return "connection_error"
+
             if page:
                 health = await self.health_monitor.check_page_health(page)
 
@@ -1028,10 +1109,12 @@ class BatchProcessingTab:
                         page, self.familysearch_automation
                     )
                     if not recovered_page:
-                        self.controller.mark_citation_error(citation, f"Page recovery failed: {health.error}")
+                        self.controller.mark_citation_error(
+                            citation, f"Page recovery failed: {health.error}"
+                        )
                         if self.state_repository and self.current_state_item_id:
                             self.state_repository.update_item_status(
-                                self.current_state_item_id, 'error', f"Page crash: {health.error}"
+                                self.current_state_item_id, "error", f"Page crash: {health.error}"
                             )
                         return "error"
                 else:
@@ -1040,7 +1123,7 @@ class BatchProcessingTab:
         # ===== PHASE 2: ALREADY EXTRACTED CHECK =====
         status_label.text = "Checking extraction status..."
 
-        if citation.extracted_data and citation.extracted_data.get('extraction_complete'):
+        if citation.extracted_data and citation.extracted_data.get("extraction_complete"):
             logger.debug(f"Citation {citation.citation_id} already extracted, skipping extraction")
             # Skip to image download if needed
             if not citation.has_existing_media:
@@ -1052,13 +1135,13 @@ class BatchProcessingTab:
             self.controller.mark_citation_error(citation, "No FamilySearch URL available")
             if self.state_repository and self.current_state_item_id:
                 self.state_repository.update_item_status(
-                    self.current_state_item_id, 'error', "No FamilySearch URL"
+                    self.current_state_item_id, "error", "No FamilySearch URL"
                 )
             return "error"
 
         # Update state to extracting
         if self.state_repository and self.current_state_item_id:
-            self.state_repository.update_item_status(self.current_state_item_id, 'extracting')
+            self.state_repository.update_item_status(self.current_state_item_id, "extracting")
 
         # ===== PHASE 3: EXTRACTION WITH RETRY & ADAPTIVE TIMEOUT =====
         status_label.text = "Extracting citation data..."
@@ -1077,8 +1160,7 @@ class BatchProcessingTab:
                 # Time the extraction
                 with TimingContext(self.timeout_manager, "familysearch_extraction"):
                     extracted_data = await self.familysearch_automation.extract_citation_data(
-                        citation.familysearch_url,
-                        census_year=citation.census_year
+                        citation.familysearch_url, census_year=citation.census_year
                     )
 
                 if extracted_data:
@@ -1088,12 +1170,24 @@ class BatchProcessingTab:
 
                     if self.state_repository and self.current_session_id:
                         self.state_repository.record_metric(
-                            operation='extraction',
+                            operation="extraction",
                             duration_ms=int(duration * 1000),
                             success=True,
                             session_id=self.current_session_id,
                         )
                     break
+
+            except CDPConnectionError as e:
+                # Browser connection failed - stop batch processing immediately
+                # Don't retry, don't continue to next item
+                logger.error(f"Browser connection lost: {e}")
+                self.controller.mark_citation_error(citation, f"Browser connection lost: {e}")
+                if self.state_repository and self.current_state_item_id:
+                    self.state_repository.update_item_status(
+                        self.current_state_item_id, "error", f"Browser connection lost: {e}"
+                    )
+                # Return special status to signal caller to stop batch
+                return "connection_error"
 
             except Exception as e:
                 retry_count += 1
@@ -1102,7 +1196,9 @@ class BatchProcessingTab:
                 # Check if should retry
                 if self.retry_strategy.should_retry(e, retry_count - 1):
                     delay = self.retry_strategy.get_delay(retry_count - 1)
-                    status_label.text = f"Retry {retry_count}/{self.config.census_max_retries} in {delay:.1f}s..."
+                    status_label.text = (
+                        f"Retry {retry_count}/{self.config.census_max_retries} in {delay:.1f}s..."
+                    )
                     await asyncio.sleep(delay)
 
                     # Increment retry count in state DB
@@ -1113,15 +1209,17 @@ class BatchProcessingTab:
                     self.controller.mark_citation_error(citation, f"Extraction failed: {e}")
                     if self.state_repository and self.current_state_item_id:
                         self.state_repository.update_item_status(
-                            self.current_state_item_id, 'error', str(e)
+                            self.current_state_item_id, "error", str(e)
                         )
                     return "error"
 
         if not extracted_data:
-            self.controller.mark_citation_error(citation, "Failed to extract citation data after retries")
+            self.controller.mark_citation_error(
+                citation, "Failed to extract citation data after retries"
+            )
             if self.state_repository and self.current_state_item_id:
                 self.state_repository.update_item_status(
-                    self.current_state_item_id, 'error', "Extraction failed after retries"
+                    self.current_state_item_id, "error", "Extraction failed after retries"
                 )
             return "error"
 
@@ -1135,13 +1233,17 @@ class BatchProcessingTab:
                 extracted_data,
             )
 
+        # Open new browser tab for this citation if enabled
+        if self.open_browser_tabs and citation.familysearch_url:
+            await self.familysearch_automation.open_new_tab(citation.familysearch_url)
+
         # ===== PHASE 4: IMAGE DOWNLOAD =====
         status_label.text = "Downloading census image..."
 
         if not citation.has_existing_media:
             if self.state_repository and self.current_state_item_id:
                 self.state_repository.update_item_status(
-                    self.current_state_item_id, 'downloading_images'
+                    self.current_state_item_id, "downloading_images"
                 )
             await self._download_citation_image(citation)
 
@@ -1181,14 +1283,14 @@ class BatchProcessingTab:
         #
         if self.state_repository and self.current_state_item_id:
             if citation.status == CitationStatus.COMPLETE:
-                self.state_repository.update_item_status(self.current_state_item_id, 'complete')
+                self.state_repository.update_item_status(self.current_state_item_id, "complete")
                 logger.info(f"Citation {citation.citation_id} marked complete - validation passed")
             else:
                 # Keep status as 'extracted' so it can be reprocessed
                 self.state_repository.update_item_status(
                     self.current_state_item_id,
-                    'extracted',
-                    f"Validation failed: {', '.join(citation.validation.errors) if citation.validation else 'Unknown'}"
+                    "extracted",
+                    f"Validation failed: {', '.join(citation.validation.errors) if citation.validation else 'Unknown'}",
                 )
                 logger.warning(
                     f"Citation {citation.citation_id} NOT marked complete - validation failed: "
@@ -1210,7 +1312,7 @@ class BatchProcessingTab:
             citation: Citation to process
         """
         # Create a dummy label for the robust method
-        with ui.label('') as health_label, ui.label('') as status_label:
+        with ui.label("") as health_label, ui.label("") as status_label:
             await self._process_single_citation_robust(citation, health_label, status_label)
 
     async def _download_citation_image(self, citation: CitationBatchItem) -> None:
@@ -1220,22 +1322,25 @@ class BatchProcessingTab:
             citation: Citation that needs an image
         """
         # Get image viewer URL from extracted data
-        image_viewer_url = citation.extracted_data.get('image_viewer_url')
+        image_viewer_url = citation.extracted_data.get("image_viewer_url")
 
         if not image_viewer_url:
-            logger.warning(f"No image viewer URL for citation {citation.citation_id}, cannot download image")
+            logger.warning(
+                f"No image viewer URL for citation {citation.citation_id}, cannot download image"
+            )
             return
 
         try:
             # Create temp directory for downloaded images if it doesn't exist
             from pathlib import Path
+
             temp_dir = Path.home() / ".rmcitecraft" / "temp_images"
             temp_dir.mkdir(parents=True, exist_ok=True)
 
             # Generate filename: YYYY_State_County_Surname_Given_CitationID.jpg
             census_year = citation.census_year
-            state = citation.extracted_data.get('state', 'Unknown')
-            county = citation.extracted_data.get('county', 'Unknown')
+            state = citation.extracted_data.get("state", "Unknown")
+            county = citation.extracted_data.get("county", "Unknown")
             surname = citation.surname
             given = citation.given_name
             cit_id = citation.citation_id
@@ -1243,17 +1348,18 @@ class BatchProcessingTab:
             # Sanitize filename components
             def sanitize(s: str) -> str:
                 """Remove illegal filename characters."""
-                return "".join(c for c in s if c.isalnum() or c in (' ', '-', '_')).strip()
+                return "".join(c for c in s if c.isalnum() or c in (" ", "-", "_")).strip()
 
             filename = f"{census_year}_{sanitize(state)}_{sanitize(county)}_{sanitize(surname)}_{sanitize(given)}_cit{cit_id}.jpg"
             download_path = temp_dir / filename
 
-            logger.info(f"Downloading census image for citation {citation.citation_id} to {download_path}")
+            logger.info(
+                f"Downloading census image for citation {citation.citation_id} to {download_path}"
+            )
 
             # Download the image using the image viewer URL (not the record URL)
             success = await self.familysearch_automation.download_census_image(
-                image_viewer_url,
-                download_path
+                image_viewer_url, download_path
             )
 
             if success:
@@ -1338,12 +1444,19 @@ class BatchProcessingTab:
         1. In-memory session (current citations being processed)
         2. State database (ALL sessions with pending exports, not just current)
         """
+        # CRITICAL: Sync any pending form data before export
+        # NiceGUI's on_change fires on blur/Enter, so if user typed and clicked Export
+        # without losing focus, the data might not be synced to the citation yet.
+        if self.form_component:
+            self.form_component.sync_form_data()
+
         # Check in-memory session - only include items updated THIS session
         # This prevents re-exporting citations that were already complete when loaded
         in_memory_citations = []
         if self.controller.session:
             in_memory_citations = [
-                c for c in self.controller.session.citations
+                c
+                for c in self.controller.session.citations
                 if c.is_complete and c.updated_this_session
             ]
 
@@ -1356,20 +1469,23 @@ class BatchProcessingTab:
         if self.state_repository:
             all_sessions = self.state_repository.get_all_sessions()
             for session in all_sessions:
-                session_id = session['session_id']
+                session_id = session["session_id"]
                 items = self.state_repository.get_session_items(session_id)
                 pending_items = [
-                    item for item in items
-                    if item['status'] == 'complete'
-                    and item.get('export_status', 'pending') == 'pending'
-                    and item.get('citation_id') not in in_memory_citation_ids
+                    item
+                    for item in items
+                    if item["status"] == "complete"
+                    and item.get("export_status", "pending") == "pending"
+                    and item.get("citation_id") not in in_memory_citation_ids
                 ]
                 if pending_items:
-                    sessions_with_pending.append({
-                        'session_id': session_id,
-                        'count': len(pending_items),
-                        'census_year': session.get('census_year'),
-                    })
+                    sessions_with_pending.append(
+                        {
+                            "session_id": session_id,
+                            "count": len(pending_items),
+                            "census_year": session.get("census_year"),
+                        }
+                    )
                     state_db_only_count += len(pending_items)
 
         total_to_export = len(in_memory_citations) + state_db_only_count
@@ -1384,25 +1500,36 @@ class BatchProcessingTab:
             ui.label(f"Total citations to export: {total_to_export}").classes("mb-2 font-semibold")
 
             if len(in_memory_citations) > 0:
-                ui.label(f"  • Current session (in memory): {len(in_memory_citations)}").classes("text-sm ml-4")
+                ui.label(f"  • Current session (in memory): {len(in_memory_citations)}").classes(
+                    "text-sm ml-4"
+                )
 
             if sessions_with_pending:
                 ui.label(f"  • From state database: {state_db_only_count}").classes("text-sm ml-4")
                 # Show breakdown by session
                 for sess in sessions_with_pending[:5]:  # Show max 5 sessions
-                    year_str = f" ({sess['census_year']})" if sess.get('census_year') else ""
-                    ui.label(f"      - {sess['session_id'][-15:]}{year_str}: {sess['count']}").classes("text-xs ml-8 text-gray-600")
+                    year_str = f" ({sess['census_year']})" if sess.get("census_year") else ""
+                    ui.label(
+                        f"      - {sess['session_id'][-15:]}{year_str}: {sess['count']}"
+                    ).classes("text-xs ml-8 text-gray-600")
                 if len(sessions_with_pending) > 5:
-                    ui.label(f"      ... and {len(sessions_with_pending) - 5} more sessions").classes("text-xs ml-8 text-gray-500 italic")
+                    ui.label(
+                        f"      ... and {len(sessions_with_pending) - 5} more sessions"
+                    ).classes("text-xs ml-8 text-gray-500 italic")
 
-            ui.label("Census images will be renamed and moved to their final locations.").classes("mb-4 mt-2")
+            ui.label("Census images will be renamed and moved to their final locations.").classes(
+                "mb-4 mt-2"
+            )
 
             with ui.row().classes("w-full justify-end gap-2"):
                 ui.button("Cancel", on_click=confirm_dialog.close).props("flat")
                 # Call export directly (not as background task) to maintain UI context
-                ui.button("Export", on_click=lambda: self._do_export_all(
-                    confirm_dialog, in_memory_citations, sessions_with_pending
-                )).props("color=primary")
+                ui.button(
+                    "Export",
+                    on_click=lambda: self._do_export_all(
+                        confirm_dialog, in_memory_citations, sessions_with_pending
+                    ),
+                ).props("color=primary")
 
         confirm_dialog.open()
 
@@ -1434,7 +1561,9 @@ class BatchProcessingTab:
         if sessions_with_pending and self.state_repository:
             # Get citation IDs from in-memory to avoid double-exporting
             in_memory_citation_ids = {c.citation_id for c in in_memory_citations}
-            await self._export_from_state_db_all_sessions(sessions_with_pending, in_memory_citation_ids)
+            await self._export_from_state_db_all_sessions(
+                sessions_with_pending, in_memory_citation_ids
+            )
 
     async def _export_from_state_db(self) -> None:
         """Export completed items from the state database that aren't in the current session.
@@ -1450,9 +1579,9 @@ class BatchProcessingTab:
         # Get all completed items from state DB
         items = self.state_repository.get_session_items(self.current_session_id)
         completed_items = [
-            item for item in items
-            if item['status'] == 'complete'
-            and item.get('export_status', 'pending') == 'pending'
+            item
+            for item in items
+            if item["status"] == "complete" and item.get("export_status", "pending") == "pending"
         ]
 
         if not completed_items:
@@ -1465,8 +1594,9 @@ class BatchProcessingTab:
 
         # Filter to only items not in memory
         items_to_export = [
-            item for item in completed_items
-            if item.get('citation_id') not in in_memory_citation_ids
+            item
+            for item in completed_items
+            if item.get("citation_id") not in in_memory_citation_ids
         ]
 
         if not items_to_export:
@@ -1474,8 +1604,7 @@ class BatchProcessingTab:
             return
 
         self._notify_and_log(
-            f"Exporting {len(items_to_export)} additional items from state database...",
-            type="info"
+            f"Exporting {len(items_to_export)} additional items from state database...", type="info"
         )
 
         # Show progress dialog
@@ -1495,56 +1624,67 @@ class BatchProcessingTab:
 
             for i, item in enumerate(items_to_export):
                 try:
-                    progress_label.text = f"Processing {item.get('person_name', 'Unknown')} ({i+1}/{len(items_to_export)})"
+                    progress_label.text = f"Processing {item.get('person_name', 'Unknown')} ({i + 1}/{len(items_to_export)})"
                     progress_bar.value = i / len(items_to_export)
                     await ui.context.client.connected()
 
                     # Load the citation from RootsMagic using stored extracted_data
-                    citation_id = item.get('citation_id')
-                    person_id = item.get('person_id')
-                    census_year = item.get('census_year')
-                    extracted_data_json = item.get('extracted_data')
+                    citation_id = item.get("citation_id")
+                    person_id = item.get("person_id")
+                    census_year = item.get("census_year")
+                    extracted_data_json = item.get("extracted_data")
 
                     if not citation_id or not extracted_data_json:
-                        errors.append(f"{item.get('person_name', 'Unknown')}: Missing citation_id or extracted_data")
+                        errors.append(
+                            f"{item.get('person_name', 'Unknown')}: Missing citation_id or extracted_data"
+                        )
                         continue
 
                     # Parse stored extracted data
                     import json
+
                     try:
-                        extracted_data = json.loads(extracted_data_json) if isinstance(extracted_data_json, str) else extracted_data_json
+                        extracted_data = (
+                            json.loads(extracted_data_json)
+                            if isinstance(extracted_data_json, str)
+                            else extracted_data_json
+                        )
                     except json.JSONDecodeError:
-                        errors.append(f"{item.get('person_name', 'Unknown')}: Invalid JSON in extracted_data")
+                        errors.append(
+                            f"{item.get('person_name', 'Unknown')}: Invalid JSON in extracted_data"
+                        )
                         continue
 
                     # Reload full citation data from database
                     result = find_census_citations(db_path, census_year, limit=1000)
                     matching_citation = None
-                    for cit in result.get('citations', []):
-                        if cit.get('citation_id') == citation_id:
+                    for cit in result.get("citations", []):
+                        if cit.get("citation_id") == citation_id:
                             matching_citation = cit
                             break
 
                     if not matching_citation:
-                        errors.append(f"{item.get('person_name', 'Unknown')}: Citation {citation_id} not found in database")
+                        errors.append(
+                            f"{item.get('person_name', 'Unknown')}: Citation {citation_id} not found in database"
+                        )
                         continue
 
                     # Create CitationBatchItem from the loaded data
-                    given_name = matching_citation['given_name']
-                    surname = matching_citation['surname']
+                    given_name = matching_citation["given_name"]
+                    surname = matching_citation["surname"]
                     full_name = f"{given_name} {surname}".strip()
 
                     batch_item = CitationBatchItem(
-                        person_id=matching_citation['person_id'],
-                        event_id=matching_citation['event_id'],
-                        citation_id=matching_citation['citation_id'],
-                        source_id=matching_citation['source_id'],
+                        person_id=matching_citation["person_id"],
+                        event_id=matching_citation["event_id"],
+                        citation_id=matching_citation["citation_id"],
+                        source_id=matching_citation["source_id"],
                         surname=surname,
                         given_name=given_name,
                         full_name=full_name,
                         census_year=census_year,
-                        source_name=matching_citation.get('source_name', ''),
-                        familysearch_url=matching_citation.get('familysearch_url'),
+                        source_name=matching_citation.get("source_name", ""),
+                        familysearch_url=matching_citation.get("familysearch_url"),
                     )
 
                     # Apply the stored extracted data
@@ -1553,6 +1693,7 @@ class BatchProcessingTab:
 
                     # Generate formatted citations
                     from rmcitecraft.services.citation_formatter import CensusFootnoteFormatter
+
                     formatter = CensusFootnoteFormatter()
                     merged = batch_item.merged_data
                     batch_item.footnote = formatter.format_footnote(merged)
@@ -1563,7 +1704,7 @@ class BatchProcessingTab:
                     await self._write_citation_to_database(batch_item)
 
                     # Mark as exported in state DB (using a custom update)
-                    self.state_repository.mark_item_exported(item['id'])
+                    self.state_repository.mark_item_exported(item["id"])
 
                     exported_count += 1
 
@@ -1585,12 +1726,12 @@ class BatchProcessingTab:
             if errors:
                 self._notify_and_log(
                     f"State DB export completed with {len(errors)} errors. Exported: {exported_count}",
-                    type="warning"
+                    type="warning",
                 )
             else:
                 self._notify_and_log(
                     f"Successfully exported {exported_count} citations from state database!",
-                    type="positive"
+                    type="positive",
                 )
 
         except Exception as e:
@@ -1622,13 +1763,14 @@ class BatchProcessingTab:
         # Collect all items to export from all sessions
         all_items_to_export = []
         for session_info in sessions_with_pending:
-            session_id = session_info['session_id']
+            session_id = session_info["session_id"]
             items = self.state_repository.get_session_items(session_id)
             pending_items = [
-                item for item in items
-                if item['status'] == 'complete'
-                and item.get('export_status', 'pending') == 'pending'
-                and item.get('citation_id') not in exclude_citation_ids
+                item
+                for item in items
+                if item["status"] == "complete"
+                and item.get("export_status", "pending") == "pending"
+                and item.get("citation_id") not in exclude_citation_ids
             ]
             all_items_to_export.extend(pending_items)
 
@@ -1638,7 +1780,7 @@ class BatchProcessingTab:
 
         self._notify_and_log(
             f"Exporting {len(all_items_to_export)} items from state database ({len(sessions_with_pending)} sessions)...",
-            type="info"
+            type="info",
         )
 
         # Show progress dialog
@@ -1656,25 +1798,33 @@ class BatchProcessingTab:
         try:
             for i, item in enumerate(all_items_to_export):
                 try:
-                    progress_label.text = f"Processing {item.get('person_name', 'Unknown')} ({i+1}/{len(all_items_to_export)})"
+                    progress_label.text = f"Processing {item.get('person_name', 'Unknown')} ({i + 1}/{len(all_items_to_export)})"
                     progress_bar.value = i / len(all_items_to_export)
                     await ui.context.client.connected()
 
-                    citation_id = item.get('citation_id')
-                    source_id = item.get('source_id')
-                    person_id = item.get('person_id')
-                    census_year = item.get('census_year')
-                    extracted_data_json = item.get('extracted_data')
+                    citation_id = item.get("citation_id")
+                    source_id = item.get("source_id")
+                    person_id = item.get("person_id")
+                    census_year = item.get("census_year")
+                    extracted_data_json = item.get("extracted_data")
 
                     if not extracted_data_json:
-                        errors.append(f"{item.get('person_name', 'Unknown')}: Missing extracted_data")
+                        errors.append(
+                            f"{item.get('person_name', 'Unknown')}: Missing extracted_data"
+                        )
                         continue
 
                     # Parse stored extracted data
                     try:
-                        extracted_data = json.loads(extracted_data_json) if isinstance(extracted_data_json, str) else extracted_data_json
+                        extracted_data = (
+                            json.loads(extracted_data_json)
+                            if isinstance(extracted_data_json, str)
+                            else extracted_data_json
+                        )
                     except json.JSONDecodeError:
-                        errors.append(f"{item.get('person_name', 'Unknown')}: Invalid JSON in extracted_data")
+                        errors.append(
+                            f"{item.get('person_name', 'Unknown')}: Invalid JSON in extracted_data"
+                        )
                         continue
 
                     # If no citation_id, try to find it by person_id and census_year
@@ -1683,7 +1833,8 @@ class BatchProcessingTab:
                             cursor = conn.cursor()
                             # Find census event for this person and year
                             # Date format is 'D.+YYYYMMDD..+00000000..' so year is at position 4
-                            cursor.execute("""
+                            cursor.execute(
+                                """
                                 SELECT e.EventID, c.CitationID, c.SourceID
                                 FROM EventTable e
                                 JOIN CitationLinkTable cl ON cl.OwnerID = e.EventID AND cl.OwnerType = 2
@@ -1691,28 +1842,37 @@ class BatchProcessingTab:
                                 WHERE e.OwnerID = ?
                                   AND e.EventType = 18  -- Census event type
                                   AND substr(e.Date, 4, 4) = ?
-                            """, (person_id, str(census_year)))
+                            """,
+                                (person_id, str(census_year)),
+                            )
                             row = cursor.fetchone()
                             if row:
                                 citation_id = row[1]
                                 source_id = row[2]
 
                     if not citation_id:
-                        errors.append(f"{item.get('person_name', 'Unknown')}: Could not find citation for person {person_id}, year {census_year}")
+                        errors.append(
+                            f"{item.get('person_name', 'Unknown')}: Could not find citation for person {person_id}, year {census_year}"
+                        )
                         continue
 
                     # Query RootsMagic directly for this citation's source_id
                     if not source_id:
                         with self.db.transaction() as conn:
                             cursor = conn.cursor()
-                            cursor.execute("""
+                            cursor.execute(
+                                """
                                 SELECT SourceID FROM CitationTable WHERE CitationID = ?
-                            """, (citation_id,))
+                            """,
+                                (citation_id,),
+                            )
                             row = cursor.fetchone()
                             if row:
                                 source_id = row[0]
                             else:
-                                errors.append(f"{item.get('person_name', 'Unknown')}: Citation {citation_id} not found in RootsMagic")
+                                errors.append(
+                                    f"{item.get('person_name', 'Unknown')}: Citation {citation_id} not found in RootsMagic"
+                                )
                                 continue
 
                     # Generate formatted citations using the preview formatter
@@ -1720,18 +1880,21 @@ class BatchProcessingTab:
 
                     # Write to SourceTable.Fields and update Source Name brackets
                     from rmcitecraft.database.image_repository import ImageRepository
+
                     with self.db.transaction() as conn:
                         repo = ImageRepository(conn)
                         # 1. Update SourceTable.Fields BLOB
                         repo.update_source_fields(
                             source_id=source_id,
-                            footnote=formatted['footnote'],
-                            short_footnote=formatted['short_footnote'],
-                            bibliography=formatted['bibliography'],
+                            footnote=formatted["footnote"],
+                            short_footnote=formatted["short_footnote"],
+                            bibliography=formatted["bibliography"],
                         )
 
                         # 2. Update SourceTable.Name brackets with citation details
-                        bracket_content = self._generate_bracket_content_from_data(extracted_data, census_year)
+                        bracket_content = self._generate_bracket_content_from_data(
+                            extracted_data, census_year
+                        )
                         if bracket_content and bracket_content != "[]":
                             repo.update_source_name_brackets(source_id, bracket_content)
 
@@ -1761,50 +1924,58 @@ class BatchProcessingTab:
 
                                 # First, find the Event linked to this Citation.
                                 # CitationLinkTable connects citations to events (OwnerType=2 means Event).
-                                cursor.execute("""
+                                cursor.execute(
+                                    """
                                     SELECT cl.OwnerID FROM CitationLinkTable cl
                                     WHERE cl.CitationID = ? AND cl.OwnerType = 2
                                     LIMIT 1
-                                """, (citation_id,))
+                                """,
+                                    (citation_id,),
+                                )
                                 event_row = cursor.fetchone()
                                 event_id_for_check = event_row[0] if event_row else None
 
                                 # Check for media linked to Source, Citation, OR Event
-                                cursor.execute("""
+                                cursor.execute(
+                                    """
                                     SELECT COUNT(*) FROM MediaLinkTable
                                     WHERE (OwnerID = ? AND OwnerType = 3)   -- Source
                                        OR (OwnerID = ? AND OwnerType = 4)   -- Citation
                                        OR (OwnerID = ? AND OwnerType = 2)   -- Event
-                                """, (source_id, citation_id, event_id_for_check or 0))
+                                """,
+                                    (source_id, citation_id, event_id_for_check or 0),
+                                )
                                 has_existing_media = cursor.fetchone()[0] > 0
 
                             if not has_existing_media:
                                 # Process the image
                                 from datetime import datetime
                                 from rmcitecraft.models.image import ImageMetadata
-                                from rmcitecraft.services.image_processing import get_image_processing_service
+                                from rmcitecraft.services.image_processing import (
+                                    get_image_processing_service,
+                                )
 
                                 image_service = get_image_processing_service()
 
-                                access_date = extracted_data.get('access_date')
+                                access_date = extracted_data.get("access_date")
                                 if not access_date:
                                     today = datetime.now()
                                     access_date = today.strftime("%-d %B %Y")
 
-                                state = extracted_data.get('state', '')
-                                county = extracted_data.get('county', '')
-                                person_name = item.get('person_name', '')
+                                state = extracted_data.get("state", "")
+                                county = extracted_data.get("county", "")
+                                person_name = item.get("person_name", "")
 
                                 # Parse surname and given from person_name
-                                name_parts = person_name.split(' ', 1) if person_name else ['', '']
-                                given_name = name_parts[0] if name_parts else ''
-                                surname = name_parts[1] if len(name_parts) > 1 else ''
+                                name_parts = person_name.split(" ", 1) if person_name else ["", ""]
+                                given_name = name_parts[0] if name_parts else ""
+                                surname = name_parts[1] if len(name_parts) > 1 else ""
 
                                 # For "Surname, Given" format, swap
-                                if ',' in person_name:
-                                    parts = person_name.split(',', 1)
+                                if "," in person_name:
+                                    parts = person_name.split(",", 1)
                                     surname = parts[0].strip()
-                                    given_name = parts[1].strip() if len(parts) > 1 else ''
+                                    given_name = parts[1].strip() if len(parts) > 1 else ""
 
                                 metadata = ImageMetadata(
                                     image_id=f"batch_{citation_id}",
@@ -1814,25 +1985,29 @@ class BatchProcessingTab:
                                     county=county,
                                     surname=surname,
                                     given_name=given_name,
-                                    familysearch_url=extracted_data.get('familysearch_url', ''),
+                                    familysearch_url=extracted_data.get("familysearch_url", ""),
                                     access_date=access_date,
-                                    town_ward=extracted_data.get('town_ward'),
-                                    enumeration_district=extracted_data.get('enumeration_district'),
-                                    sheet=extracted_data.get('sheet'),
-                                    line=extracted_data.get('line'),
-                                    family_number=extracted_data.get('family_number'),
-                                    dwelling_number=extracted_data.get('dwelling_number'),
+                                    town_ward=extracted_data.get("town_ward"),
+                                    enumeration_district=extracted_data.get("enumeration_district"),
+                                    sheet=extracted_data.get("sheet"),
+                                    line=extracted_data.get("line"),
+                                    family_number=extracted_data.get("family_number"),
+                                    dwelling_number=extracted_data.get("dwelling_number"),
                                 )
 
                                 image_service.register_pending_image(metadata)
-                                result = image_service.process_downloaded_file(str(local_image_path))
+                                result = image_service.process_downloaded_file(
+                                    str(local_image_path)
+                                )
                                 if result:
                                     images_processed += 1
                                 else:
-                                    logger.warning(f"Failed to process image for {item.get('person_name')}")
+                                    logger.warning(
+                                        f"Failed to process image for {item.get('person_name')}"
+                                    )
 
                     # Mark as exported
-                    self.state_repository.mark_item_exported(item['id'])
+                    self.state_repository.mark_item_exported(item["id"])
 
                     exported_count += 1
 
@@ -1858,12 +2033,12 @@ class BatchProcessingTab:
                 logger.warning(f"Export errors:\n{error_summary}")
                 self._notify_and_log(
                     f"State DB export completed with {len(errors)} errors. Exported: {exported_count} citations, {images_processed} images.",
-                    type="warning"
+                    type="warning",
                 )
             else:
                 self._notify_and_log(
                     f"Successfully exported {exported_count} citations and {images_processed} images from state database!",
-                    type="positive"
+                    type="positive",
                 )
 
         except Exception as e:
@@ -1894,10 +2069,10 @@ class BatchProcessingTab:
         items_to_repair = []
 
         for session in all_sessions:
-            items = self.state_repository.get_session_items(session['session_id'])
+            items = self.state_repository.get_session_items(session["session_id"])
             for item in items:
-                if item['status'] == 'complete' and item.get('export_status') == 'exported':
-                    if item.get('extracted_data'):
+                if item["status"] == "complete" and item.get("export_status") == "exported":
+                    if item.get("extracted_data"):
                         items_to_repair.append(item)
 
         if not items_to_repair:
@@ -1905,8 +2080,7 @@ class BatchProcessingTab:
             return
 
         self._notify_and_log(
-            f"Repairing Source Name brackets for {len(items_to_repair)} items...",
-            type="info"
+            f"Repairing Source Name brackets for {len(items_to_repair)} items...", type="info"
         )
 
         # Show progress dialog
@@ -1924,7 +2098,7 @@ class BatchProcessingTab:
         try:
             for i, item in enumerate(items_to_repair):
                 try:
-                    progress_label.text = f"Processing {item.get('person_name', 'Unknown')} ({i+1}/{len(items_to_repair)})"
+                    progress_label.text = f"Processing {item.get('person_name', 'Unknown')} ({i + 1}/{len(items_to_repair)})"
                     progress_bar.value = i / len(items_to_repair)
 
                     # Yield to UI periodically
@@ -1932,61 +2106,79 @@ class BatchProcessingTab:
                         await ui.context.client.connected()
 
                     # Parse extracted data
-                    extracted_data_json = item.get('extracted_data')
+                    extracted_data_json = item.get("extracted_data")
                     try:
-                        extracted_data = json.loads(extracted_data_json) if isinstance(extracted_data_json, str) else extracted_data_json
+                        extracted_data = (
+                            json.loads(extracted_data_json)
+                            if isinstance(extracted_data_json, str)
+                            else extracted_data_json
+                        )
                     except json.JSONDecodeError:
                         errors.append(f"{item.get('person_name', 'Unknown')}: Invalid JSON")
                         continue
 
                     # Get source_id - either from item or look it up
-                    source_id = item.get('source_id')
-                    citation_id = item.get('citation_id')
-                    person_id = item.get('person_id')
-                    census_year = item.get('census_year')
+                    source_id = item.get("source_id")
+                    citation_id = item.get("citation_id")
+                    person_id = item.get("person_id")
+                    census_year = item.get("census_year")
 
                     if not source_id:
                         # Try to find via citation_id or person_id
                         with self.db.transaction() as conn:
                             cursor = conn.cursor()
                             if citation_id:
-                                cursor.execute("SELECT SourceID FROM CitationTable WHERE CitationID = ?", (citation_id,))
+                                cursor.execute(
+                                    "SELECT SourceID FROM CitationTable WHERE CitationID = ?",
+                                    (citation_id,),
+                                )
                                 row = cursor.fetchone()
                                 if row:
                                     source_id = row[0]
                             elif person_id and census_year:
-                                cursor.execute("""
+                                cursor.execute(
+                                    """
                                     SELECT c.SourceID
                                     FROM EventTable e
                                     JOIN CitationLinkTable cl ON cl.OwnerID = e.EventID AND cl.OwnerType = 2
                                     JOIN CitationTable c ON c.CitationID = cl.CitationID
                                     WHERE e.OwnerID = ? AND e.EventType = 18 AND substr(e.Date, 4, 4) = ?
-                                """, (person_id, str(census_year)))
+                                """,
+                                    (person_id, str(census_year)),
+                                )
                                 row = cursor.fetchone()
                                 if row:
                                     source_id = row[0]
 
                     if not source_id:
-                        errors.append(f"{item.get('person_name', 'Unknown')}: Could not find source_id")
+                        errors.append(
+                            f"{item.get('person_name', 'Unknown')}: Could not find source_id"
+                        )
                         continue
 
                     # Check if source already has bracket content
                     with self.db.transaction() as conn:
                         cursor = conn.cursor()
-                        cursor.execute("SELECT Name FROM SourceTable WHERE SourceID = ?", (source_id,))
+                        cursor.execute(
+                            "SELECT Name FROM SourceTable WHERE SourceID = ?", (source_id,)
+                        )
                         row = cursor.fetchone()
                         if not row:
-                            errors.append(f"{item.get('person_name', 'Unknown')}: Source {source_id} not found")
+                            errors.append(
+                                f"{item.get('person_name', 'Unknown')}: Source {source_id} not found"
+                            )
                             continue
 
                         current_name = row[0]
                         # Skip if brackets already have content
-                        if '[]' not in current_name:
+                        if "[]" not in current_name:
                             skipped_count += 1
                             continue
 
                     # Generate bracket content from extracted data
-                    bracket_content = self._generate_bracket_content_from_data(extracted_data, census_year)
+                    bracket_content = self._generate_bracket_content_from_data(
+                        extracted_data, census_year
+                    )
 
                     if bracket_content and bracket_content != "[]":
                         with self.db.transaction() as conn:
@@ -2051,46 +2243,56 @@ class BatchProcessingTab:
         self._notify_and_log("Scanning for items needing images...", type="info")
 
         for session in all_sessions:
-            items = self.state_repository.get_session_items(session['session_id'])
+            items = self.state_repository.get_session_items(session["session_id"])
             for item in items:
-                if item['status'] != 'complete' or item.get('export_status') != 'exported':
+                if item["status"] != "complete" or item.get("export_status") != "exported":
                     continue
-                if not item.get('extracted_data'):
+                if not item.get("extracted_data"):
                     continue
 
                 # Parse extracted data to get image URL
                 try:
-                    extracted_data = json.loads(item['extracted_data']) if isinstance(item['extracted_data'], str) else item['extracted_data']
+                    extracted_data = (
+                        json.loads(item["extracted_data"])
+                        if isinstance(item["extracted_data"], str)
+                        else item["extracted_data"]
+                    )
                 except json.JSONDecodeError:
                     continue
 
-                image_url = extracted_data.get('image_viewer_url')
+                image_url = extracted_data.get("image_viewer_url")
                 if not image_url:
                     continue
 
                 # Check if source already has media
-                source_id = item.get('source_id')
-                citation_id = item.get('citation_id')
-                person_id = item.get('person_id')
-                census_year = item.get('census_year')
+                source_id = item.get("source_id")
+                citation_id = item.get("citation_id")
+                person_id = item.get("person_id")
+                census_year = item.get("census_year")
 
                 # Look up source_id if not stored
                 if not source_id:
                     with self.db.transaction() as conn:
                         cursor = conn.cursor()
                         if citation_id:
-                            cursor.execute("SELECT SourceID FROM CitationTable WHERE CitationID = ?", (citation_id,))
+                            cursor.execute(
+                                "SELECT SourceID FROM CitationTable WHERE CitationID = ?",
+                                (citation_id,),
+                            )
                             row = cursor.fetchone()
                             if row:
                                 source_id = row[0]
                         elif person_id and census_year:
-                            cursor.execute("""
+                            cursor.execute(
+                                """
                                 SELECT c.SourceID, c.CitationID
                                 FROM EventTable e
                                 JOIN CitationLinkTable cl ON cl.OwnerID = e.EventID AND cl.OwnerType = 2
                                 JOIN CitationTable c ON c.CitationID = cl.CitationID
                                 WHERE e.OwnerID = ? AND e.EventType = 18 AND substr(e.Date, 4, 4) = ?
-                            """, (person_id, str(census_year)))
+                            """,
+                                (person_id, str(census_year)),
+                            )
                             row = cursor.fetchone()
                             if row:
                                 source_id = row[0]
@@ -2117,33 +2319,41 @@ class BatchProcessingTab:
                     # CitationLinkTable connects citations to events (OwnerType=2 means Event).
                     event_id_for_check = None
                     if citation_id:
-                        cursor.execute("""
+                        cursor.execute(
+                            """
                             SELECT cl.OwnerID FROM CitationLinkTable cl
                             WHERE cl.CitationID = ? AND cl.OwnerType = 2
                             LIMIT 1
-                        """, (citation_id,))
+                        """,
+                            (citation_id,),
+                        )
                         event_row = cursor.fetchone()
                         event_id_for_check = event_row[0] if event_row else None
 
                     # Check for media linked to Source, Citation, OR Event
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT COUNT(*) FROM MediaLinkTable
                         WHERE (OwnerID = ? AND OwnerType = 3)   -- Source
                            OR (OwnerID = ? AND OwnerType = 4)   -- Citation
                            OR (OwnerID = ? AND OwnerType = 2)   -- Event
-                    """, (source_id, citation_id or 0, event_id_for_check or 0))
+                    """,
+                        (source_id, citation_id or 0, event_id_for_check or 0),
+                    )
                     has_media = cursor.fetchone()[0] > 0
 
                 if has_media:
                     continue  # Skip - already has media linked to Source, Citation, or Event
 
-                items_needing_images.append({
-                    'item': item,
-                    'extracted_data': extracted_data,
-                    'source_id': source_id,
-                    'citation_id': citation_id,
-                    'image_url': image_url,
-                })
+                items_needing_images.append(
+                    {
+                        "item": item,
+                        "extracted_data": extracted_data,
+                        "source_id": source_id,
+                        "citation_id": citation_id,
+                        "image_url": image_url,
+                    }
+                )
 
         if not items_needing_images:
             self._notify_and_log("All exported items already have media attached", type="positive")
@@ -2151,7 +2361,7 @@ class BatchProcessingTab:
 
         self._notify_and_log(
             f"Found {len(items_needing_images)} items needing images. Starting download...",
-            type="info"
+            type="info",
         )
 
         # Show progress dialog
@@ -2175,21 +2385,25 @@ class BatchProcessingTab:
             fs_automation = FamilySearchAutomation()
             connected = await fs_automation.connect_to_chrome()
             if not connected:
-                raise RuntimeError("Could not connect to Chrome. Make sure Chrome is running with --remote-debugging-port=9222")
+                raise RuntimeError(
+                    "Could not connect to Chrome. Make sure Chrome is running with --remote-debugging-port=9222"
+                )
 
             image_service = get_image_processing_service()
 
             for i, item_data in enumerate(items_needing_images):
                 try:
-                    item = item_data['item']
-                    extracted_data = item_data['extracted_data']
-                    source_id = item_data['source_id']
-                    citation_id = item_data['citation_id']
-                    image_url = item_data['image_url']
-                    census_year = item.get('census_year')
+                    item = item_data["item"]
+                    extracted_data = item_data["extracted_data"]
+                    source_id = item_data["source_id"]
+                    citation_id = item_data["citation_id"]
+                    image_url = item_data["image_url"]
+                    census_year = item.get("census_year")
 
-                    person_name = item.get('person_name', 'Unknown')
-                    progress_label.text = f"Downloading {person_name} ({i+1}/{len(items_needing_images)})"
+                    person_name = item.get("person_name", "Unknown")
+                    progress_label.text = (
+                        f"Downloading {person_name} ({i + 1}/{len(items_needing_images)})"
+                    )
                     progress_bar.value = i / len(items_needing_images)
                     status_label.text = f"Downloaded: {downloaded_count} | Skipped: {skipped_count} | Errors: {len(errors)}"
 
@@ -2198,20 +2412,32 @@ class BatchProcessingTab:
                         await ui.context.client.connected()
 
                     # Generate filename for download
-                    state = extracted_data.get('state', '')
-                    county = extracted_data.get('county', '')
+                    state = extracted_data.get("state", "")
+                    county = extracted_data.get("county", "")
 
                     # Get person's name from extracted data or item
-                    surname = item.get('person_name', '').split()[-1] if item.get('person_name') else ''
-                    given_name = ' '.join(item.get('person_name', '').split()[:-1]) if item.get('person_name') else ''
+                    surname = (
+                        item.get("person_name", "").split()[-1] if item.get("person_name") else ""
+                    )
+                    given_name = (
+                        " ".join(item.get("person_name", "").split()[:-1])
+                        if item.get("person_name")
+                        else ""
+                    )
 
                     if not state or not county:
                         errors.append(f"{person_name}: Missing state/county")
                         continue
 
                     # Create temp download path
-                    temp_filename = f"{census_year}, {state}, {county} - {surname}, {given_name}.jpg"
-                    temp_path = Path(self.config.rm_media_root_directory) / f"{census_year} Federal" / temp_filename
+                    temp_filename = (
+                        f"{census_year}, {state}, {county} - {surname}, {given_name}.jpg"
+                    )
+                    temp_path = (
+                        Path(self.config.rm_media_root_directory)
+                        / f"{census_year} Federal"
+                        / temp_filename
+                    )
 
                     # Ensure directory exists
                     temp_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2220,7 +2446,9 @@ class BatchProcessingTab:
                     if temp_path.exists():
                         logger.info(f"Image already exists: {temp_path}")
                         # Just need to link it to the source
-                        await self._link_existing_image_to_source(temp_path, source_id, citation_id, census_year)
+                        await self._link_existing_image_to_source(
+                            temp_path, source_id, citation_id, census_year
+                        )
                         downloaded_count += 1
                         continue
 
@@ -2237,8 +2465,8 @@ class BatchProcessingTab:
                             county=county,
                             surname=surname,
                             given_name=given_name,
-                            familysearch_url=extracted_data.get('familysearch_url', ''),
-                            access_date=extracted_data.get('access_date', ''),
+                            familysearch_url=extracted_data.get("familysearch_url", ""),
+                            access_date=extracted_data.get("access_date", ""),
                         )
 
                         image_service.register_pending_image(metadata)
@@ -2248,7 +2476,9 @@ class BatchProcessingTab:
                             downloaded_count += 1
                         else:
                             # File was downloaded but couldn't be processed - still try to link
-                            await self._link_existing_image_to_source(temp_path, source_id, citation_id, census_year)
+                            await self._link_existing_image_to_source(
+                                temp_path, source_id, citation_id, census_year
+                            )
                             downloaded_count += 1
                     else:
                         errors.append(f"{person_name}: Download failed")
@@ -2257,7 +2487,9 @@ class BatchProcessingTab:
                     await asyncio.sleep(1.0)
 
                 except Exception as e:
-                    logger.error(f"Error downloading image for {item.get('person_name', 'Unknown')}: {e}")
+                    logger.error(
+                        f"Error downloading image for {item.get('person_name', 'Unknown')}: {e}"
+                    )
                     errors.append(f"{item.get('person_name', 'Unknown')}: {str(e)}")
 
             # Cleanup
@@ -2315,21 +2547,32 @@ class BatchProcessingTab:
 
             # Link to source if not already linked
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT COUNT(*) FROM MediaLinkTable WHERE MediaID = ? AND OwnerID = ? AND OwnerType = 3
-            """, (media_id, source_id))
+            """,
+                (media_id, source_id),
+            )
             if cursor.fetchone()[0] == 0:
                 repo.link_media_to_source(media_id, source_id)
 
             # Link to citation if not already linked
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT COUNT(*) FROM MediaLinkTable WHERE MediaID = ? AND OwnerID = ? AND OwnerType = 4
-            """, (media_id, citation_id))
+            """,
+                (media_id, citation_id),
+            )
             if cursor.fetchone()[0] == 0:
                 repo.link_media_to_citation(media_id, citation_id)
 
     def _generate_bracket_content_from_data(self, data: dict, year: int) -> str:
         """Generate bracket content from extracted data dict.
+
+        Format varies by census year:
+        - 1880-1950: [ED XX, sheet XX, line XX] (with "citing" prefix)
+        - 1850-1870: [page XX, line YY] (no "citing" prefix, just page and line)
+        - 1790-1840: [page XX] (no "citing" prefix)
 
         Args:
             data: Extracted census data dictionary
@@ -2340,42 +2583,41 @@ class BatchProcessingTab:
         """
         parts = []
 
-        # For 1880-1950: Include enumeration district
-        ed = data.get('enumeration_district', '')
-        if ed and year >= 1880:
-            parts.append(f"enumeration district (ED) {ed}")
+        # Pre-1880 census: Simple format without "citing" prefix
+        if year < 1880:
+            page = data.get("page", "")
+            line = data.get("line", "")
 
-        # Sheet or page
-        sheet = data.get('sheet', '')
-        page = data.get('page', '')
+            if page:
+                parts.append(f"page {page}")
+            if line:
+                parts.append(f"line {line}")
+
+            if parts:
+                return f"[{', '.join(parts)}]"
+            return "[]"
+
+        # 1880-1950: Include enumeration district with "citing" prefix
+        ed = data.get("enumeration_district", "")
+        if ed:
+            parts.append(f"ED {ed}")
+
+        # Sheet
+        sheet = data.get("sheet", "")
         if sheet:
             parts.append(f"sheet {sheet}")
-        elif page and year < 1880:
-            parts.append(f"p. {page}")
 
-        # Line number (1850+)
-        line = data.get('line', '')
+        # Line number
+        line = data.get("line", "")
         if line:
             parts.append(f"line {line}")
-
-        # Family number (1850+)
-        family = data.get('family_number', '')
-        if family:
-            parts.append(f"family {family}")
-
-        # Dwelling number (1850+)
-        dwelling = data.get('dwelling_number', '')
-        if dwelling:
-            parts.append(f"dwelling {dwelling}")
 
         if parts:
             return f"[citing {', '.join(parts)}]"
         return "[]"
 
     async def _do_export_internal(
-        self,
-        completed_citations: list[CitationBatchItem],
-        source_name: str = "session"
+        self, completed_citations: list[CitationBatchItem], source_name: str = "session"
     ) -> None:
         """Internal export operation for a list of citations.
 
@@ -2386,9 +2628,7 @@ class BatchProcessingTab:
         await self._do_export_impl(completed_citations, source_name)
 
     async def _do_export_impl(
-        self,
-        completed_citations: list[CitationBatchItem],
-        source_name: str = "session"
+        self, completed_citations: list[CitationBatchItem], source_name: str = "session"
     ) -> None:
         """Implementation of export operation."""
         from datetime import datetime
@@ -2418,14 +2658,16 @@ class BatchProcessingTab:
             if self.state_repository and self.current_session_id:
                 items = self.state_repository.get_session_items(self.current_session_id)
                 for item in items:
-                    cit_id = item.get('citation_id')
+                    cit_id = item.get("citation_id")
                     if cit_id:
-                        state_items_by_citation[cit_id] = item['id']
+                        state_items_by_citation[cit_id] = item["id"]
 
             # Process each citation
             for i, citation in enumerate(completed_citations):
                 try:
-                    progress_label.text = f"Processing {citation.full_name} ({i+1}/{len(completed_citations)})"
+                    progress_label.text = (
+                        f"Processing {citation.full_name} ({i + 1}/{len(completed_citations)})"
+                    )
                     progress_bar.value = i / len(completed_citations)
                     await ui.context.client.connected()
 
@@ -2435,37 +2677,48 @@ class BatchProcessingTab:
 
                     # 2. Mark as exported in state DB (if tracking this citation)
                     if citation.citation_id in state_items_by_citation:
-                        self.state_repository.mark_item_exported(state_items_by_citation[citation.citation_id])
+                        self.state_repository.mark_item_exported(
+                            state_items_by_citation[citation.citation_id]
+                        )
 
                     # 3. Ensure existing media is linked to source and all citations
                     if citation.has_existing_media:
                         await self._ensure_existing_media_links(citation)
 
                     # 4. Process image if downloaded (skip if already has media)
-                    if citation.local_image_path and Path(citation.local_image_path).exists() and not citation.has_existing_media:
+                    if (
+                        citation.local_image_path
+                        and Path(citation.local_image_path).exists()
+                        and not citation.has_existing_media
+                    ):
                         # Create ImageMetadata from citation data
-                        access_date = citation.merged_data.get('access_date')
+                        access_date = citation.merged_data.get("access_date")
                         if not access_date:
                             today = datetime.now()
                             access_date = today.strftime("%-d %B %Y")
 
-                        state = citation.merged_data.get('state', '')
-                        county = citation.merged_data.get('county', '')
+                        state = citation.merged_data.get("state", "")
+                        county = citation.merged_data.get("county", "")
 
                         if (not state or not county) and citation.source_name:
                             from rmcitecraft.parsers.source_name_parser import SourceNameParser
+
                             try:
                                 parsed = SourceNameParser.parse(citation.source_name)
                                 if parsed:
-                                    if not state and parsed.get('state'):
-                                        state = parsed['state']
-                                    if not county and parsed.get('county'):
-                                        county = parsed['county']
+                                    if not state and parsed.get("state"):
+                                        state = parsed["state"]
+                                    if not county and parsed.get("county"):
+                                        county = parsed["county"]
                             except Exception as e:
-                                logger.warning(f"Could not parse source_name for {citation.full_name}: {e}")
+                                logger.warning(
+                                    f"Could not parse source_name for {citation.full_name}: {e}"
+                                )
 
                         if not state or not county:
-                            errors.append(f"{citation.full_name}: Missing state/county for image filename")
+                            errors.append(
+                                f"{citation.full_name}: Missing state/county for image filename"
+                            )
                             continue
 
                         metadata = ImageMetadata(
@@ -2476,14 +2729,14 @@ class BatchProcessingTab:
                             county=county,
                             surname=citation.surname,
                             given_name=citation.given_name,
-                            familysearch_url=citation.familysearch_url or '',
+                            familysearch_url=citation.familysearch_url or "",
                             access_date=access_date,
-                            town_ward=citation.merged_data.get('town_ward'),
-                            enumeration_district=citation.merged_data.get('enumeration_district'),
-                            sheet=citation.merged_data.get('sheet'),
-                            line=citation.merged_data.get('line'),
-                            family_number=citation.merged_data.get('family_number'),
-                            dwelling_number=citation.merged_data.get('dwelling_number'),
+                            town_ward=citation.merged_data.get("town_ward"),
+                            enumeration_district=citation.merged_data.get("enumeration_district"),
+                            sheet=citation.merged_data.get("sheet"),
+                            line=citation.merged_data.get("line"),
+                            family_number=citation.merged_data.get("family_number"),
+                            dwelling_number=citation.merged_data.get("dwelling_number"),
                         )
 
                         image_service.register_pending_image(metadata)
@@ -2512,12 +2765,12 @@ class BatchProcessingTab:
                 self._notify_and_log(
                     f"Export ({source_name}) completed with {len(errors)} errors. "
                     f"Written: {citations_written} citations, {images_processed} images.",
-                    type="warning"
+                    type="warning",
                 )
             else:
                 self._notify_and_log(
                     f"Successfully exported {citations_written} citations and {images_processed} images from {source_name}!",
-                    type="positive"
+                    type="positive",
                 )
 
         except Exception as e:
@@ -2560,7 +2813,9 @@ class BatchProcessingTab:
             # Process each citation
             for i, citation in enumerate(completed_citations):
                 try:
-                    progress_label.text = f"Processing {citation.full_name} ({i+1}/{len(completed_citations)})"
+                    progress_label.text = (
+                        f"Processing {citation.full_name} ({i + 1}/{len(completed_citations)})"
+                    )
                     progress_bar.value = i / len(completed_citations)
                     await ui.context.client.connected()  # Allow UI update
 
@@ -2573,33 +2828,44 @@ class BatchProcessingTab:
                         await self._ensure_existing_media_links(citation)
 
                     # 3. Process image if downloaded (skip if already has media in RootsMagic)
-                    if citation.local_image_path and Path(citation.local_image_path).exists() and not citation.has_existing_media:
+                    if (
+                        citation.local_image_path
+                        and Path(citation.local_image_path).exists()
+                        and not citation.has_existing_media
+                    ):
                         # Create ImageMetadata from citation data
                         # Generate access date in Evidence Explained format: "D Month YYYY"
-                        access_date = citation.merged_data.get('access_date')
+                        access_date = citation.merged_data.get("access_date")
                         if not access_date:
                             # Generate today's date in correct format
                             today = datetime.now()
                             access_date = today.strftime("%-d %B %Y")  # e.g., "7 November 2024"
 
                         # Get state/county from merged_data, with fallback to source_name parsing
-                        state = citation.merged_data.get('state', '')
-                        county = citation.merged_data.get('county', '')
+                        state = citation.merged_data.get("state", "")
+                        county = citation.merged_data.get("county", "")
 
                         # If state/county are missing, try to parse from source_name
                         if (not state or not county) and citation.source_name:
                             from rmcitecraft.parsers.source_name_parser import SourceNameParser
+
                             try:
                                 parsed = SourceNameParser.parse(citation.source_name)
                                 if parsed:
-                                    if not state and parsed.get('state'):
-                                        state = parsed['state']
-                                        logger.debug(f"Got state '{state}' from source_name for {citation.full_name}")
-                                    if not county and parsed.get('county'):
-                                        county = parsed['county']
-                                        logger.debug(f"Got county '{county}' from source_name for {citation.full_name}")
+                                    if not state and parsed.get("state"):
+                                        state = parsed["state"]
+                                        logger.debug(
+                                            f"Got state '{state}' from source_name for {citation.full_name}"
+                                        )
+                                    if not county and parsed.get("county"):
+                                        county = parsed["county"]
+                                        logger.debug(
+                                            f"Got county '{county}' from source_name for {citation.full_name}"
+                                        )
                             except Exception as e:
-                                logger.warning(f"Could not parse source_name for {citation.full_name}: {e}")
+                                logger.warning(
+                                    f"Could not parse source_name for {citation.full_name}: {e}"
+                                )
 
                         # Validate state/county before image processing
                         if not state or not county:
@@ -2607,7 +2873,9 @@ class BatchProcessingTab:
                                 f"Cannot process image for {citation.full_name}: "
                                 f"missing state='{state}' or county='{county}'"
                             )
-                            errors.append(f"{citation.full_name}: Missing state/county for image filename")
+                            errors.append(
+                                f"{citation.full_name}: Missing state/county for image filename"
+                            )
                             continue  # Skip image processing for this citation
 
                         metadata = ImageMetadata(
@@ -2618,14 +2886,14 @@ class BatchProcessingTab:
                             county=county,
                             surname=citation.surname,
                             given_name=citation.given_name,
-                            familysearch_url=citation.familysearch_url or '',
+                            familysearch_url=citation.familysearch_url or "",
                             access_date=access_date,
-                            town_ward=citation.merged_data.get('town_ward'),
-                            enumeration_district=citation.merged_data.get('enumeration_district'),
-                            sheet=citation.merged_data.get('sheet'),
-                            line=citation.merged_data.get('line'),
-                            family_number=citation.merged_data.get('family_number'),
-                            dwelling_number=citation.merged_data.get('dwelling_number'),
+                            town_ward=citation.merged_data.get("town_ward"),
+                            enumeration_district=citation.merged_data.get("enumeration_district"),
+                            sheet=citation.merged_data.get("sheet"),
+                            line=citation.merged_data.get("line"),
+                            family_number=citation.merged_data.get("family_number"),
+                            dwelling_number=citation.merged_data.get("dwelling_number"),
                         )
 
                         # Register metadata with image service before processing
@@ -2635,7 +2903,9 @@ class BatchProcessingTab:
                         result = image_service.process_downloaded_file(citation.local_image_path)
                         if result:
                             images_processed += 1
-                            logger.info(f"Processed image for {citation.full_name}: {result.final_filename}")
+                            logger.info(
+                                f"Processed image for {citation.full_name}: {result.final_filename}"
+                            )
                         else:
                             errors.append(f"{citation.full_name}: Failed to process image")
 
@@ -2668,7 +2938,7 @@ class BatchProcessingTab:
                     f"Export completed with {len(errors)} errors. "
                     f"Written: {citations_written} citations, {images_processed} images. "
                     f"Restart RootsMagic to see changes.",
-                    type="warning"
+                    type="warning",
                 )
                 # Show error details
                 with ui.dialog() as error_dialog, ui.card():
@@ -2680,7 +2950,7 @@ class BatchProcessingTab:
                 self._notify_and_log(
                     f"Successfully exported {citations_written} citations and {images_processed} images! "
                     f"Restart RootsMagic to see changes.",
-                    type="positive"
+                    type="positive",
                 )
 
         except Exception as e:
@@ -2702,9 +2972,9 @@ class BatchProcessingTab:
         """Generate bracket content for SourceTable.Name from extracted citation data.
 
         Format varies by census year:
-        - 1880-1950: [citing enumeration district (ED) XX-XX, sheet XX, line XX]
-        - 1850-1870: [citing p. XX, household ID XX] or [citing sheet XX, family XX]
-        - 1790-1840: [citing p. XX]
+        - 1880-1950: [ED XX, sheet XX, line XX] (with "citing" prefix)
+        - 1850-1870: [page XX, line YY] (no "citing" prefix, just page and line)
+        - 1790-1840: [page XX] (no "citing" prefix)
 
         Args:
             citation: CitationBatchItem with merged_data
@@ -2716,33 +2986,34 @@ class BatchProcessingTab:
         year = citation.census_year
         parts = []
 
-        # For 1880-1950: Include enumeration district
-        ed = data.get('enumeration_district', '')
-        if ed and year >= 1880:
-            parts.append(f"enumeration district (ED) {ed}")
+        # Pre-1880 census: Simple format without "citing" prefix
+        if year < 1880:
+            page = data.get("page", "")
+            line = data.get("line", "")
 
-        # Sheet or page
-        sheet = data.get('sheet', '')
-        page = data.get('page', '')
+            if page:
+                parts.append(f"page {page}")
+            if line:
+                parts.append(f"line {line}")
+
+            if parts:
+                return f"[{', '.join(parts)}]"
+            return "[]"
+
+        # 1880-1950: Include enumeration district with "citing" prefix
+        ed = data.get("enumeration_district", "")
+        if ed:
+            parts.append(f"ED {ed}")
+
+        # Sheet
+        sheet = data.get("sheet", "")
         if sheet:
             parts.append(f"sheet {sheet}")
-        elif page and year < 1880:
-            parts.append(f"p. {page}")
 
-        # Line number (1850+)
-        line = data.get('line', '')
+        # Line number
+        line = data.get("line", "")
         if line:
             parts.append(f"line {line}")
-
-        # Family number (1850+)
-        family = data.get('family_number', '')
-        if family:
-            parts.append(f"family {family}")
-
-        # Dwelling number (1850+)
-        dwelling = data.get('dwelling_number', '')
-        if dwelling:
-            parts.append(f"dwelling {dwelling}")
 
         if parts:
             return f"[citing {', '.join(parts)}]"
@@ -2777,12 +3048,16 @@ class BatchProcessingTab:
                     source_id=citation.source_id,
                     bracket_content=bracket_content,
                 )
-                logger.debug(f"Updated source name brackets for SourceID={citation.source_id}: {bracket_content}")
+                logger.debug(
+                    f"Updated source name brackets for SourceID={citation.source_id}: {bracket_content}"
+                )
 
             # 3. Update CitationLinkTable.Quality to "PDO" for census event citations
             self._update_citation_quality(conn, citation.citation_id, citation.event_id, "PDO")
 
-            logger.info(f"Wrote citation fields to database for SourceID={citation.source_id} (CitationID={citation.citation_id})")
+            logger.info(
+                f"Wrote citation fields to database for SourceID={citation.source_id} (CitationID={citation.citation_id})"
+            )
 
     def _update_citation_quality(self, conn, citation_id: int, event_id: int, quality: str) -> None:
         """Update the Quality field in CitationLinkTable for a citation linked to an event.
@@ -2807,9 +3082,13 @@ class BatchProcessingTab:
             )
 
             if cursor.rowcount > 0:
-                logger.debug(f"Updated Quality to '{quality}' for CitationID={citation_id}, EventID={event_id}")
+                logger.debug(
+                    f"Updated Quality to '{quality}' for CitationID={citation_id}, EventID={event_id}"
+                )
             else:
-                logger.warning(f"No CitationLink found for CitationID={citation_id}, EventID={event_id}")
+                logger.warning(
+                    f"No CitationLink found for CitationID={citation_id}, EventID={event_id}"
+                )
 
         except Exception as e:
             logger.error(f"Failed to update citation quality: {e}")
@@ -2896,6 +3175,7 @@ class BatchProcessingTab:
         except Exception as e:
             logger.error(f"Failed to ensure existing media links: {e}")
             import traceback
+
             traceback.print_exc()
 
     def _get_session_status_text(self) -> str:
@@ -2967,7 +3247,9 @@ class BatchProcessingTab:
                             # Open in new tab button
                             ui.button(
                                 icon="open_in_new",
-                                on_click=lambda url=citation.familysearch_url: ui.run_javascript(f"window.open('{url}', '_blank')"),
+                                on_click=lambda url=citation.familysearch_url: ui.run_javascript(
+                                    f"window.open('{url}', '_blank')"
+                                ),
                             ).props("flat dense").tooltip("Open in new tab")
 
                 # Image viewer
@@ -2975,7 +3257,9 @@ class BatchProcessingTab:
                     citation = self.controller.session.current_citation
                     # Show local image if available, otherwise show FamilySearch viewer
                     if citation.local_image_path:
-                        self._render_local_image(citation.local_image_path, citation.familysearch_url)
+                        self._render_local_image(
+                            citation.local_image_path, citation.familysearch_url
+                        )
                     elif citation.familysearch_url:
                         self._render_familysearch_viewer(citation.familysearch_url)
                     else:
@@ -3011,25 +3295,29 @@ class BatchProcessingTab:
             return
 
         # Scrollable container with keyboard controls (FIXED HEIGHT, scrollable content)
-        with ui.element('div').classes("w-full overflow-auto p-0 relative") as container:
-            container._props['id'] = 'census-image-container'
-            container._props['tabindex'] = '0'  # Make focusable for keyboard events
-            container._props['style'] = 'height: 100%; max-height: 100%; flex: 0 0 auto;'  # Prevent flex resizing
+        with ui.element("div").classes("w-full overflow-auto p-0 relative") as container:
+            container._props["id"] = "census-image-container"
+            container._props["tabindex"] = "0"  # Make focusable for keyboard events
+            container._props["style"] = (
+                "height: 100%; max-height: 100%; flex: 0 0 auto;"  # Prevent flex resizing
+            )
 
             # Zoom indicator (top-left overlay, positioned absolutely relative to container)
-            zoom_label = ui.label("100%").classes("absolute top-1 left-1 bg-black bg-opacity-60 text-white text-[10px] px-2 py-1 rounded z-10")
-            zoom_label._props['style'] = 'position: sticky; top: 4px; left: 4px;'
+            zoom_label = ui.label("100%").classes(
+                "absolute top-1 left-1 bg-black bg-opacity-60 text-white text-[10px] px-2 py-1 rounded z-10"
+            )
+            zoom_label._props["style"] = "position: sticky; top: 4px; left: 4px;"
 
             # Keyboard shortcuts hint (bottom-left overlay)
             shortcuts_label = ui.label("Z=400% zoom | =/- zoom | arrows=pan").classes(
                 "absolute bottom-1 left-1 bg-black bg-opacity-60 text-white text-[9px] px-2 py-1 rounded z-10"
             )
-            shortcuts_label._props['style'] = 'position: sticky; bottom: 4px; left: 4px;'
+            shortcuts_label._props["style"] = "position: sticky; bottom: 4px; left: 4px;"
 
             # Image (starts at fit-to-width, will scale but container stays fixed)
             img = ui.image(image_path).classes("object-contain transition-all duration-200")
-            img._props['id'] = 'census-image'
-            img._props['style'] = 'display: block; width: 100%; height: auto; min-height: 0;'
+            img._props["id"] = "census-image"
+            img._props["style"] = "display: block; width: 100%; height: auto; min-height: 0;"
 
             # Optional: Link to view on FamilySearch
             if familysearch_url:
@@ -3037,7 +3325,9 @@ class BatchProcessingTab:
                     ui.button(
                         "View on FamilySearch",
                         icon="open_in_new",
-                        on_click=lambda: ui.run_javascript(f"window.open('{familysearch_url}', '_blank')")
+                        on_click=lambda: ui.run_javascript(
+                            f"window.open('{familysearch_url}', '_blank')"
+                        ),
                     ).props("dense size=sm").classes("text-[10px]")
 
         # JavaScript for keyboard controls
@@ -3203,33 +3493,32 @@ class BatchProcessingTab:
             Users must open the link in a browser window.
         """
         # FamilySearch blocks iframe embedding, so show helpful UI instead (ultra compact for 35% column)
-        with ui.column().classes('w-full h-full items-center justify-center gap-1 p-1'):
+        with ui.column().classes("w-full h-full items-center justify-center gap-1 p-1"):
             # Icon
-            ui.icon('open_in_browser', size='1.5rem').classes('text-blue-500')
+            ui.icon("open_in_browser", size="1.5rem").classes("text-blue-500")
 
             # Title only
-            ui.label('Census Image Available').classes('text-xs font-semibold')
+            ui.label("Census Image Available").classes("text-xs font-semibold")
 
             # Very short explanation
-            ui.label('Images cannot be embedded').classes('text-[10px] text-gray-600 text-center')
-            ui.label('(Login required)').classes('text-[9px] text-gray-500 text-center italic')
+            ui.label("Images cannot be embedded").classes("text-[10px] text-gray-600 text-center")
+            ui.label("(Login required)").classes("text-[9px] text-gray-500 text-center italic")
 
             # Compact button
             ui.button(
-                'OPEN IMAGE',
-                icon='launch',
-                on_click=lambda: ui.run_javascript(f"window.open('{familysearch_url}', '_blank')")
-            ).props('color=primary dense size=sm').classes('text-[10px] px-2 py-1')
+                "OPEN IMAGE",
+                icon="launch",
+                on_click=lambda: ui.run_javascript(f"window.open('{familysearch_url}', '_blank')"),
+            ).props("color=primary dense size=sm").classes("text-[10px] px-2 py-1")
 
             # Minimal URL preview
-            url_preview = '...' + familysearch_url[-30:] if len(familysearch_url) > 30 else familysearch_url
-            ui.label(url_preview).classes('text-[8px] text-gray-400 font-mono break-all')
+            url_preview = (
+                "..." + familysearch_url[-30:] if len(familysearch_url) > 30 else familysearch_url
+            )
+            ui.label(url_preview).classes("text-[8px] text-gray-400 font-mono break-all")
 
     def _notify_and_log(
-        self,
-        message: str,
-        type: str = "info",
-        source: str = "Batch Processing"
+        self, message: str, type: str = "info", source: str = "Batch Processing"
     ) -> None:
         """Display notification and log message.
 
@@ -3255,18 +3544,20 @@ class BatchProcessingTab:
     def _render_census_dashboard(self) -> None:
         """Render the Census Dashboard tab (placeholder for census-specific visualizations)."""
         from rmcitecraft.database.census_batch_state_repository import CensusBatchStateRepository
-        
-        with ui.column().classes('w-full p-6 gap-6'):
+
+        with ui.column().classes("w-full p-6 gap-6"):
             # Header
-            ui.label('Census Dashboard').classes('text-3xl font-bold')
-            ui.label('Monitor Census batch processing with year-based analytics').classes('text-gray-600')
-            
+            ui.label("Census Dashboard").classes("text-3xl font-bold")
+            ui.label("Monitor Census batch processing with year-based analytics").classes(
+                "text-gray-600"
+            )
+
             ui.separator()
-            
+
             # Coming Soon Message
-            with ui.card().classes('w-full p-8 bg-blue-50'):
-                ui.label('Census-Specific Dashboard Coming Soon').classes('text-2xl font-bold mb-4')
-                
+            with ui.card().classes("w-full p-8 bg-blue-50"):
+                ui.label("Census-Specific Dashboard Coming Soon").classes("text-2xl font-bold mb-4")
+
                 ui.markdown("""
                 The Census Dashboard will include:
                 
@@ -3288,9 +3579,11 @@ class BatchProcessingTab:
                 - Processing timeline
                 - Error distribution
                 - Performance metrics
-                """).classes('text-sm')
-            
+                """).classes("text-sm")
+
             # Temporary: Show that repo is ready
-            with ui.card().classes('w-full p-4 bg-green-50'):
-                ui.label('✓ Backend Ready').classes('text-lg font-bold text-green-700')
-                ui.label('CensusBatchStateRepository created with census-specific analytics methods').classes('text-sm text-green-600')
+            with ui.card().classes("w-full p-4 bg-green-50"):
+                ui.label("✓ Backend Ready").classes("text-lg font-bold text-green-700")
+                ui.label(
+                    "CensusBatchStateRepository created with census-specific analytics methods"
+                ).classes("text-sm text-green-600")
