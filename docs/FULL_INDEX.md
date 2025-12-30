@@ -2,7 +2,7 @@
 
 > Complete documentation index for developers.
 > For LLM-optimized compact map, see `claude_code_docs_map.md` in repo root.
-> Last generated: 2025-12-30 18:27:31 UTC
+> Last generated: 2025-12-30 18:37:29 UTC
 
 ## Summary
 
@@ -113,7 +113,7 @@
   - Updating Citation Validation
 - Key Rules
 
-### [Product Requirements Document: RMCitecraft (v2.0)](https://github.com/mikeiacovacci/RMCitecraft/blob/main/PRD.md) 
+### [Product Requirements Document: RMCitecraft (v2.1)](https://github.com/mikeiacovacci/RMCitecraft/blob/main/PRD.md) 
 
 - Active Genealogy Automation Agent
 - 1. Executive Summary
@@ -128,14 +128,15 @@
   - 3.2 Find a Grave Integration
   - 3.3 The Sidecar Database (`census.db`)
   - 3.4 Image Management
-  - 3.5 Interactive Dashboard
+  - 3.5 Census Extraction Viewer
+  - 3.6 Interactive Dashboard
 - 4. Technical Requirements
   - 4.1 Technology Stack
   - 4.2 Database Safety Protocols
   - 4.3 Performance Goals
 - 5. Roadmap
-  - Phase 1: Core Consolidation (Current)
-  - Phase 2: Enhanced Transcription
+  - Phase 1: Core Consolidation (Complete)
+  - Phase 2: Enhanced Transcription (Current)
   - Phase 3: State Census & Expansion
 - 6. Glossary
 
