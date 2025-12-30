@@ -71,6 +71,8 @@ class CitationRepository:
     def get_citations_by_year(self, census_year: int) -> list[sqlite3.Row]:
         """Get all census citations for a specific year.
 
+        Includes population schedules, slave schedules, and mortality schedules.
+
         Args:
             census_year: Census year (e.g., 1900, 1910, etc.)
 
@@ -96,9 +98,15 @@ class CitationRepository:
                 FROM CitationTable c
                 JOIN SourceTable s ON c.SourceID = s.SourceID
                 WHERE s.Name LIKE ?
+                   OR s.Name LIKE ?
+                   OR s.Name LIKE ?
                 ORDER BY s.Name COLLATE RMNOCASE
                 """,
-                (f"Fed Census: {census_year}%",),
+                (
+                    f"Fed Census: {census_year}%",
+                    f"Fed Census Slave Schedule: {census_year}%",
+                    f"Fed Census Mortality Schedule: {census_year}%",
+                ),
             )
             results = cursor.fetchall()
             logger.debug(f"Found {len(results)} citations for year {census_year}")

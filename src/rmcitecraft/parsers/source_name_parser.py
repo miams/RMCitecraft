@@ -10,11 +10,21 @@ from typing import Optional
 class SourceNameParser:
     """Parse census details from SourceTable.Name field."""
 
-    # SourceTable.Name format: "Fed Census: YYYY, State, County [details] Surname, GivenName"
+    # SourceTable.Name formats:
+    # - Population: "Fed Census: YYYY, State, County [details] Surname, GivenName"
+    # - Slave: "Fed Census Slave Schedule: YYYY, State, County [details] Surname, GivenName"
+    # - Mortality: "Fed Census Mortality Schedule: YYYY, State, County [details] Surname, GivenName"
     PATTERN = re.compile(
         r'Fed\s+Census:\s*(\d{4})\s*,\s*([^,]+?)\s*,\s*([^,\[\]]+?)\s*(?:\[([^\]]*)\])?\s*(.+)$',
         re.IGNORECASE
     )
+
+    # Prefixes to strip before parsing (in order of specificity)
+    SOURCE_PREFIXES = [
+        'Fed Census Slave Schedule:',
+        'Fed Census Mortality Schedule:',
+        'Fed Census:',
+    ]
 
     @classmethod
     def parse(cls, source_name: str) -> dict[str, str]:
@@ -23,7 +33,10 @@ class SourceNameParser:
 
         Args:
             source_name: RootsMagic source name
-                Example: "Fed Census: 1950, Ohio, Stark [] Adams, Verne"
+                Examples:
+                - "Fed Census: 1950, Ohio, Stark [] Adams, Verne"
+                - "Fed Census Slave Schedule: 1850, North Carolina, Davie [citing line 14] Ijames, Beal"
+                - "Fed Census Mortality Schedule: 1850, New Jersey, Warren [citing line 2] Shannon, Daniel"
 
         Returns:
             Dictionary with parsed fields:
@@ -32,16 +45,27 @@ class SourceNameParser:
                 'state': 'Ohio',
                 'county': 'Stark',
                 'bracket_content': '',  # Content between brackets
-                'person_ref': 'Adams, Verne'
+                'person_ref': 'Adams, Verne',
+                'schedule_type': 'population'  # or 'slave', 'mortality'
             }
         """
-        # Simpler approach: split by known delimiters
-        if 'Fed Census:' not in source_name:
+        # Determine schedule type and extract rest of string
+        schedule_type = 'population'
+        rest = None
+
+        for prefix in cls.SOURCE_PREFIXES:
+            if prefix in source_name:
+                rest = source_name.split(prefix, 1)[1].strip()
+                if 'Slave Schedule' in prefix:
+                    schedule_type = 'slave'
+                elif 'Mortality Schedule' in prefix:
+                    schedule_type = 'mortality'
+                break
+
+        if rest is None:
             return {}
 
         try:
-            # Remove "Fed Census: " prefix
-            rest = source_name.split('Fed Census:', 1)[1].strip()
 
             # Split first part (before brackets) on commas
             if '[' in rest:
@@ -66,7 +90,8 @@ class SourceNameParser:
                     'state': state,
                     'county': county,
                     'bracket_content': bracket_content,
-                    'person_ref': person_ref
+                    'person_ref': person_ref,
+                    'schedule_type': schedule_type,
                 }
         except (ValueError, IndexError):
             pass

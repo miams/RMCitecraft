@@ -649,6 +649,54 @@ def build_census_configs() -> dict[int | str, CensusYearConfig]:
     )
 
     # =========================================================================
+    # 1850 Mortality Schedule
+    # =========================================================================
+    configs["1850-mortality"] = CensusYearConfig(
+        year=1850,
+        description="Seventh U.S. Census - Mortality Schedule",
+        # Source name: uses "page" not "sheet"
+        source_name_prefix="Fed Census Mortality Schedule: 1850,",
+        source_name_requires_ed=False,
+        source_name_ed_pattern=None,
+        source_name_requires_sheet=False,
+        source_name_requires_stamp=False,
+        source_name_allows_sheet_or_stamp=False,
+        source_name_requires_line=False,  # Line format varies
+        source_name_line_required_with_sheet_only=False,
+        source_name_requires_family=False,
+        # Footnote
+        footnote_census_ref="1850 U.S. census",
+        footnote_requires_ed=False,
+        footnote_ed_pattern=None,
+        footnote_requires_sheet=False,
+        footnote_requires_stamp=False,
+        footnote_allows_sheet_or_stamp=False,
+        footnote_requires_line=False,
+        footnote_line_required_with_sheet_only=False,
+        footnote_requires_family=False,
+        footnote_quoted_title="United States, Census (Mortality Schedule), 1850,",
+        footnote_requires_schedule=True,
+        footnote_schedule_patterns=["mortality schedule"],
+        # Short footnote
+        short_census_ref="1850 U.S. census",
+        short_requires_ed=False,
+        short_ed_abbreviation=None,
+        short_requires_sheet=False,
+        short_requires_stamp=False,
+        short_allows_sheet_or_stamp=False,
+        short_requires_line=False,
+        short_line_required_with_sheet_only=False,
+        short_requires_family=False,
+        short_requires_ending_period=True,
+        short_requires_schedule=True,
+        short_schedule_patterns=["mort. sch."],
+        # Bibliography
+        bibliography_quoted_title="United States, Census (Mortality Schedule), 1850.",
+        # Quality
+        expected_citation_quality="PDO",
+    )
+
+    # =========================================================================
     # 1860 Slave Schedule
     # =========================================================================
     configs["1860-slave"] = CensusYearConfig(

@@ -37,6 +37,9 @@ def get_sources_for_year(conn: sqlite3.Connection, year_key: int | str) -> list[
     if isinstance(year_key, str) and year_key.endswith("-slave"):
         year = int(year_key.replace("-slave", ""))
         name_prefix = f"Fed Census Slave Schedule: {year},%"
+    elif isinstance(year_key, str) and year_key.endswith("-mortality"):
+        year = int(year_key.replace("-mortality", ""))
+        name_prefix = f"Fed Census Mortality Schedule: {year},%"
     else:
         name_prefix = f"Fed Census: {year_key},%"
 
@@ -93,6 +96,9 @@ def get_citation_quality_counts(
     if isinstance(year_key, str) and year_key.endswith("-slave"):
         year = int(year_key.replace("-slave", ""))
         name_prefix = f"Fed Census Slave Schedule: {year},%"
+    elif isinstance(year_key, str) and year_key.endswith("-mortality"):
+        year = int(year_key.replace("-mortality", ""))
+        name_prefix = f"Fed Census Mortality Schedule: {year},%"
     else:
         name_prefix = f"Fed Census: {year_key},%"
 

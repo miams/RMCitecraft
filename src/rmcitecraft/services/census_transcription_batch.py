@@ -188,17 +188,26 @@ class CensusTranscriptionBatchService:
             cursor = conn.cursor()
 
             # Build query with year filter in SQL for efficiency
-            # Source name format: "Fed Census: 1950, Arizona, Pima [citing ...]"
+            # Source name formats:
+            #   - Population: "Fed Census: 1950, Arizona, Pima [citing ...]"
+            #   - Slave: "Fed Census Slave Schedule: 1850, North Carolina, Davie [...]"
+            #   - Mortality: "Fed Census Mortality Schedule: 1850, New Jersey, Warren [...]"
             year_clause = ""
             if census_year:
-                year_clause = f"AND s.Name LIKE 'Fed Census: {census_year},%'"
+                year_clause = f"""AND (
+                    s.Name LIKE 'Fed Census: {census_year},%'
+                    OR s.Name LIKE 'Fed Census Slave Schedule: {census_year},%'
+                    OR s.Name LIKE 'Fed Census Mortality Schedule: {census_year},%'
+                )"""
 
             # Query 1: Get all matching sources (fast)
             source_query = f"""
                 SELECT s.SourceID, s.Name, s.Fields
                 FROM SourceTable s
                 WHERE s.TemplateID = 0
-                  AND s.Name LIKE 'Fed Census:%'
+                  AND (s.Name LIKE 'Fed Census:%'
+                       OR s.Name LIKE 'Fed Census Slave Schedule:%'
+                       OR s.Name LIKE 'Fed Census Mortality Schedule:%')
                   {year_clause}
             """
             cursor.execute(source_query)

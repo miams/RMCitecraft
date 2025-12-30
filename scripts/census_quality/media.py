@@ -61,6 +61,9 @@ def get_source_media_links(
     if isinstance(year_key, str) and year_key.endswith("-slave"):
         year = int(year_key.replace("-slave", ""))
         name_prefix = f"Fed Census Slave Schedule: {year},%"
+    elif isinstance(year_key, str) and year_key.endswith("-mortality"):
+        year = int(year_key.replace("-mortality", ""))
+        name_prefix = f"Fed Census Mortality Schedule: {year},%"
     else:
         name_prefix = f"Fed Census: {year_key},%"
 
@@ -104,6 +107,8 @@ def get_all_media_in_directory(
     # Extract numeric year for directory lookup
     if isinstance(year_key, str) and year_key.endswith("-slave"):
         year = int(year_key.replace("-slave", ""))
+    elif isinstance(year_key, str) and year_key.endswith("-mortality"):
+        year = int(year_key.replace("-mortality", ""))
     else:
         year = int(year_key)
     dir_name = CENSUS_DIRECTORIES.get(year, f"{year} Federal")
@@ -146,6 +151,9 @@ def run_media_check(conn: sqlite3.Connection, year_key: int | str) -> MediaCheck
     if isinstance(year_key, str) and year_key.endswith("-slave"):
         year = int(year_key.replace("-slave", ""))
         name_prefix = f"Fed Census Slave Schedule: {year},%"
+    elif isinstance(year_key, str) and year_key.endswith("-mortality"):
+        year = int(year_key.replace("-mortality", ""))
+        name_prefix = f"Fed Census Mortality Schedule: {year},%"
     else:
         year = int(year_key) if isinstance(year_key, str) else year_key
         name_prefix = f"Fed Census: {year},%"

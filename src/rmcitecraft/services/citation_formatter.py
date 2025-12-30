@@ -289,6 +289,13 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
     """
     from datetime import datetime
 
+    # Check for special schedule types
+    schedule_type = data.get('schedule_type', 'population')
+    if schedule_type == 'slave':
+        return _format_slave_schedule_preview(data, year)
+    elif schedule_type == 'mortality':
+        return _format_mortality_schedule_preview(data, year)
+
     # Get data with fallbacks for preview
     state = data.get('state', '[State]')
     county = data.get('county', '[County]')
@@ -319,6 +326,68 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
     # 1880-1940: Uses enumeration district and "sheet"
     # 1950: Uses enumeration district and "stamp"
     uses_ed = year >= 1880
+
+    # Get dwelling and family numbers (for 1850-1880)
+    dwelling = data.get('dwelling_number', '')
+    family = data.get('family_number', '')
+
+    # 1850 specific format: page (penned), dwelling, family, line
+    # Locality comes AFTER "population schedule" (consistent with other census years)
+    if year == 1850:
+        page_value = data.get('page', '')
+        line_value = data.get('line', data.get('line_number', ''))
+
+        # Build footnote parts - locality AFTER "population schedule"
+        parts = [f"{year} U.S. census", f"{county} County", state]
+        parts.append("population schedule")
+        if locality:
+            parts.append(locality)
+
+        if page_value:
+            parts.append(f"page {page_value} (penned)")
+        if dwelling:
+            parts.append(f"dwelling {dwelling}")
+        if family:
+            parts.append(f"family {family}")
+        if line_value:
+            parts.append(f"line {line_value}")
+
+        footnote = (
+            f"{', '.join(parts)}, {person}; "
+            f"imaged, \"United States, Census, {year},\" <i>FamilySearch</i> "
+            f"({url} : accessed {access_date})."
+        )
+
+        # Short footnote for 1850
+        state_abbr = STATE_ABBREVIATIONS.get(state, state)
+        short_parts = [f"{year} U.S. census", f"{county} Co.", state_abbr, "pop. sch."]
+        if locality:
+            short_parts.append(locality)
+        if page_value:
+            short_parts.append(f"p. {page_value} (penned)")
+        if dwelling:
+            short_parts.append(f"dwelling {dwelling}")
+        if family:
+            short_parts.append(f"family {family}")
+        if line_value:
+            short_parts.append(f"line {line_value}")
+        short_footnote = ", ".join(short_parts) + f", {person}."
+
+        # Bibliography for 1850
+        access_year = access_date.split()[-1] if access_date else str(datetime.now().year)
+        bibliography = (
+            f"U.S. {state}. {county} County. {year} U.S Census. Population Schedule. "
+            f"Imaged. \"United States, Census, {year}.\" <i>FamilySearch</i> "
+            f"{url} : {access_year}."
+        )
+
+        return {
+            'footnote': footnote,
+            'short_footnote': short_footnote,
+            'bibliography': bibliography,
+        }
+
+    # Other years use original logic
     if year < 1880:
         page_label = "page"
         page_value = data.get('page', '[page]')
@@ -347,26 +416,31 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
 
     # Short Footnote
     state_abbr = STATE_ABBREVIATIONS.get(state, state)
-    # For 1910-1940: Omit "pop. sch." (only population schedules survived)
-    pop_sch_str = "" if 1910 <= year <= 1940 else "pop. sch., "
 
-    # Locality (optional - only include if available)
-    locality_str = f", {locality}" if locality else ""
+    # Build short footnote parts
+    short_parts = [f"{year} U.S. census", f"{county} Co.", state_abbr]
+
+    # For 1910-1940: Omit "pop. sch." (only population schedules survived)
+    if not (1910 <= year <= 1940):
+        short_parts.append("pop. sch.")
+
+    # Locality (optional)
+    if locality:
+        short_parts.append(locality)
+
+    # ED for 1880+
+    if uses_ed:
+        short_parts.append(f"E.D. {ed}")
+
+    # Page/sheet/stamp
+    short_parts.append(f"{page_label} {page_value}")
 
     # Household identifier: line number for most years, family number for 1860
-    # For 1860: FamilySearch doesn't index line numbers, uses HOUSEHOLD_ID -> family_number
-    household_str = f", {household_label} {household_value}" if household_value and household_value not in ('[line]', '[family]') else ""
+    if household_value and household_value not in ('[line]', '[family]'):
+        short_parts.append(f"{household_label} {household_value}")
 
-    # ED string for short footnote
-    if uses_ed:
-        ed_short_str = f", E.D. {ed}"
-    else:
-        ed_short_str = ""
-
-    short_footnote = (
-        f"{year} U.S. census, {county} Co., {state_abbr}{locality_str}"
-        f"{ed_short_str}, {page_label} {page_value}{household_str}, {person}."
-    )
+    # Person name (last part, with period)
+    short_footnote = ", ".join(short_parts) + f", {person}."
 
     # Bibliography
     # For 1910-1940: Omit "Population Schedule" (only schedules that survived)
@@ -377,6 +451,138 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
     bibliography = (
         f"U.S. {state}. {county} County. {year} U.S Census. {schedule_str}"
         f"Imaged. \"United States, Census, {year}.\" <i>FamilySearch</i> "
+        f"{url} : {access_year}."
+    )
+
+    return {
+        'footnote': footnote,
+        'short_footnote': short_footnote,
+        'bibliography': bibliography,
+    }
+
+
+def _format_slave_schedule_preview(data: dict, year: int) -> dict[str, str]:
+    """Generate citation preview for slave schedules (1850-1860).
+
+    Slave schedules list slaveholders and counts of enslaved persons,
+    but do not name the enslaved individuals.
+
+    Args:
+        data: Dictionary with census data
+        year: Census year (1850 or 1860)
+
+    Returns:
+        Dictionary with 'footnote', 'short_footnote', 'bibliography' keys
+    """
+    from datetime import datetime
+
+    state = data.get('state', '[State]')
+    county = data.get('county', '[County]')
+    locality = data.get('town_ward', data.get('locality', ''))
+    person = data.get('person_name', '[Person Name]')
+    person_role = data.get('person_role', 'owner')
+    page = data.get('page', data.get('sheet', '[page]'))
+    line = data.get('line', '')
+    column = data.get('column', '')
+
+    # Clean URL
+    raw_url = data.get('familysearch_url', '[URL]')
+    url = raw_url.split('?')[0] if raw_url and raw_url != '[URL]' else raw_url
+
+    access_date = data.get('access_date') or datetime.now().strftime("%d %B %Y")
+
+    # Build location references
+    line_col_str = ""
+    if line:
+        if column:
+            line_col_str = f", line {line}, column {column}"
+        else:
+            line_col_str = f", line {line}"
+
+    locality_str = f", {locality}" if locality else ""
+
+    # Footnote
+    footnote = (
+        f"{year} U.S. census, {county} County, {state}, slave schedule"
+        f"{locality_str}, page {page}{line_col_str}, {person}, \"{person_role}\"; "
+        f"imaged, \"United States, Census (Slave Schedule), {year},\" <i>FamilySearch</i> "
+        f"({url} : accessed {access_date})."
+    )
+
+    # Short Footnote
+    state_abbr = STATE_ABBREVIATIONS.get(state, state)
+    short_footnote = (
+        f"{year} U.S. census, {county} Co., {state_abbr}, slave sch."
+        f"{locality_str}, page {page}{line_col_str}, {person}, \"{person_role}.\""
+    )
+
+    # Bibliography
+    access_year = access_date.split()[-1] if access_date else str(datetime.now().year)
+    bibliography = (
+        f"U.S. {state}. {county} County. {year} U.S. Census. Slave Schedule. "
+        f"Imaged. \"United States, Census (Slave Schedule), {year}.\" <i>FamilySearch</i> "
+        f"{url} : {access_year}."
+    )
+
+    return {
+        'footnote': footnote,
+        'short_footnote': short_footnote,
+        'bibliography': bibliography,
+    }
+
+
+def _format_mortality_schedule_preview(data: dict, year: int) -> dict[str, str]:
+    """Generate citation preview for mortality schedules (1850).
+
+    Mortality schedules list persons who died in the 12 months
+    preceding the census enumeration date.
+
+    Args:
+        data: Dictionary with census data
+        year: Census year (1850)
+
+    Returns:
+        Dictionary with 'footnote', 'short_footnote', 'bibliography' keys
+    """
+    from datetime import datetime
+
+    state = data.get('state', '[State]')
+    county = data.get('county', '[County]')
+    locality = data.get('town_ward', data.get('locality', ''))
+    person = data.get('person_name', '[Person Name]')
+    page = data.get('page', data.get('sheet', '[page]'))
+    line = data.get('line', '')
+
+    # Clean URL
+    raw_url = data.get('familysearch_url', '[URL]')
+    url = raw_url.split('?')[0] if raw_url and raw_url != '[URL]' else raw_url
+
+    access_date = data.get('access_date') or datetime.now().strftime("%d %B %Y")
+
+    # Build location references
+    line_str = f", line {line}" if line else ""
+    locality_str = f", {locality}" if locality else ""
+
+    # Footnote
+    footnote = (
+        f"{year} U.S. census, {county} County, {state}, mortality schedule"
+        f"{locality_str}, page {page}{line_str}, {person}; "
+        f"imaged, \"United States, Census (Mortality Schedule), {year},\" <i>FamilySearch</i> "
+        f"({url} : accessed {access_date})."
+    )
+
+    # Short Footnote
+    state_abbr = STATE_ABBREVIATIONS.get(state, state)
+    short_footnote = (
+        f"{year} U.S. census, {county} Co., {state_abbr}, mort. sch."
+        f"{locality_str}, page {page}{line_str}, {person}."
+    )
+
+    # Bibliography
+    access_year = access_date.split()[-1] if access_date else str(datetime.now().year)
+    bibliography = (
+        f"U.S. {state}. {county} County. {year} U.S Census. Mortality Schedule. "
+        f"Imaged. \"United States, Census (Mortality Schedule), {year}.\" <i>FamilySearch</i> "
         f"{url} : {access_year}."
     )
 
