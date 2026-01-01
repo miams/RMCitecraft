@@ -231,9 +231,10 @@ def check_footnote(
     # Match sheet with optional hyphen: "sheet 6B" or "sheet 6-B"
     has_sheet = bool(re.search(r"sheet\s+\d+-?[AB]?", footnote, re.IGNORECASE))
     has_stamp = bool(re.search(r"stamp\s+\d+", footnote, re.IGNORECASE))
-    has_page = bool(re.search(r"page\s+\d+", footnote, re.IGNORECASE))
+    # Match "page X" or "pages X-Y" (for records spanning multiple pages)
+    has_page = bool(re.search(r"pages?\s+\d+", footnote, re.IGNORECASE))
     has_page_stamped = bool(
-        re.search(r"page\s+\d+\s*\(stamped\)", footnote, re.IGNORECASE)
+        re.search(r"pages?\s+\d+(?:-\d+)?\s*\(stamped\)", footnote, re.IGNORECASE)
     )
 
     # 1850-1870 use "page X", 1880 uses "page X (stamped)"
@@ -447,10 +448,10 @@ def check_short_footnote(
     # Match sheet with optional hyphen: "sheet 6B" or "sheet 6-B"
     has_sheet = bool(re.search(r"sheet\s+\d+-?[AB]?", short_footnote, re.IGNORECASE))
     has_stamp = bool(re.search(r"stamp\s+\d+", short_footnote, re.IGNORECASE))
-    # Match "page X" or "p. X" for pre-1880 censuses
-    has_page = bool(re.search(r"(?:page|p\.)\s+\d+", short_footnote, re.IGNORECASE))
+    # Match "page X", "pages X-Y", "p. X", or "pp. X-Y" for pre-1880 censuses
+    has_page = bool(re.search(r"(?:pages?|pp?\.)\s+\d+", short_footnote, re.IGNORECASE))
     has_page_stamped = bool(
-        re.search(r"(?:page|p\.)\s+\d+\s*\(stamped\)", short_footnote, re.IGNORECASE)
+        re.search(r"(?:pages?|pp?\.)\s+\d+(?:-\d+)?\s*\(stamped\)", short_footnote, re.IGNORECASE)
     )
 
     # 1850-1870 use "page X" or "p. X", 1880 uses "p. X (stamped)"
@@ -669,6 +670,30 @@ def check_bibliography(
                 category="format",
             )
         )
+
+    # Check for period after FamilySearch before URL
+    # Correct: "</i>. https://" or "&lt;/i&gt;. https://"
+    # Wrong: "</i> https://" or "&lt;/i&gt; https://"
+    if has_italics:
+        missing_period = bool(
+            re.search(r"</i>\s+https://|&lt;/i&gt;\s+https://", bibliography)
+        )
+        has_period = bool(
+            re.search(r"</i>\.\s+https://|&lt;/i&gt;\.\s+https://", bibliography)
+        )
+        if missing_period and not has_period:
+            issues.append(
+                Issue(
+                    source_id=source_id,
+                    issue_type="bibliography_missing_period_after_publisher",
+                    severity="error",
+                    message="Missing period after <i>FamilySearch</i> before URL",
+                    field="bibliography",
+                    current_value="</i> https://",
+                    expected_value="</i>. https://",
+                    category="format",
+                )
+            )
 
     return issues
 

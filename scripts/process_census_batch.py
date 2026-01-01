@@ -294,10 +294,17 @@ def find_census_citations(
         JOIN CitationLinkTable cl ON e.EventID = cl.OwnerID AND cl.OwnerType = 2
         JOIN CitationTable c ON cl.CitationID = c.CitationID
         JOIN SourceTable s ON c.SourceID = s.SourceID
-        WHERE e.EventType = 18
-          AND e.Date LIKE ?
+        WHERE (
+            -- Census events (EventType 18) for population and slave schedules
+            (e.EventType = 18 AND (
+                s.Name LIKE 'Fed Census: ' || ? || ',%'
+                OR s.Name LIKE 'Fed Census Slave Schedule: ' || ? || ',%'
+            ))
+            -- Mortality schedule events (EventType 2 = Death)
+            OR (e.EventType = 2 AND s.Name LIKE 'Fed Census Mortality Schedule: ' || ? || ',%')
+        )
           AND s.TemplateID = 0
-        GROUP BY e.EventID
+        GROUP BY c.CitationID
         ORDER BY n.Surname COLLATE RMNOCASE, n.Given COLLATE RMNOCASE
         LIMIT ? OFFSET ?
     """
@@ -323,7 +330,8 @@ def find_census_citations(
     max_iterations = 20  # Safety limit to prevent infinite loops
 
     for iteration in range(max_iterations):
-        cursor.execute(query, (f'%{census_year}%', batch_size, current_offset))
+        # Pass census_year 3 times (for population, slave, mortality patterns) + limit + offset
+        cursor.execute(query, (str(census_year), str(census_year), str(census_year), batch_size, current_offset))
         rows = cursor.fetchall()
 
         if not rows:

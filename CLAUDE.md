@@ -290,6 +290,7 @@ browser = await playwright.chromium.connect_over_cdp("http://localhost:9222")
 | [docs/reference/CENSUS_FORM_RENDERING.md](docs/reference/CENSUS_FORM_RENDERING.md) | Census form rendering architecture |
 | [docs/architecture/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md](docs/architecture/CENSUS_BATCH_PROCESSING_ARCHITECTURE.md) | Census processing workflow |
 | [docs/architecture/BATCH_PROCESSING_ARCHITECTURE.md](docs/architecture/BATCH_PROCESSING_ARCHITECTURE.md) | Find a Grave processing |
+| [docs/projects/NOTE_CITATION_HARVESTING.md](docs/projects/NOTE_CITATION_HARVESTING.md) | Note citation harvesting project |
 
 ## Common Tasks
 
