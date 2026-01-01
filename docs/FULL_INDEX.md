@@ -2,14 +2,14 @@
 
 > Complete documentation index for developers.
 > For LLM-optimized compact map, see `claude_code_docs_map.md` in repo root.
-> Last generated: 2025-12-30 18:40:21 UTC
+> Last generated: 2026-01-01 16:29:09 UTC
 
 ## Summary
 
 | Priority | Count | Included |
 |----------|-------|----------|
 | Essential | 21 | Yes |
-| Reference | 61 | Yes |
+| Reference | 62 | Yes |
 | Archive | 5 | No |
 
 ## Getting Started (1 docs)
@@ -2846,7 +2846,42 @@
   - Report Issues
 - Common Error Messages Reference
 
-## Other (1 docs)
+## Other (2 docs)
+
+### [Note Citation Harvesting Project](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/projects/NOTE_CITATION_HARVESTING.md) 
+
+- Objective
+- Status
+- Overview
+- Target Note Locations
+- Source Types to Support
+- Discovery Findings
+  - Database Analysis (2026-01-01)
+    - Volume Summary
+    - URL Domain Distribution
+    - Event Types Without Citations (Highest Priority)
+    - Citation Status
+  - FamilySearch Collection Analysis
+  - Common Note Patterns
+    - Pattern 1: Well-Formatted FamilySearch Citation
+    - Pattern 2: FamilySearch Citation with Citing Info
+    - Pattern 3: Ancestry Source Information
+    - Pattern 4: Newspapers.com Citation
+    - Pattern 5: Raw Note with URL
+- Technical Approach
+  - Proposed Architecture
+    - Phase 1: Parser Development
+    - Phase 2: Source Matching/Creation
+    - Phase 3: Citation Generation
+    - Phase 4: Note Cleanup
+  - Database Operations
+    - Source Creation
+    - Citation Linking
+- Questions to Resolve
+  - Already Answered
+  - Still Need to Decide
+- Progress Log
+- Next Steps
 
 ### [RMCitecraft Screenshots](https://github.com/mikeiacovacci/RMCitecraft/blob/main/docs/screenshots/README.md) 
 
