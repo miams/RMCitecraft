@@ -147,7 +147,8 @@ class YearSpecificHandler:
 
         # Line numbers vary by year/era
         # Note: FamilySearch doesn't always index line numbers
-        uses_line = has_individual
+        # 1790-1840: Only head of household, no line numbers exist
+        uses_line = has_individual and self._year >= 1850
 
         return ExtractionFlags(
             uses_enumeration_district=uses_ed,

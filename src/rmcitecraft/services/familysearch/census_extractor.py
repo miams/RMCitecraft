@@ -152,6 +152,9 @@ class CensusExtractor:
         - /ark:/61903/3:1: -> Detail page strategy
         - /ark:/61903/1:1: -> Person page strategy
 
+        For pre-1850 censuses (1790-1840) starting from a person page,
+        navigates to the detail page for more accurate place data extraction.
+
         Args:
             url: FamilySearch URL (ARK format)
             census_year: Census year (1790-1950, excluding 1890)
@@ -182,6 +185,19 @@ class CensusExtractor:
                     success=False,
                     error="Failed to navigate to URL",
                 )
+
+            # For pre-1850 censuses (1790-1840), use detail page for better place data
+            # Person pages for these years have less structured location info
+            if census_year <= 1840 and "/ark:/61903/1:1:" in url:
+                detail_url = await self._extract_detail_page_link(page)
+                if detail_url:
+                    logger.info(
+                        "Pre-1850 census: navigating from person page to detail page "
+                        "for structured place data"
+                    )
+                    page = await self._navigate_to_page(detail_url, navigate=True)
+                    if page:
+                        url = detail_url  # Update URL for strategy selection
 
             # Select and run extraction strategy
             strategy = self._select_strategy(url)
@@ -283,6 +299,59 @@ class CensusExtractor:
             )
         else:
             return await self._browser.get_familysearch_page()
+
+    async def _extract_detail_page_link(self, page: Page) -> str | None:
+        """Extract link to detail/image view page from person page.
+
+        For pre-1850 censuses (1790-1840), the detail page has more
+        structured place data (County, Township, State as separate fields).
+
+        Looks for links with:
+        - "view=index" query parameter (detail view link)
+        - "/ark:/61903/3:1:" pattern (image/detail view ARK)
+
+        Args:
+            page: Playwright Page object on person page
+
+        Returns:
+            Detail page URL or None
+        """
+        try:
+            # Look for links with view=index parameter (preferred for 1840)
+            # This is the pattern found in Playwright testing
+            view_index_link = page.locator('a[href*="/ark:/61903/3:"][href*="view=index"]')
+            if await view_index_link.count() > 0:
+                href = await view_index_link.first.get_attribute("href")
+                if href:
+                    if href.startswith("/"):
+                        href = f"https://www.familysearch.org{href}"
+                    logger.debug(f"Found detail page link with view=index: {href}")
+                    return href
+
+            # Fallback: Look for "View Record" or "View Image" links
+            view_link = page.locator('a:has-text("View Record"), a:has-text("View Image")')
+            if await view_link.count() > 0:
+                href = await view_link.first.get_attribute("href")
+                if href:
+                    if href.startswith("/"):
+                        href = f"https://www.familysearch.org{href}"
+                    logger.debug(f"Found detail page link via View button: {href}")
+                    return href
+
+            # Fallback: Any link with 3:1 pattern
+            detail_links = page.locator('a[href*="/ark:/61903/3:1:"]')
+            if await detail_links.count() > 0:
+                href = await detail_links.first.get_attribute("href")
+                if href:
+                    if href.startswith("/"):
+                        href = f"https://www.familysearch.org{href}"
+                    logger.debug(f"Found detail page link via ARK pattern: {href}")
+                    return href
+
+        except Exception as e:
+            logger.debug(f"Detail link extraction failed: {e}")
+
+        return None
 
     def _select_strategy(self, url: str):
         """Select extraction strategy based on URL pattern.

@@ -28,7 +28,12 @@ class CensusExtraction(BaseModel):
     enumeration_district: str | None = Field(
         None, description="Enumeration district number (may be incomplete in source)"
     )
-    sheet: str = Field(description="Sheet number with suffix (e.g., 13-A, 7B)")
+    page: str | None = Field(
+        None, description="Page number (used for 1790-1870 censuses)"
+    )
+    sheet: str | None = Field(
+        None, description="Sheet number with suffix (e.g., 13-A, 7B) for 1880-1940"
+    )
     line: str | None = Field(None, description="Line number on the sheet")
     family_number: str | None = Field(
         None, description="Family number (extracted but not used in citations)"
@@ -80,10 +85,12 @@ class CensusExtraction(BaseModel):
 
     @field_validator("sheet")
     @classmethod
-    def normalize_sheet_format(cls, v: str) -> str:
+    def normalize_sheet_format(cls, v: str | None) -> str | None:
         """Normalize sheet format: '13A' → '13-A', '7B' → '7-B'."""
+        if not v:
+            return v
         # If sheet is just numbers and letters with no hyphen, add hyphen
-        if v and len(v) >= 2 and v[-1].isalpha() and v[-2].isdigit():
+        if len(v) >= 2 and v[-1].isalpha() and v[-2].isdigit():
             return f"{v[:-1]}-{v[-1]}"
         return v
 

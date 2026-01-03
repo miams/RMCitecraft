@@ -5,8 +5,13 @@ These pages show the indexed census data in a structured format with
 label:value pairs.
 
 URL Pattern: /ark:/61903/3:1:... (3:1 indicates image/detail view)
+
+For pre-1850 censuses (1790-1840), the detail page provides more reliable
+place data than the person page. The field labels are consistent even
+though the order may vary.
 """
 
+import re
 from typing import Any
 
 from loguru import logger
@@ -109,9 +114,20 @@ class DetailPageStrategy(PlaywrightExtractionStrategy):
         """
         data: dict[str, str] = {}
 
-        # Primary: data-dense elements (labelCss class)
+        # First, ensure the NAMES panel is visible (click NAMES tab if present)
+        await self._ensure_names_panel_visible(page)
+
+        # Primary: Regex-based extraction from body text
+        # This is the most reliable method for FamilySearch detail pages
+        # The field labels are consistent even though order varies
+        regex_data = await self._extract_using_text_patterns(page)
+        data.update(regex_data)
+
+        # Fallback: data-dense elements (labelCss class)
         dense_data = await self._extract_all_labeled_values(page)
-        data.update(dense_data)
+        for key, value in dense_data.items():
+            if key not in data:
+                data[key] = value
 
         # Fallback: table rows
         table_data = await self._extract_table_data(page)
@@ -124,6 +140,85 @@ class DetailPageStrategy(PlaywrightExtractionStrategy):
         for key, value in dl_data.items():
             if key not in data:
                 data[key] = value
+
+        return data
+
+    async def _ensure_names_panel_visible(self, page: Page) -> None:
+        """Click NAMES tab to reveal the index panel if not already visible.
+
+        FamilySearch detail pages may show the image viewer without the
+        index panel visible. Clicking the NAMES tab reveals the indexed data.
+
+        Args:
+            page: Playwright Page object
+        """
+        try:
+            names_tab = page.locator('text=NAMES').first
+            if await names_tab.count() > 0:
+                await names_tab.click()
+                await page.wait_for_timeout(1500)
+                logger.debug(f"[{self.get_strategy_name()}] Clicked NAMES tab")
+        except Exception as e:
+            logger.debug(f"[{self.get_strategy_name()}] NAMES tab click failed: {e}")
+
+    async def _extract_using_text_patterns(self, page: Page) -> dict[str, str]:
+        """Extract fields using regex patterns on body text.
+
+        This is the most reliable extraction method for FamilySearch detail pages.
+        The field labels are consistent (e.g., "Township:", "County:", "State:")
+        even though the display order may vary.
+
+        Args:
+            page: Playwright Page object
+
+        Returns:
+            Dictionary of {lowercase_underscore_label: value}
+        """
+        data: dict[str, str] = {}
+
+        try:
+            body_text = await page.locator('body').inner_text()
+
+            # Define field patterns - these are CONSISTENT and RELIABLE
+            field_patterns = {
+                'given_name': r'Given Name:\s*(.+)',
+                'surname': r'Surname:\s*(.+)',
+                'township': r'Township:\s*(.+)',
+                'state': r'State:\s*(.+)',
+                'county': r'County:\s*(.+)',
+                'country': r'Country:\s*(.+)',
+                'year': r'Year:\s*(\d{4})',
+                'source_page_number': r'Source Page Number:\s*(\d+)',
+                'page_number': r'Page Number:\s*(\d+)',
+                'enumeration_district': r'Enumeration District:\s*(.+)',
+                'sheet_number': r'Sheet Number:\s*(.+)',
+                'sheet_letter': r'Sheet Letter:\s*(.+)',
+                'dwelling_number': r'Dwelling Number:\s*(\d+)',
+                'family_number': r'Family Number:\s*(\d+)',
+                'line_number': r'Line Number:\s*(\d+)',
+                'age': r'Age:\s*(\d+)',
+                'birthplace': r'Birthplace:\s*(.+)',
+                'occupation': r'Occupation:\s*(.+)',
+                'race': r'Race:\s*(.+)',
+                'gender': r'Gender:\s*(.+)',
+                'marital_status': r'Marital Status:\s*(.+)',
+            }
+
+            for key, pattern in field_patterns.items():
+                match = re.search(pattern, body_text, re.IGNORECASE)
+                if match:
+                    # Clean value - take first line only, trim whitespace
+                    value = match.group(1).strip().split('\n')[0].strip()
+                    if value:
+                        data[key] = value
+
+            logger.debug(
+                f"[{self.get_strategy_name()}] "
+                f"Regex extraction found {len(data)} fields"
+            )
+
+        except Exception as e:
+            logger.debug(f"[{self.get_strategy_name()}] Regex extraction failed: {e}")
 
         return data
 

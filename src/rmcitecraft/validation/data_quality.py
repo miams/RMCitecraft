@@ -74,7 +74,9 @@ class CensusDataValidator:
         'line': {
             'description': 'Line number',
             # Line number is optional for years where FamilySearch doesn't index it
-            'optional_years': [1850, 1860, 1870, 1910],
+            # 1790-1840: Only head of household recorded, no individual line numbers
+            # 1850-1870, 1910: FamilySearch doesn't index line numbers
+            'optional_years': [1790, 1800, 1810, 1820, 1830, 1840, 1850, 1860, 1870, 1910],
         },
     }
 

@@ -63,6 +63,28 @@ STATE_ABBREVIATIONS = {
 }
 
 
+def abbreviate_locality_type(locality: str) -> str:
+    """Abbreviate locality type suffix in a locality string for short footnotes.
+
+    Examples:
+        "Southampton Township" -> "Southampton Twp."
+        "Jefferson Village" -> "Jefferson Vill."
+        "Main Street" -> "Main Street" (no change)
+
+    Args:
+        locality: Locality name, possibly with type suffix
+
+    Returns:
+        Locality with abbreviated type suffix
+    """
+    from rmcitecraft.config.constants import LOCALITY_TYPE_ABBREVIATIONS
+
+    for locality_type, abbreviation in LOCALITY_TYPE_ABBREVIATIONS.items():
+        if locality.endswith(f" {locality_type}"):
+            return locality[: -len(locality_type)] + abbreviation
+    return locality
+
+
 def format_1930_census_footnote(
     extraction: CensusExtraction, place: PlaceDetails
 ) -> str:
@@ -214,7 +236,129 @@ def format_1930_census_bibliography(
         f"{extraction.year} U.S Census. "
         f"Imaged. "
         f'"United States, Census, {extraction.year}." '
-        f"<i>FamilySearch</i> "
+        f"<i>FamilySearch</i>. "
+        f"{extraction.familysearch_url} : {access_year}."
+    )
+
+    return bibliography
+
+
+def format_1840_census_footnote(
+    extraction: CensusExtraction, place: PlaceDetails
+) -> str:
+    """Generate Evidence Explained full footnote for 1840 census.
+
+    Format:
+        1840 U.S. census, Bedford County, Pennsylvania, Southampton Township,
+        p. 300, Hugh Iiams; imaged, "United States, Census, 1840,"
+        <i>FamilySearch</i>, (https://www.familysearch.org/ark:/... : accessed 5 September 2015).
+
+    Note: 1840 census only recorded head of household. No enumeration
+    districts, no line numbers - just page number.
+
+    Args:
+        extraction: Parsed citation data from FamilySearch
+        place: Place details from RootsMagic PlaceTable
+
+    Returns:
+        Formatted footnote string
+    """
+    # Township/locality (optional)
+    locality_str = ""
+    if place.locality:
+        if place.locality_type:
+            locality_str = f", {place.locality} {place.locality_type}"
+        else:
+            locality_str = f", {place.locality}"
+
+    # Build footnote - simpler than later censuses (no ED, no line)
+    footnote = (
+        f"{extraction.year} U.S. census, "
+        f"{place.county} County, {place.state}"
+        f"{locality_str}, "
+        f"p. {extraction.page}, "
+        f"{extraction.person_name}; "
+        f'imaged, "United States, Census, {extraction.year}," '
+        f"<i>FamilySearch</i>, "
+        f"({extraction.familysearch_url} : accessed {extraction.access_date})."
+    )
+
+    return footnote
+
+
+def format_1840_census_short_footnote(
+    extraction: CensusExtraction, place: PlaceDetails
+) -> str:
+    """Generate Evidence Explained short footnote for 1840 census.
+
+    Format:
+        1840 U.S. census, Bedford Co., Pa., Southampton Twp., p. 300, Hugh Iiams.
+
+    Township/locality type is abbreviated (Twp., Vill., etc.).
+
+    Args:
+        extraction: Parsed citation data from FamilySearch
+        place: Place details from RootsMagic PlaceTable
+
+    Returns:
+        Formatted short footnote string
+    """
+    from rmcitecraft.config.constants import LOCALITY_TYPE_ABBREVIATIONS
+
+    state_abbr = STATE_ABBREVIATIONS.get(place.state, place.state)
+
+    # Locality with abbreviated type
+    locality_str = ""
+    if place.locality:
+        if place.locality_type:
+            type_abbrev = LOCALITY_TYPE_ABBREVIATIONS.get(
+                place.locality_type, place.locality_type
+            )
+            locality_str = f", {place.locality} {type_abbrev}"
+        else:
+            locality_str = f", {place.locality}"
+
+    short_footnote = (
+        f"{extraction.year} U.S. census, "
+        f"{place.county} Co., {state_abbr}"
+        f"{locality_str}, "
+        f"p. {extraction.page}, "
+        f"{extraction.person_name}."
+    )
+
+    return short_footnote
+
+
+def format_1840_census_bibliography(
+    extraction: CensusExtraction, place: PlaceDetails
+) -> str:
+    """Generate Evidence Explained bibliography entry for 1840 census.
+
+    Format:
+        U.S. Ohio. Shelby County. 1840 U.S Census.
+        Imaged. "United States, Census, 1840." <i>FamilySearch</i>.
+        https://www.familysearch.org/ark:/... : 2015.
+
+    Note: 1790-1840 censuses don't use "Population Schedule" terminology
+    (that term applies to 1850+ when multiple schedule types existed).
+
+    Args:
+        extraction: Parsed citation data from FamilySearch
+        place: Place details from RootsMagic PlaceTable
+
+    Returns:
+        Formatted bibliography entry
+    """
+    # Extract year from access date for bibliography
+    access_year = extraction.access_date.split()[-1]
+
+    # 1840 and earlier: no "Population Schedule" (term not used until 1850+)
+    bibliography = (
+        f"U.S. {place.state}. {place.county} County. "
+        f"{extraction.year} U.S Census. "
+        f"Imaged. "
+        f'"United States, Census, {extraction.year}." '
+        f"<i>FamilySearch</i>. "
         f"{extraction.familysearch_url} : {access_year}."
     )
 
@@ -249,15 +393,18 @@ def format_census_citation(
         ValueError: If census year is not supported
     """
     # Route to year-specific formatters
-    # Currently only 1930 is implemented
-    if extraction.year == 1930:
+    if extraction.year == 1840:
+        footnote = format_1840_census_footnote(extraction, place)
+        short_footnote = format_1840_census_short_footnote(extraction, place)
+        bibliography = format_1840_census_bibliography(extraction, place)
+    elif extraction.year == 1930:
         footnote = format_1930_census_footnote(extraction, place)
         short_footnote = format_1930_census_short_footnote(extraction, place)
         bibliography = format_1930_census_bibliography(extraction, place)
     else:
         raise ValueError(
             f"Census year {extraction.year} not yet implemented. "
-            f"Currently supported: 1930"
+            f"Currently supported: 1840, 1930"
         )
 
     return CensusCitation(
@@ -302,10 +449,15 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
     locality = data.get('town_ward', data.get('locality', ''))
     person = data.get('person_name', '[Person Name]')
 
-    # 1860 Census: Use family number (column 2 per schema) instead of line number
-    # FamilySearch doesn't index line numbers for 1860, but does extract HOUSEHOLD_ID
-    # which maps to family_number per src/rmcitecraft/schemas/census/1860.yaml
-    if year == 1860:
+    # Year-specific household identifier handling:
+    # - 1790-1840: Only head of household recorded, no line numbers
+    # - 1860: Uses family number (FamilySearch indexes HOUSEHOLD_ID as family_number)
+    # - Other years: Uses line number
+    if year <= 1840:
+        # Pre-1850: No individual records, no line numbers
+        household_label = None
+        household_value = None
+    elif year == 1860:
         family_number = data.get('family_number', '')
         household_label = "family"
         household_value = family_number if family_number else '[family]'
@@ -362,7 +514,7 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
         state_abbr = STATE_ABBREVIATIONS.get(state, state)
         short_parts = [f"{year} U.S. census", f"{county} Co.", state_abbr, "pop. sch."]
         if locality:
-            short_parts.append(locality)
+            short_parts.append(abbreviate_locality_type(locality))
         if page_value:
             short_parts.append(f"p. {page_value} (penned)")
         if dwelling:
@@ -377,7 +529,7 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
         access_year = access_date.split()[-1] if access_date else str(datetime.now().year)
         bibliography = (
             f"U.S. {state}. {county} County. {year} U.S Census. Population Schedule. "
-            f"Imaged. \"United States, Census, {year}.\" <i>FamilySearch</i> "
+            f"Imaged. \"United States, Census, {year}.\" <i>FamilySearch</i>. "
             f"{url} : {access_year}."
         )
 
@@ -388,14 +540,18 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
         }
 
     # Other years use original logic
+    # Full label for footnote, abbreviated for short footnote
     if year < 1880:
         page_label = "page"
+        page_label_short = "p."
         page_value = data.get('page', '[page]')
     elif year == 1950:
         page_label = "stamp"
+        page_label_short = "stamp"
         page_value = data.get('stamp', data.get('sheet', '[stamp]'))
     else:
         page_label = "sheet"
+        page_label_short = "sheet"
         page_value = data.get('sheet', '[sheet]')
 
     ed = data.get('enumeration_district', '[ED]') if uses_ed else None
@@ -407,9 +563,15 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
     else:
         ed_str = ""
 
+    # Build household identifier string (empty for pre-1850)
+    if household_label and household_value:
+        household_str = f", {household_label} {household_value}"
+    else:
+        household_str = ""
+
     footnote = (
         f"{year} U.S. census, {county} County, {state}{locality_str}"
-        f"{ed_str}, {page_label} {page_value}, {household_label} {household_value}, {person}; "
+        f"{ed_str}, {page_label} {page_value}{household_str}, {person}; "
         f"imaged, \"United States, Census, {year},\" <i>FamilySearch</i> "
         f"({url} : accessed {access_date})."
     )
@@ -420,20 +582,23 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
     # Build short footnote parts
     short_parts = [f"{year} U.S. census", f"{county} Co.", state_abbr]
 
-    # For 1910-1940: Omit "pop. sch." (only population schedules survived)
-    if not (1910 <= year <= 1940):
+    # "pop. sch." rules:
+    # - 1790-1840: Omit (term not used for these censuses)
+    # - 1910-1940: Omit (only population schedules survived, redundant)
+    # - 1850-1900, 1950: Include (multiple schedule types existed)
+    if 1850 <= year <= 1900 or year == 1950:
         short_parts.append("pop. sch.")
 
-    # Locality (optional)
+    # Locality (optional) - abbreviated for short footnote
     if locality:
-        short_parts.append(locality)
+        short_parts.append(abbreviate_locality_type(locality))
 
     # ED for 1880+
     if uses_ed:
         short_parts.append(f"E.D. {ed}")
 
-    # Page/sheet/stamp
-    short_parts.append(f"{page_label} {page_value}")
+    # Page/sheet/stamp (abbreviated "p." for page in short footnote)
+    short_parts.append(f"{page_label_short} {page_value}")
 
     # Household identifier: line number for most years, family number for 1860
     if household_value and household_value not in ('[line]', '[family]'):
@@ -443,14 +608,17 @@ def format_census_citation_preview(data: dict, year: int) -> dict[str, str]:
     short_footnote = ", ".join(short_parts) + f", {person}."
 
     # Bibliography
-    # For 1910-1940: Omit "Population Schedule" (only schedules that survived)
-    schedule_str = "" if 1910 <= year <= 1940 else "Population Schedule. "
+    # "Population Schedule" rules (same as "pop. sch."):
+    # - 1790-1840: Omit (term not used for these censuses)
+    # - 1910-1940: Omit (only population schedules survived, redundant)
+    # - 1850-1900, 1950: Include (multiple schedule types existed)
+    schedule_str = "Population Schedule. " if (1850 <= year <= 1900 or year == 1950) else ""
     # Extract year from access_date for bibliography (e.g., "24 July 2015" -> "2015")
     access_year = access_date.split()[-1] if access_date else str(datetime.now().year)
     # Title format: FamilySearch official collection title with comma after States
     bibliography = (
         f"U.S. {state}. {county} County. {year} U.S Census. {schedule_str}"
-        f"Imaged. \"United States, Census, {year}.\" <i>FamilySearch</i> "
+        f"Imaged. \"United States, Census, {year}.\" <i>FamilySearch</i>. "
         f"{url} : {access_year}."
     )
 
@@ -500,6 +668,8 @@ def _format_slave_schedule_preview(data: dict, year: int) -> dict[str, str]:
             line_col_str = f", line {line}"
 
     locality_str = f", {locality}" if locality else ""
+    # Abbreviated locality for short footnote
+    locality_abbr_str = f", {abbreviate_locality_type(locality)}" if locality else ""
 
     # Footnote
     footnote = (
@@ -513,14 +683,14 @@ def _format_slave_schedule_preview(data: dict, year: int) -> dict[str, str]:
     state_abbr = STATE_ABBREVIATIONS.get(state, state)
     short_footnote = (
         f"{year} U.S. census, {county} Co., {state_abbr}, slave sch."
-        f"{locality_str}, page {page}{line_col_str}, {person}, \"{person_role}.\""
+        f"{locality_abbr_str}, p. {page}{line_col_str}, {person}, \"{person_role}.\""
     )
 
     # Bibliography
     access_year = access_date.split()[-1] if access_date else str(datetime.now().year)
     bibliography = (
         f"U.S. {state}. {county} County. {year} U.S. Census. Slave Schedule. "
-        f"Imaged. \"United States, Census (Slave Schedule), {year}.\" <i>FamilySearch</i> "
+        f"Imaged. \"United States, Census (Slave Schedule), {year}.\" <i>FamilySearch</i>. "
         f"{url} : {access_year}."
     )
 
@@ -562,6 +732,8 @@ def _format_mortality_schedule_preview(data: dict, year: int) -> dict[str, str]:
     # Build location references
     line_str = f", line {line}" if line else ""
     locality_str = f", {locality}" if locality else ""
+    # Abbreviated locality for short footnote
+    locality_abbr_str = f", {abbreviate_locality_type(locality)}" if locality else ""
 
     # Footnote
     footnote = (
@@ -575,14 +747,14 @@ def _format_mortality_schedule_preview(data: dict, year: int) -> dict[str, str]:
     state_abbr = STATE_ABBREVIATIONS.get(state, state)
     short_footnote = (
         f"{year} U.S. census, {county} Co., {state_abbr}, mort. sch."
-        f"{locality_str}, page {page}{line_str}, {person}."
+        f"{locality_abbr_str}, p. {page}{line_str}, {person}."
     )
 
     # Bibliography
     access_year = access_date.split()[-1] if access_date else str(datetime.now().year)
     bibliography = (
         f"U.S. {state}. {county} County. {year} U.S Census. Mortality Schedule. "
-        f"Imaged. \"United States, Census (Mortality Schedule), {year}.\" <i>FamilySearch</i> "
+        f"Imaged. \"United States, Census (Mortality Schedule), {year}.\" <i>FamilySearch</i>. "
         f"{url} : {access_year}."
     )
 

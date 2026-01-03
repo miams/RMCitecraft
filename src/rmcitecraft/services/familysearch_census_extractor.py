@@ -927,8 +927,10 @@ class FamilySearchCensusExtractor:
             # Extract data from the page (locator waits handle any remaining load)
             # Pass ark_url to ensure we click the correct person in the detail view
             # NOTE: This navigates away from the person page to the census image view
+            # For pre-1850 census (1790-1840), ONLY use detail page - person page data is unreliable
             raw_data = await self._extract_page_data(
-                page, target_ark=ark_url, rmtree_person_id=rmtree_person_id
+                page, target_ark=ark_url, rmtree_person_id=rmtree_person_id,
+                census_year=census_year
             )
             if not raw_data:
                 result.error_message = "Failed to extract data from page"
@@ -1669,7 +1671,8 @@ class FamilySearchCensusExtractor:
         return result
 
     async def _extract_page_data(
-        self, page: Page, target_ark: str | None = None, rmtree_person_id: int | None = None
+        self, page: Page, target_ark: str | None = None, rmtree_person_id: int | None = None,
+        census_year: int | None = None
     ) -> dict[str, Any]:
         """
         Extract all census data from the FamilySearch page using Playwright's native features.
@@ -1678,9 +1681,12 @@ class FamilySearchCensusExtractor:
         1. Person ARK page (1:1:xxxx) - Summary with "View Original Document" button
         2. Detail page (3:1:xxxx?view=index) - Full census data with image viewer
 
-        CRITICAL: The person ARK page has LINE NUMBER in table data, but the detail view
-        does NOT include Line Number in data-dense elements. We MUST extract table data
-        from the person page FIRST, then navigate to detail view for additional fields.
+        For pre-1850 census (1790-1840), ONLY use the detail page. The person page
+        data for these years is frequently wrong. The detail page has consistent,
+        reliable field tags (Township:, County:, State:, etc.).
+
+        For 1850+ census, extract from person ARK page FIRST (has Line Number, Name),
+        then navigate to detail view for additional fields.
 
         NOTE: For 1910 Census, FamilySearch does NOT extract Line Number at all.
         This is a known limitation. Citations will be created without line numbers.
@@ -1689,17 +1695,25 @@ class FamilySearchCensusExtractor:
             page: Playwright page object
             target_ark: ARK URL of the target person. Used to click the correct person
                         in the detail view when multiple people are listed.
+            census_year: Census year for year-specific extraction logic.
         """
         data: dict[str, Any] = {}
         data["_current_url"] = page.url
 
+        # For pre-1850 census (1790-1840), SKIP person page and ONLY use detail page
+        # The person page data for these years is frequently wrong
+        is_pre_1850 = census_year is not None and census_year <= 1840
+
         # Step 1: Extract from person ARK page FIRST (has Line Number, Name, etc.)
         # This data is NOT available on the detail view!
+        # SKIP for pre-1850 census - person page data is unreliable
         on_person_page = "view=index" not in page.url and "/1:1:" in page.url
-        if on_person_page:
+        if on_person_page and not is_pre_1850:
             logger.info("On person ARK page, extracting table data FIRST (has Line Number)...")
             await self._extract_person_page_table(page, data)
             logger.debug(f"Person page extraction got: line_number={data.get('line_number')}, name={data.get('name')}")
+        elif on_person_page and is_pre_1850:
+            logger.info(f"Pre-1850 census ({census_year}): SKIPPING person page extraction - using detail page ONLY")
 
         # Step 2: Navigate to detail view if we're on a person ARK page
         if on_person_page:
@@ -1842,6 +1856,50 @@ class FamilySearchCensusExtractor:
                     logger.debug(f"Error extracting data-dense element {i}: {e}")
         except Exception as e:
             logger.debug(f"data-dense extraction failed: {e}")
+
+        # === EXTRACT USING REGEX PATTERNS ON BODY TEXT ===
+        # This is the most reliable method for pre-1850 census records (1790-1840)
+        # The field labels are consistent (e.g., "Township:", "County:", "State:")
+        # even though the display order and HTML structure may vary
+        try:
+            body_text = await page.locator('body').inner_text()
+
+            # Define field patterns - these are CONSISTENT and RELIABLE
+            field_patterns = {
+                'given_name': r'Given Name:\s*(.+)',
+                'surname': r'Surname:\s*(.+)',
+                'township': r'Township:\s*(.+)',
+                'state': r'State:\s*(.+)',
+                'county': r'County:\s*(.+)',
+                'country': r'Country:\s*(.+)',
+                'year': r'Year:\s*(\d{4})',
+                'source_page_number': r'Source Page Number:\s*(\d+)',
+                'page_number': r'Page Number:\s*(\d+)',
+                'enumeration_district': r'Enumeration District:\s*(.+)',
+                'sheet_number': r'Sheet Number:\s*(.+)',
+                'sheet_letter': r'Sheet Letter:\s*(.+)',
+                'dwelling_number': r'Dwelling Number:\s*(\d+)',
+                'family_number': r'Family Number:\s*(\d+)',
+                'line_number': r'Line Number:\s*(\d+)',
+            }
+
+            regex_extracted = 0
+            for key, pattern in field_patterns.items():
+                if key not in data:  # Don't overwrite existing data
+                    match = re.search(pattern, body_text, re.IGNORECASE)
+                    if match:
+                        # Clean value - take first line only, trim whitespace
+                        value = match.group(1).strip().split('\n')[0].strip()
+                        if value and self._is_valid_extraction_value(key, value):
+                            data[key] = value
+                            regex_extracted += 1
+                            logger.debug(f"Extracted via regex: {key} = {value}")
+
+            if regex_extracted > 0:
+                logger.info(f"Regex extraction found {regex_extracted} fields from body text")
+
+        except Exception as e:
+            logger.debug(f"Regex body text extraction failed: {e}")
 
         # === EXTRACT FROM PERSON ARK PAGE (th/td table format) ===
         # Look for table rows with label in th and value in td
@@ -2629,6 +2687,8 @@ class FamilySearchCensusExtractor:
                     # Verify we're on the detail page (URL contains view=index or 3:1:)
                     if "view=index" in page.url or "3:1:" in page.url:
                         logger.info(f"Successfully navigated to detail view: {page.url}")
+                        # Click NAMES tab to reveal index panel (required for 1840 census)
+                        await self._click_names_tab(page)
                         return True
                     else:
                         logger.debug(f"URL after click: {page.url}")
@@ -2639,6 +2699,25 @@ class FamilySearchCensusExtractor:
         except Exception as e:
             logger.warning(f"Failed to navigate to detail view: {e}")
             return False
+
+    async def _click_names_tab(self, page: Page) -> None:
+        """Click NAMES tab to reveal the index panel with census data.
+
+        On FamilySearch detail pages (3:1 ARK), the census data may be hidden
+        until the NAMES tab is clicked. This is especially important for
+        pre-1850 censuses (1790-1840) where the person page data is unreliable.
+
+        Args:
+            page: Playwright Page object
+        """
+        try:
+            names_tab = page.locator('text=NAMES').first
+            if await names_tab.count() > 0:
+                await names_tab.click()
+                await page.wait_for_timeout(1500)
+                logger.info("Clicked NAMES tab to reveal index panel")
+        except Exception as e:
+            logger.debug(f"NAMES tab click failed (may already be visible): {e}")
 
     async def _expand_source_info(self, page: Page) -> None:
         """Click buttons to expand source/original document info if needed.
