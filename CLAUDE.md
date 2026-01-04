@@ -96,6 +96,27 @@ tests/
 └── e2e/                   # Browser automation tests
 ```
 
+### UI Tab → Code Path Mapping (CRITICAL)
+
+Different UI tabs use **different code paths** for FamilySearch extraction. When debugging or modifying extraction logic, identify the correct file first:
+
+| UI Tab | Primary Service File | Notes |
+|--------|---------------------|-------|
+| **Batch Processing** | `familysearch_automation.py` | Main census batch processing, calls `_transform_citation_data()` |
+| **Census Extraction Viewer** | `familysearch_census_extractor.py` | Uses `extract_from_ark()`, stores to census.db |
+| **Census Transcription** | `census_transcription_batch.py` → `familysearch_census_extractor.py` | Batch transcription workflow |
+
+**⚠️ BOTH FILES MUST BE UPDATED for year-specific parsing rules:**
+- New census year parsing logic (e.g., "1840 uses detail page for Township")
+- Field extraction changes (e.g., "extract HOUSEHOLD_ID from detail page")
+- Year-specific field mappings
+
+Until refactored, changes to year-specific extraction logic require updating:
+1. `familysearch_automation.py` → `_transform_citation_data()`, `_extract_pre1880_detail_page_data()`
+2. `familysearch_census_extractor.py` → `_extract_page_data()`, `_parse_extracted_data()`
+
+**Common mistake**: Modifying only one file and assuming both code paths are fixed.
+
 ## Database Safety (Critical)
 
 ### Working Copy Architecture
@@ -160,6 +181,35 @@ cursor.execute('UPDATE SourceTable SET Fields = ? WHERE SourceID = ?',
 ### Census Events are Shared Facts
 
 Census records are often shared via WitnessTable. Always check both owned events (EventTable) AND witnessed events (WitnessTable). See [DATABASE_PATTERNS.md](docs/reference/DATABASE_PATTERNS.md#census-events-shared-facts).
+
+### EventTable.OwnerType Field
+
+The `OwnerType` field in EventTable determines what `OwnerID` refers to:
+
+| OwnerType | OwnerID refers to | Use Case |
+|-----------|-------------------|----------|
+| 0 | PersonID (PersonTable) | Individual events (birth, death, etc.) |
+| 1 | FamilyID (FamilyTable) | Family events (marriage, divorce, etc.) |
+
+**Critical for marriage queries:** All marriage events (EventType=300) use `OwnerType=1`, meaning `OwnerID` is a FamilyID, not a PersonID. To get the people involved:
+
+```python
+# WRONG - treats OwnerID as PersonID
+SELECT e.*, n.Given, n.Surname
+FROM EventTable e
+JOIN NameTable n ON n.OwnerID = e.OwnerID  # WRONG for marriages!
+WHERE e.EventType = 300
+
+# CORRECT - join through FamilyTable for marriages
+SELECT e.*, f.FatherID, f.MotherID,
+       nf.Given || ' ' || nf.Surname as spouse1,
+       nm.Given || ' ' || nm.Surname as spouse2
+FROM EventTable e
+JOIN FamilyTable f ON f.FamilyID = e.OwnerID
+LEFT JOIN NameTable nf ON nf.OwnerID = f.FatherID AND nf.IsPrimary = 1
+LEFT JOIN NameTable nm ON nm.OwnerID = f.MotherID AND nm.IsPrimary = 1
+WHERE e.EventType = 300 AND e.OwnerType = 1
+```
 
 ## Citation Formatting
 

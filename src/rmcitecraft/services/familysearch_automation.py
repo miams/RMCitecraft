@@ -770,22 +770,58 @@ class FamilySearchAutomation:
                                     f"1930 census: Extracted Family Number '{detail_data['family_number']}' from detail page"
                                 )
 
-            # Pre-1880 Census Special Case (1850, 1860, 1870): HOUSEHOLD_ID is on detail page
-            # FamilySearch indexes HOUSEHOLD_ID on detail page, maps to family_number (column 2)
+            # Pre-1880 Census Special Case: Detail page has data not on person page
+            # - 1790-1840: Township (person page often has wrong/incomplete locality)
+            # - 1850-1870: HOUSEHOLD_ID (corresponds to family_number)
             if census_year and census_year < 1880:
                 family = transformed.get("family_number", "")
+                image_viewer_url = citation_data.get("imageViewerUrl", "")
 
-                if not family:
-                    image_viewer_url = citation_data.get("imageViewerUrl", "")
-                    if image_viewer_url:
-                        logger.info(
-                            f"{census_year} census: Family number missing, extracting HOUSEHOLD_ID from detail page..."
-                        )
-                        detail_data = await self._extract_pre1880_detail_page_data(
-                            page, image_viewer_url, census_year
-                        )
+                # For pre-1850, ALWAYS go to detail page for correct Township
+                # For 1850-1870, only go if family_number is missing
+                should_extract_detail = (census_year <= 1840) or (not family)
 
-                        if detail_data and detail_data.get("family_number"):
+                if should_extract_detail and image_viewer_url:
+                    logger.info(
+                        f"{census_year} census: Extracting data from detail page..."
+                    )
+                    detail_data = await self._extract_pre1880_detail_page_data(
+                        page, image_viewer_url, census_year
+                    )
+
+                    if detail_data:
+                        # Use township from detail page (more accurate for pre-1850)
+                        if detail_data.get("township"):
+                            transformed["town_ward"] = detail_data["township"]
+                            logger.info(
+                                f"{census_year} census: Using Township '{detail_data['township']}' from detail page"
+                            )
+
+                        # For pre-1850 census, ALWAYS use State/County from detail page
+                        # Detail page has structured fields; person page Event Place is
+                        # unreliable free-text that often has wrong/incomplete data
+                        if detail_data.get("state"):
+                            if transformed.get("state") and transformed["state"] != detail_data["state"]:
+                                logger.info(
+                                    f"{census_year} census: Overriding State '{transformed['state']}' with detail page State '{detail_data['state']}'"
+                                )
+                            transformed["state"] = detail_data["state"]
+                            logger.info(
+                                f"{census_year} census: Using State '{detail_data['state']}' from detail page"
+                            )
+
+                        if detail_data.get("county"):
+                            if transformed.get("county") and transformed["county"] != detail_data["county"]:
+                                logger.info(
+                                    f"{census_year} census: Overriding County '{transformed['county']}' with detail page County '{detail_data['county']}'"
+                                )
+                            transformed["county"] = detail_data["county"]
+                            logger.info(
+                                f"{census_year} census: Using County '{detail_data['county']}' from detail page"
+                            )
+
+                        # Use family_number if extracted
+                        if detail_data.get("family_number"):
                             transformed["family_number"] = detail_data["family_number"]
                             logger.info(
                                 f"{census_year} census: Extracted HOUSEHOLD_ID '{detail_data['family_number']}' -> family_number"
@@ -1144,22 +1180,29 @@ class FamilySearchAutomation:
     async def _extract_pre1880_detail_page_data(
         self, page: Any, image_viewer_url: str, census_year: int
     ) -> dict[str, str] | None:
-        """Extract HOUSEHOLD_ID from detail page for pre-1880 censuses (1850, 1860, 1870).
+        """Extract data from detail page for pre-1880 censuses.
 
-        FamilySearch indexes HOUSEHOLD_ID on the detail page (View Original Document),
-        not on the main person record page. For 1850-1870 censuses, HOUSEHOLD_ID
-        corresponds to column 2 = family_number.
+        FamilySearch indexes certain fields on the detail page (View Original Document)
+        that are more reliable than the person page:
+        - 1790-1840: Township, State, County - ALWAYS used (detail page has structured
+          fields; person page Event Place is unreliable free-text that often has
+          wrong/incomplete data like just "Southampton" without state/county)
+        - 1850-1870: HOUSEHOLD_ID (corresponds to family_number)
 
         Args:
             page: Playwright Page object
             image_viewer_url: URL to the detail/image viewer page
-            census_year: Census year (1850, 1860, or 1870)
+            census_year: Census year
 
         Returns:
-            Dict with family_number, or None on error
+            Dict with extracted fields (township, state, county, family_number),
+            or None on error
         """
         result = {
             "family_number": "",
+            "township": "",  # For pre-1850, detail page has correct township
+            "state": "",  # For pre-1850, detail page has correct state
+            "county": "",  # For pre-1850, detail page has correct county
         }
 
         try:
@@ -1175,27 +1218,84 @@ class FamilySearchAutomation:
                 if "familysearch.org" not in page.url:
                     return None
 
-            # Wait for sidebar to render - look for HOUSEHOLD_ID text
-            try:
-                await page.wait_for_selector("text=HOUSEHOLD_ID", timeout=10000)
-                logger.debug(
-                    f"{census_year} detail page: Found 'HOUSEHOLD_ID' text, sidebar loaded"
-                )
-            except Exception as e:
-                logger.warning(
-                    f"{census_year} detail page: Timeout waiting for 'HOUSEHOLD_ID' text: {e}"
-                )
-                # Try a shorter sleep and continue anyway
-                await asyncio.sleep(2)
+            # For pre-1850 census, click NAMES tab to reveal index panel
+            if census_year <= 1840:
+                try:
+                    names_tab = page.locator('text=NAMES').first
+                    if await names_tab.count() > 0:
+                        await names_tab.click()
+                        await asyncio.sleep(1.5)
+                        logger.debug(f"{census_year} detail page: Clicked NAMES tab")
+                except Exception as e:
+                    logger.debug(f"{census_year} detail page: NAMES tab click failed: {e}")
 
-            # Get all text content from the page body
-            body_text = await page.text_content("body")
+            # Wait for sidebar to render
+            if census_year > 1840:
+                # For 1850-1870, look for HOUSEHOLD_ID text
+                try:
+                    await page.wait_for_selector("text=HOUSEHOLD_ID", timeout=10000)
+                    logger.debug(
+                        f"{census_year} detail page: Found 'HOUSEHOLD_ID' text, sidebar loaded"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"{census_year} detail page: Timeout waiting for 'HOUSEHOLD_ID' text: {e}"
+                    )
+                    await asyncio.sleep(2)
+            else:
+                # For 1790-1840, wait for Township text
+                try:
+                    await page.wait_for_selector("text=Township", timeout=10000)
+                    logger.debug(f"{census_year} detail page: Found 'Township' text, sidebar loaded")
+                except Exception as e:
+                    logger.debug(f"{census_year} detail page: Timeout waiting for 'Township': {e}")
+                    await asyncio.sleep(2)
+
+            # Get all text content from the page body (inner_text preserves line breaks)
+            body_text = await page.inner_text("body")
 
             if not body_text:
                 logger.warning(f"{census_year} detail page has no body text")
                 return None
 
-            # Extract HOUSEHOLD_ID: XXX pattern
+            # Extract Township, State, County for pre-1850 census (more reliable than person page)
+            # The person page often has incomplete or wrong locality data
+            # Format: "Township: Oxford Township" -> extract "Oxford Township"
+            # Stop at newline or next field label (State:, County:, Date, etc.)
+            if census_year <= 1840:
+                township_match = re.search(
+                    r"Township:\s*(.+?)(?:\n|State:|County:|Date|Year:|Place:|Country:)",
+                    body_text
+                )
+                if township_match:
+                    result["township"] = township_match.group(1).strip()
+                    logger.info(
+                        f"{census_year} detail page: Extracted Township '{result['township']}'"
+                    )
+
+                # Extract State (format: "State: Pennsylvania")
+                state_match = re.search(
+                    r"State:\s*(.+?)(?:\n|Township:|County:|Date|Year:|Place:|Country:)",
+                    body_text
+                )
+                if state_match:
+                    result["state"] = state_match.group(1).strip()
+                    logger.info(
+                        f"{census_year} detail page: Extracted State '{result['state']}'"
+                    )
+
+                # Extract County (format: "County: Bedford")
+                county_match = re.search(
+                    r"County:\s*(.+?)(?:\n|Township:|State:|Date|Year:|Place:|Country:)",
+                    body_text
+                )
+                if county_match:
+                    result["county"] = county_match.group(1).strip()
+                    logger.info(
+                        f"{census_year} detail page: Extracted County '{result['county']}'"
+                    )
+
+            # Extract HOUSEHOLD_ID for 1850-1870
             # Format: "HOUSEHOLD_ID: 141" -> extract "141"
             household_match = re.search(r"HOUSEHOLD_ID[:\s]*(\d+)", body_text, re.IGNORECASE)
             if household_match:
