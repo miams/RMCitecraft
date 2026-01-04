@@ -2,7 +2,7 @@
 
 > Complete documentation index for developers.
 > For LLM-optimized compact map, see `claude_code_docs_map.md` in repo root.
-> Last generated: 2026-01-01 16:29:09 UTC
+> Last generated: 2026-01-04 13:07:15 UTC
 
 ## Summary
 
@@ -89,6 +89,7 @@
   - Core Features
 - Before Modifying Code
 - Project Structure
+  - UI Tab → Code Path Mapping (CRITICAL)
 - Database Safety (Critical)
   - Working Copy Architecture
   - RMNOCASE Collation (Required)
@@ -96,6 +97,7 @@
   - Free-Form Citations (TemplateID=0)
   - Working with SourceTable.Fields BLOB
   - Census Events are Shared Facts
+  - EventTable.OwnerType Field
 - Citation Formatting
   - Evidence Explained Format
   - Template Variations by Census Year

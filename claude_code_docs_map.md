@@ -2,7 +2,7 @@
 
 > **For LLMs**: This compact index contains essential docs only.
 > For complete documentation, see `docs/FULL_INDEX.md`.
-> Last generated: 2026-01-01 16:29:09 UTC
+> Last generated: 2026-01-04 13:07:15 UTC
 
 **Essential docs**: 21 | 
 **Total docs**: 88 (use Glob/Grep for full search)
