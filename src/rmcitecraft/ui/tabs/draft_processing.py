@@ -61,6 +61,10 @@ class DraftProcessingTab:
         self.stop_on_error: bool = False
         self.dry_run: bool = False
 
+        # Surname letter filter (single uppercase letter, "" = no filter)
+        self.surname_letter: str = ""
+        self.surname_letter_input: Optional[ui.input] = None
+
         # Automation options
         self.workflow_mode: str = "standard"  # "standard", "ancestry_only", "metadata_only", "custom"
         self.discover_ancestry_urls: bool = True
@@ -313,13 +317,6 @@ class DraftProcessingTab:
                     "text-sm text-gray-500 mt-2"
                 )
 
-            # Preview Section
-            with ui.card().classes("w-full p-4") as self.preview_container:
-                ui.label("2. Preview & Validate").classes("font-bold text-lg mb-2")
-                self.preview_content = ui.column().classes("w-full")
-                with self.preview_content:
-                    ui.label("Upload a file to see preview").classes("text-gray-400 italic text-sm")
-
             # Configuration Section - DISABLED (writes to RootsMagic database)
             with ui.card().classes("w-full p-4 bg-gray-50") as self.config_container:
                 ui.label("3. RootsMagic Database Writer (DISABLED)").classes("font-bold text-lg mb-2 text-gray-600")
@@ -454,6 +451,15 @@ class DraftProcessingTab:
                         ).tooltip("Skip image downloads - only scrape and save metadata")
 
                 with ui.row().classes("w-full gap-4 items-center mt-2"):
+                    ui.label("Surname initial filter:").classes("text-sm font-medium")
+                    self.surname_letter_input = ui.input(
+                        placeholder="e.g. C",
+                        value=self.surname_letter,
+                        on_change=lambda e: self._on_surname_filter_change(e.value),
+                    ).props('maxlength=1 dense outlined').classes("w-20").style("text-transform: uppercase")
+                    ui.label("(blank = all surnames)").classes("text-xs text-gray-500")
+
+                with ui.row().classes("w-full gap-4 items-center mt-2"):
                     ui.number(
                         "Max records (0 = all)",
                         value=self.automation_record_limit,
@@ -519,99 +525,14 @@ class DraftProcessingTab:
                 f"Uploaded: {filename} ({len(content) / 1024:.1f} KB)"
             )
 
-            # Load preview
-            await self._load_preview()
+            if self.automation_button:
+                self.automation_button.enable()
 
             ui.notify(f"File uploaded: {filename}", type="positive")
 
         except Exception as e:
             logger.error(f"Error uploading file: {e}", exc_info=True)
             ui.notify(f"Error uploading file: {e}", type="negative")
-
-    async def _load_preview(self) -> None:
-        """Load and display file preview."""
-        if not self.uploaded_file_path:
-            return
-
-        try:
-            # Create processor
-            processor_config = ProcessingConfig(
-                db_path=Path(self.config.rm_database_path),
-                dry_run=True,
-            )
-            processor = DraftBatchProcessor(processor_config)
-
-            # Load preview (first 10 records)
-            self.preview_records = processor.preview_file(self.uploaded_file_path, limit=10)
-
-            # Validate file
-            validation_result = processor.validate_file(self.uploaded_file_path)
-
-            # Display preview
-            self.preview_content.clear()
-            with self.preview_content:
-                # Validation summary
-                with ui.row().classes("w-full items-center gap-4 mb-2"):
-                    if validation_result.errors == 0:
-                        ui.icon("check_circle", size="sm").classes("text-green-500")
-                        ui.label(
-                            f"File validated successfully: {validation_result.total_records} records"
-                        ).classes("text-sm font-medium text-green-700")
-                    else:
-                        ui.icon("error", size="sm").classes("text-red-500")
-                        ui.label(
-                            f"Validation found {validation_result.errors} errors in {validation_result.total_records} records"
-                        ).classes("text-sm font-medium text-red-700")
-
-                # Preview table
-                if self.preview_records:
-                    columns = [
-                        {"name": "row", "label": "Row", "field": "row", "align": "left"},
-                        {"name": "name", "label": "Name", "field": "name", "align": "left"},
-                        {"name": "rin", "label": "RIN", "field": "rin", "align": "left"},
-                        {"name": "birth", "label": "Birth", "field": "birth", "align": "center"},
-                        {"name": "state", "label": "State", "field": "state", "align": "left"},
-                        {"name": "citation", "label": "Citation", "field": "citation", "align": "left"},
-                    ]
-
-                    rows = [
-                        {
-                            "row": record.row_number,
-                            "name": record.full_name,
-                            "rin": record.rin or "—",
-                            "birth": record.birth_year or "—",
-                            "state": record.state or "—",
-                            "citation": (
-                                record.familysearch_citation[:50] + "..."
-                                if len(record.familysearch_citation) > 50
-                                else record.familysearch_citation
-                            ),
-                        }
-                        for record in self.preview_records
-                    ]
-
-                    ui.table(
-                        columns=columns,
-                        rows=rows,
-                        row_key="row",
-                    ).classes("w-full")
-
-                    ui.label(
-                        f"Showing first {len(self.preview_records)} of {validation_result.total_records} records"
-                    ).classes("text-xs text-gray-500 mt-2")
-
-            # Enable automation button only (Process Records button remains disabled)
-            if self.automation_button:
-                self.automation_button.enable()
-
-        except Exception as e:
-            logger.error(f"Error loading preview: {e}", exc_info=True)
-            self.preview_content.clear()
-            with self.preview_content:
-                with ui.row().classes("w-full items-center gap-2 p-2 bg-red-50 rounded"):
-                    ui.icon("error", size="sm").classes("text-red-500")
-                    ui.label(f"Error loading file: {e}").classes("text-sm text-red-700")
-            ui.notify(f"Error loading preview: {e}", type="negative")
 
     async def _start_processing(self) -> None:
         """Start batch processing - DISABLED."""
@@ -791,9 +712,16 @@ class DraftProcessingTab:
         try:
             reader = DraftFileReader()
             records = await asyncio.to_thread(reader.read_file, self.uploaded_file_path)
+            records = self._apply_surname_filter(records)
 
             if not records:
-                ui.notify("No records found to process", type="warning")
+                letter = self.surname_letter.strip().upper()
+                msg = (
+                    f"No records match surname filter '{letter}'"
+                    if letter and letter.isalpha()
+                    else "No records found to process"
+                )
+                ui.notify(msg, type="warning")
                 return
 
             options = DraftAutomationOptions(
@@ -881,6 +809,21 @@ class DraftProcessingTab:
         except (TypeError, ValueError):
             parsed = 0
         self.automation_record_limit = max(0, parsed)
+
+    def _apply_surname_filter(self, records: list[DraftRecord]) -> list[DraftRecord]:
+        """Return records whose surname starts with self.surname_letter (case-insensitive).
+
+        Returns all records unchanged if no valid single-letter filter is set.
+        """
+        letter = self.surname_letter.strip().upper()
+        if not letter or not letter.isalpha():
+            return records
+        return [r for r in records if r.surname and r.surname[0].upper() == letter]
+
+    def _on_surname_filter_change(self, value: str) -> None:
+        """Handle surname letter filter input change."""
+        raw = (value or "").strip().upper()
+        self.surname_letter = raw if raw and raw.isalpha() else ""
 
     def _on_workflow_mode_change(self, mode: str) -> None:
         """Handle workflow mode radio button change."""
@@ -1092,12 +1035,11 @@ class DraftProcessingTab:
         self.uploaded_file_path = None
         self.preview_records = []
         self.batch_result = None
+        self.surname_letter = ""
+        if self.surname_letter_input:
+            self.surname_letter_input.set_value("")
 
         self.file_info_label.set_text("No file uploaded")
-
-        self.preview_content.clear()
-        with self.preview_content:
-            ui.label("Upload a file to see preview").classes("text-gray-400 italic text-sm")
 
         self.results_content.clear()
         with self.results_content:

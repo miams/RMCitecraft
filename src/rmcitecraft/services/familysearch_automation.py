@@ -1218,8 +1218,10 @@ class FamilySearchAutomation:
                 if "familysearch.org" not in page.url:
                     return None
 
-            # For pre-1850 census, click NAMES tab to reveal index panel
-            if census_year <= 1840:
+            # For 1820-1840 census, click NAMES tab to reveal index panel with metadata
+            # For 1790-1810 census, DO NOT click NAMES tab - metadata is in person panel
+            # which is already open when navigating with personArk parameter
+            if 1820 <= census_year <= 1840:
                 try:
                     names_tab = page.locator('text=NAMES').first
                     if await names_tab.count() > 0:
@@ -1229,7 +1231,7 @@ class FamilySearchAutomation:
                 except Exception as e:
                     logger.debug(f"{census_year} detail page: NAMES tab click failed: {e}")
 
-            # Wait for sidebar to render
+            # Wait for content to render
             if census_year > 1840:
                 # For 1850-1870, look for HOUSEHOLD_ID text
                 try:
@@ -1242,13 +1244,22 @@ class FamilySearchAutomation:
                         f"{census_year} detail page: Timeout waiting for 'HOUSEHOLD_ID' text: {e}"
                     )
                     await asyncio.sleep(2)
-            else:
-                # For 1790-1840, wait for Township text
+            elif 1820 <= census_year <= 1840:
+                # For 1820-1840, wait for Township text in sidebar
                 try:
                     await page.wait_for_selector("text=Township", timeout=10000)
                     logger.debug(f"{census_year} detail page: Found 'Township' text, sidebar loaded")
                 except Exception as e:
                     logger.debug(f"{census_year} detail page: Timeout waiting for 'Township': {e}")
+                    await asyncio.sleep(2)
+            else:
+                # For 1790-1810, wait for State/County in person panel
+                # (1790 and 1810 don't have Township field, only 1800 does)
+                try:
+                    await page.wait_for_selector("text=State:", timeout=10000)
+                    logger.debug(f"{census_year} detail page: Found 'State:' text, person panel loaded")
+                except Exception as e:
+                    logger.debug(f"{census_year} detail page: Timeout waiting for 'State:': {e}")
                     await asyncio.sleep(2)
 
             # Get all text content from the page body (inner_text preserves line breaks)

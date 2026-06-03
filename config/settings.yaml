@@ -1,0 +1,55 @@
+# RMCitecraft Configuration
+# This file provides default settings for the application.
+# Values can be overridden via environment variables or .env file.
+
+# Draft Registration Image Processing
+draft_image_processing:
+  # Storage directory for processed images
+  storage_dir: "/Users/miams/Genealogy/RootsMagic/Files/Records - Military/WW II - Draft Registration"
+
+  # Keep original downloaded images (set false after testing complete)
+  keep_originals: true
+
+  # ImageMagick processing parameters
+  deskew_threshold: 40  # Percentage for -deskew (10-90)
+  trim_fuzz: 10         # Percentage for -fuzz trim (0-50)
+  skew_tolerance: 1.0   # Degrees - skip deskew if angle below this
+
+  # Image detection thresholds
+  combined_threshold: 1.60   # Aspect ratio >= this = already combined (Type A)
+  single_card_min: 1.30      # Aspect ratio >= this = single front card (Type B/C/D)
+  target_aspect_ratio: 1.66  # Target aspect ratio for final combined images
+
+  # Error handling
+  on_processing_error: "keep_original"  # Options: keep_original, skip, retry
+  max_processing_retries: 2
+
+# File naming
+file_naming:
+  format: "{surname}, {given_name} ({birth_year}-{death_year}).jpg"
+  fallback_format: "Draft_RIN_{rin}.jpg"  # When name/dates not found
+  max_filename_length: 255
+
+# Database paths
+database:
+  rmtree_path: "data/Iiams.rmtree"
+  draft_metadata_db: "~/.rmcitecraft/ww2-draft.db"
+  icu_extension: "./sqlite-extension/icu.dylib"
+
+# Media directories
+media:
+  root_directory: "~/Genealogy/RootsMagic/Files"
+  census_directory: "Records - Census"
+  military_directory: "Records - Military"
+
+# Download settings
+downloads:
+  temp_directory: "~/.rmcitecraft/draft_downloads"
+  timeout_seconds: 30
+  max_retries: 3
+
+# Logging
+logging:
+  level: "INFO"
+  file: "logs/rmcitecraft.log"
+  image_processing_log: "logs/image_processing.log"

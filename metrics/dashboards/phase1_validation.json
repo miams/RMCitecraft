@@ -1,0 +1,524 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "rootsmagic"
+      },
+      "description": "Validates data quality metrics for all chart types",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "metric"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "queryText": "SELECT 'Date Coverage' as metric, COUNT(*) as total_events, COUNT(Date) as events_with_dates, ROUND(100.0 * COUNT(Date) / COUNT(*), 1) as coverage_percentage FROM EventTable UNION ALL SELECT 'Coordinate Coverage' as metric, COUNT(*) as total_places, COUNT(Latitude) as places_with_coords, ROUND(100.0 * COUNT(Latitude) / COUNT(*), 1) as coverage_percentage FROM PlaceTable UNION ALL SELECT 'Citation Coverage' as metric, COUNT(*) as total_sources, COUNT(DISTINCT ct.SourceID) as sources_with_citations, ROUND(100.0 * COUNT(DISTINCT ct.SourceID) / COUNT(*), 1) as coverage_percentage FROM SourceTable st LEFT JOIN CitationTable ct ON ct.SourceID = st.SourceID UNION ALL SELECT 'Name Coverage' as metric, COUNT(DISTINCT p.PersonID) as total_persons, COUNT(DISTINCT n.OwnerID) as persons_with_names, ROUND(100.0 * COUNT(DISTINCT n.OwnerID) / COUNT(DISTINCT p.PersonID), 1) as coverage_percentage FROM PersonTable p LEFT JOIN NameTable n ON n.OwnerID = p.PersonID AND n.IsPrimary = 1",
+          "queryType": "table",
+          "rawQueryText": "SELECT 'Date Coverage' as metric, COUNT(*) as total_events, COUNT(Date) as events_with_dates, ROUND(100.0 * COUNT(Date) / COUNT(*), 1) as coverage_percentage FROM EventTable UNION ALL SELECT 'Coordinate Coverage' as metric, COUNT(*) as total_places, COUNT(Latitude) as places_with_coords, ROUND(100.0 * COUNT(Latitude) / COUNT(*), 1) as coverage_percentage FROM PlaceTable UNION ALL SELECT 'Citation Coverage' as metric, COUNT(*) as total_sources, COUNT(DISTINCT ct.SourceID) as sources_with_citations, ROUND(100.0 * COUNT(DISTINCT ct.SourceID) / COUNT(*), 1) as coverage_percentage FROM SourceTable st LEFT JOIN CitationTable ct ON ct.SourceID = st.SourceID UNION ALL SELECT 'Name Coverage' as metric, COUNT(DISTINCT p.PersonID) as total_persons, COUNT(DISTINCT n.OwnerID) as persons_with_names, ROUND(100.0 * COUNT(DISTINCT n.OwnerID) / COUNT(DISTINCT p.PersonID), 1) as coverage_percentage FROM PersonTable p LEFT JOIN NameTable n ON n.OwnerID = p.PersonID AND n.IsPrimary = 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Data Quality Metrics",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "rootsmagic"
+      },
+      "description": "Tests heatmap data format: x (decade), y (month), value (birth count)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 5
+              },
+              {
+                "color": "yellow",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 15
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 2,
+      "options": {
+        "calculate": false,
+        "cellGap": 2,
+        "cellValues": {
+          "decimals": 0
+        },
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Spectral",
+          "steps": 64
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": true
+        },
+        "rowsFrame": {
+          "layout": "auto"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "queryText": "SELECT strftime('%Y', e.Date) as decade, CAST(strftime('%m', e.Date) AS INTEGER) as month, COUNT(*) as birth_count FROM EventTable e WHERE e.EventType = 1 AND e.Date IS NOT NULL AND e.Date != '' GROUP BY decade, month ORDER BY decade, month",
+          "queryType": "table",
+          "rawQueryText": "SELECT strftime('%Y', e.Date) as decade, CAST(strftime('%m', e.Date) AS INTEGER) as month, COUNT(*) as birth_count FROM EventTable e WHERE e.EventType = 1 AND e.Date IS NOT NULL AND e.Date != '' GROUP BY decade, month ORDER BY decade, month",
+          "refId": "A"
+        }
+      ],
+      "title": "TEST: Heatmap - Birth Seasonality",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "rootsmagic"
+      },
+      "description": "Tests geomap data format: latitude, longitude, value, label",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "basemap": {
+          "config": {},
+          "name": "Layer 0",
+          "type": "default"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showDebug": false,
+          "showMeasure": false,
+          "showScale": false,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "field": "person_count",
+                  "fixed": "dark-green"
+                },
+                "opacity": 0.4,
+                "rotation": {
+                  "fixed": 0,
+                  "max": 360,
+                  "min": -360,
+                  "mode": "mod"
+                },
+                "size": {
+                  "field": "person_count",
+                  "fixed": 5,
+                  "max": 15,
+                  "min": 2
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                },
+                "textConfig": {
+                  "fontSize": 12,
+                  "offsetX": 0,
+                  "offsetY": 0,
+                  "textAlign": "center",
+                  "textBaseline": "middle"
+                }
+              }
+            },
+            "location": {
+              "mode": "coords",
+              "coords": {
+                "latitude": "Latitude",
+                "longitude": "Longitude"
+              }
+            },
+            "name": "Layer 1",
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "allLayers": true,
+          "id": "coords",
+          "lat": 40,
+          "lon": -90,
+          "zoom": 4
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "queryText": "SELECT p.Latitude, p.Longitude, COUNT(DISTINCT e.OwnerID) as person_count, p.PlaceName as location FROM PlaceTable p JOIN EventTable e ON e.PlaceID = p.PlaceID WHERE p.Latitude IS NOT NULL AND p.Longitude IS NOT NULL AND p.Latitude != 0 AND p.Longitude != 0 GROUP BY p.PlaceID HAVING person_count > 0 ORDER BY person_count DESC LIMIT 50",
+          "queryType": "table",
+          "rawQueryText": "SELECT p.Latitude, p.Longitude, COUNT(DISTINCT e.OwnerID) as person_count, p.PlaceName as location FROM PlaceTable p JOIN EventTable e ON e.PlaceID = p.PlaceID WHERE p.Latitude IS NOT NULL AND p.Longitude IS NOT NULL AND p.Latitude != 0 AND p.Longitude != 0 GROUP BY p.PlaceID HAVING person_count > 0 ORDER BY person_count DESC LIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "title": "TEST: Bubble Map - Geographic Distribution",
+      "type": "geomap"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "rootsmagic"
+      },
+      "description": "Tests Sankey data format: source, target, value (flow count)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "id": 4,
+      "options": {},
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "queryText": "WITH person_places AS (SELECT p.PersonID, birth_place.PlaceName as birth_place, death_place.PlaceName as death_place FROM PersonTable p LEFT JOIN EventTable birth ON birth.OwnerID = p.PersonID AND birth.EventType = 1 LEFT JOIN EventTable death ON death.OwnerID = p.PersonID AND death.EventType = 2 LEFT JOIN PlaceTable birth_place ON birth.PlaceID = birth_place.PlaceID LEFT JOIN PlaceTable death_place ON death.PlaceID = death_place.PlaceID WHERE birth_place.PlaceName IS NOT NULL AND death_place.PlaceName IS NOT NULL AND birth_place.PlaceName != death_place.PlaceName) SELECT birth_place as source, death_place as target, COUNT(*) as flow_count FROM person_places GROUP BY birth_place, death_place HAVING flow_count >= 2 ORDER BY flow_count DESC LIMIT 50",
+          "queryType": "table",
+          "rawQueryText": "WITH person_places AS (SELECT p.PersonID, birth_place.PlaceName as birth_place, death_place.PlaceName as death_place FROM PersonTable p LEFT JOIN EventTable birth ON birth.OwnerID = p.PersonID AND birth.EventType = 1 LEFT JOIN EventTable death ON death.OwnerID = p.PersonID AND death.EventType = 2 LEFT JOIN PlaceTable birth_place ON birth.PlaceID = birth_place.PlaceID LEFT JOIN PlaceTable death_place ON death.PlaceID = death_place.PlaceID WHERE birth_place.PlaceName IS NOT NULL AND death_place.PlaceName IS NOT NULL AND birth_place.PlaceName != death_place.PlaceName) SELECT birth_place as source, death_place as target, COUNT(*) as flow_count FROM person_places GROUP BY birth_place, death_place HAVING flow_count >= 2 ORDER BY flow_count DESC LIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "title": "TEST: Sankey - Migration Flows",
+      "type": "netsage-sankey-panel"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "rootsmagic"
+      },
+      "description": "Tests Chord data format: source, target, value (marriage count)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "id": 5,
+      "options": {},
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "queryText": "SELECT father_name.Surname as source, mother_name.Surname as target, COUNT(*) as marriage_count FROM FamilyTable f JOIN NameTable father_name ON father_name.OwnerID = f.FatherID AND father_name.IsPrimary = 1 JOIN NameTable mother_name ON mother_name.OwnerID = f.MotherID AND mother_name.IsPrimary = 1 WHERE father_name.Surname IS NOT NULL AND mother_name.Surname IS NOT NULL AND father_name.Surname != mother_name.Surname AND f.FatherID IS NOT NULL AND f.MotherID IS NOT NULL GROUP BY father_name.Surname, mother_name.Surname HAVING marriage_count >= 2 ORDER BY marriage_count DESC LIMIT 30",
+          "queryType": "table",
+          "rawQueryText": "SELECT father_name.Surname as source, mother_name.Surname as target, COUNT(*) as marriage_count FROM FamilyTable f JOIN NameTable father_name ON father_name.OwnerID = f.FatherID AND father_name.IsPrimary = 1 JOIN NameTable mother_name ON mother_name.OwnerID = f.MotherID AND mother_name.IsPrimary = 1 WHERE father_name.Surname IS NOT NULL AND mother_name.Surname IS NOT NULL AND father_name.Surname != mother_name.Surname AND f.FatherID IS NOT NULL AND f.MotherID IS NOT NULL GROUP BY father_name.Surname, mother_name.Surname HAVING marriage_count >= 2 ORDER BY marriage_count DESC LIMIT 30",
+          "refId": "A"
+        }
+      ],
+      "title": "TEST: Chord - Surname Intermarriage",
+      "type": "esnet-chord-panel"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "rootsmagic"
+      },
+      "description": "Tests Treemap data format: hierarchy path, value",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "id": 6,
+      "options": {},
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "queryText": "SELECT CASE WHEN st.TemplateID = 0 THEN 'Free-Form Citations' ELSE 'Template-Based Citations' END || ' > ' || CASE WHEN st.Name LIKE '%Census%' THEN 'Census Records' WHEN st.Name LIKE '%Birth%' OR st.Name LIKE '%Marriage%' OR st.Name LIKE '%Death%' THEN 'Vital Records' WHEN st.Name LIKE '%Church%' THEN 'Church Records' WHEN st.Name LIKE '%Cemetery%' OR st.Name LIKE '%Grave%' THEN 'Cemetery Records' ELSE 'Other Records' END as hierarchy, COUNT(DISTINCT ct.CitationID) as citation_count FROM SourceTable st LEFT JOIN CitationTable ct ON ct.SourceID = st.SourceID GROUP BY hierarchy HAVING citation_count > 0 ORDER BY citation_count DESC",
+          "queryType": "table",
+          "rawQueryText": "SELECT CASE WHEN st.TemplateID = 0 THEN 'Free-Form Citations' ELSE 'Template-Based Citations' END || ' > ' || CASE WHEN st.Name LIKE '%Census%' THEN 'Census Records' WHEN st.Name LIKE '%Birth%' OR st.Name LIKE '%Marriage%' OR st.Name LIKE '%Death%' THEN 'Vital Records' WHEN st.Name LIKE '%Church%' THEN 'Church Records' WHEN st.Name LIKE '%Cemetery%' OR st.Name LIKE '%Grave%' THEN 'Cemetery Records' ELSE 'Other Records' END as hierarchy, COUNT(DISTINCT ct.CitationID) as citation_count FROM SourceTable st LEFT JOIN CitationTable ct ON ct.SourceID = st.SourceID GROUP BY hierarchy HAVING citation_count > 0 ORDER BY citation_count DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "TEST: Treemap - Citation Coverage",
+      "type": "marcusolsson-treemap-panel"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "rootsmagic"
+      },
+      "description": "Tests Arc Diagram data format: source, target, value (overlap years)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "id": 7,
+      "options": {},
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "queryText": "WITH lifespans AS (SELECT p.PersonID, n.Given || ' ' || n.Surname as full_name, birth.Date as birth_date, death.Date as death_date FROM PersonTable p JOIN NameTable n ON n.OwnerID = p.PersonID AND n.IsPrimary = 1 LEFT JOIN EventTable birth ON birth.OwnerID = p.PersonID AND birth.EventType = 1 LEFT JOIN EventTable death ON death.OwnerID = p.PersonID AND death.EventType = 2 WHERE birth.Date IS NOT NULL AND birth.Date != '') SELECT elder.full_name as source, younger.full_name as target, CAST((julianday(elder.death_date) - julianday(younger.birth_date)) / 365.25 AS INTEGER) as overlap_years FROM lifespans elder JOIN lifespans younger ON younger.birth_date < elder.death_date WHERE elder.birth_date < younger.birth_date AND elder.death_date IS NOT NULL AND elder.death_date != '' AND overlap_years > 10 ORDER BY overlap_years DESC LIMIT 50",
+          "queryType": "table",
+          "rawQueryText": "WITH lifespans AS (SELECT p.PersonID, n.Given || ' ' || n.Surname as full_name, birth.Date as birth_date, death.Date as death_date FROM PersonTable p JOIN NameTable n ON n.OwnerID = p.PersonID AND n.IsPrimary = 1 LEFT JOIN EventTable birth ON birth.OwnerID = p.PersonID AND birth.EventType = 1 LEFT JOIN EventTable death ON death.OwnerID = p.PersonID AND death.EventType = 2 WHERE birth.Date IS NOT NULL AND birth.Date != '') SELECT elder.full_name as source, younger.full_name as target, CAST((julianday(elder.death_date) - julianday(younger.birth_date)) / 365.25 AS INTEGER) as overlap_years FROM lifespans elder JOIN lifespans younger ON younger.birth_date < elder.death_date WHERE elder.birth_date < younger.birth_date AND elder.death_date IS NOT NULL AND elder.death_date != '' AND overlap_years > 10 ORDER BY overlap_years DESC LIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "title": "TEST: Arc Diagram - Lifespan Overlaps",
+      "type": "esnet-arcdiagram-panel"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 40,
+  "tags": ["test", "validation", "phase1"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Phase 1 - Chart Validation Dashboard",
+  "uid": "phase1-validation",
+  "version": 0,
+  "weekStart": ""
+}

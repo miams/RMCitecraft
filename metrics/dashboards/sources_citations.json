@@ -1,0 +1,261 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "#5794F2", "value": null}]}
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "queryText": "SELECT COUNT(*) as total_sources FROM SourceTable",
+          "queryType": "table",
+          "rawQueryText": "SELECT COUNT(*) as total_sources FROM SourceTable",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Sources",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "#5794F2", "value": null}]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "targets": [
+        {
+          "queryText": "SELECT COUNT(*) as total_citations FROM CitationTable",
+          "queryType": "table",
+          "rawQueryText": "SELECT COUNT(*) as total_citations FROM CitationTable",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Citations",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "#F2495C", "value": null}]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "targets": [
+        {
+          "queryText": "SELECT COUNT(*) as unused_sources FROM SourceTable s WHERE NOT EXISTS (SELECT 1 FROM CitationTable c WHERE c.SourceID = s.SourceID)",
+          "queryType": "table",
+          "rawQueryText": "SELECT COUNT(*) as unused_sources FROM SourceTable s WHERE NOT EXISTS (SELECT 1 FROM CitationTable c WHERE c.SourceID = s.SourceID)",
+          "refId": "A"
+        }
+      ],
+      "title": "Unused Sources",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "#73BF69", "value": null}]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "targets": [
+        {
+          "queryText": "SELECT ROUND(AVG(citation_count), 2) as avg_citations FROM (SELECT s.SourceID, COUNT(c.CitationID) as citation_count FROM SourceTable s LEFT JOIN CitationTable c ON s.SourceID = c.SourceID GROUP BY s.SourceID)",
+          "queryType": "table",
+          "rawQueryText": "SELECT ROUND(AVG(citation_count), 2) as avg_citations FROM (SELECT s.SourceID, COUNT(c.CitationID) as citation_count FROM SourceTable s LEFT JOIN CitationTable c ON s.SourceID = c.SourceID GROUP BY s.SourceID)",
+          "refId": "A"
+        }
+      ],
+      "title": "Avg Citations/Source",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"hideFrom": {"legend": false, "tooltip": false, "viz": false}},
+          "mappings": []
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "id": 5,
+      "options": {
+        "legend": {"displayMode": "table", "placement": "right", "showLegend": true},
+        "pieType": "donut",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": true}
+      },
+      "targets": [
+        {
+          "queryText": "SELECT CASE WHEN TemplateID = 0 THEN 'Free-Form' ELSE 'Template' END as source_type, COUNT(*) as count FROM SourceTable GROUP BY source_type",
+          "queryType": "table",
+          "rawQueryText": "SELECT CASE WHEN TemplateID = 0 THEN 'Free-Form' ELSE 'Template' END as source_type, COUNT(*) as count FROM SourceTable GROUP BY source_type",
+          "refId": "A"
+        }
+      ],
+      "title": "Free-Form vs Template Sources",
+      "type": "piechart"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {"group": "A", "mode": "none"},
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "id": 6,
+      "options": {
+        "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true}
+      },
+      "targets": [
+        {
+          "queryText": "SELECT CASE WHEN Name LIKE '%Census%' THEN 'Census' WHEN Name LIKE '%Birth%' THEN 'Vital - Birth' WHEN Name LIKE '%Death%' THEN 'Vital - Death' WHEN Name LIKE '%Marriage%' THEN 'Vital - Marriage' WHEN Name LIKE '%Grave%' OR Name LIKE '%Cemetery%' THEN 'Cemetery' WHEN Name LIKE '%Church%' OR Name LIKE '%Baptis%' THEN 'Church' WHEN Name LIKE '%Military%' OR Name LIKE '%War%' THEN 'Military' ELSE 'Other' END as source_type, COUNT(*) as count FROM SourceTable GROUP BY source_type ORDER BY count DESC",
+          "queryType": "table",
+          "rawQueryText": "SELECT CASE WHEN Name LIKE '%Census%' THEN 'Census' WHEN Name LIKE '%Birth%' THEN 'Vital - Birth' WHEN Name LIKE '%Death%' THEN 'Vital - Death' WHEN Name LIKE '%Marriage%' THEN 'Vital - Marriage' WHEN Name LIKE '%Grave%' OR Name LIKE '%Cemetery%' THEN 'Cemetery' WHEN Name LIKE '%Church%' OR Name LIKE '%Baptis%' THEN 'Church' WHEN Name LIKE '%Military%' OR Name LIKE '%War%' THEN 'Military' ELSE 'Other' END as source_type, COUNT(*) as count FROM SourceTable GROUP BY source_type ORDER BY count DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Source Types by Content",
+      "type": "barchart"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"hideFrom": {"legend": false, "tooltip": false, "viz": false}},
+          "mappings": []
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "id": 7,
+      "options": {
+        "legend": {"displayMode": "table", "placement": "right", "showLegend": true},
+        "pieType": "donut",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": true}
+      },
+      "targets": [
+        {
+          "queryText": "SELECT CASE cl.OwnerType WHEN 0 THEN 'Person' WHEN 1 THEN 'Family' WHEN 2 THEN 'Event' WHEN 7 THEN 'Name' ELSE 'Other' END as owner_type, COUNT(*) as link_count FROM CitationLinkTable cl GROUP BY cl.OwnerType ORDER BY link_count DESC",
+          "queryType": "table",
+          "rawQueryText": "SELECT CASE cl.OwnerType WHEN 0 THEN 'Person' WHEN 1 THEN 'Family' WHEN 2 THEN 'Event' WHEN 7 THEN 'Name' ELSE 'Other' END as owner_type, COUNT(*) as link_count FROM CitationLinkTable cl GROUP BY cl.OwnerType ORDER BY link_count DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Citation Links by Owner Type",
+      "type": "piechart"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {"group": "A", "mode": "none"},
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "id": 8,
+      "options": {
+        "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true}
+      },
+      "targets": [
+        {
+          "queryText": "SELECT CASE WHEN citation_count = 0 THEN 'Unused (0)' WHEN citation_count = 1 THEN '1 citation' WHEN citation_count BETWEEN 2 AND 5 THEN '2-5 citations' WHEN citation_count BETWEEN 6 AND 20 THEN '6-20 citations' WHEN citation_count > 20 THEN '20+ citations' END as range_label, COUNT(*) as source_count FROM (SELECT s.SourceID, COUNT(c.CitationID) as citation_count FROM SourceTable s LEFT JOIN CitationTable c ON s.SourceID = c.SourceID GROUP BY s.SourceID) GROUP BY range_label ORDER BY MIN(citation_count)",
+          "queryType": "table",
+          "rawQueryText": "SELECT CASE WHEN citation_count = 0 THEN 'Unused (0)' WHEN citation_count = 1 THEN '1 citation' WHEN citation_count BETWEEN 2 AND 5 THEN '2-5 citations' WHEN citation_count BETWEEN 6 AND 20 THEN '6-20 citations' WHEN citation_count > 20 THEN '20+ citations' END as range_label, COUNT(*) as source_count FROM (SELECT s.SourceID, COUNT(c.CitationID) as citation_count FROM SourceTable s LEFT JOIN CitationTable c ON s.SourceID = c.SourceID GROUP BY s.SourceID) GROUP BY range_label ORDER BY MIN(citation_count)",
+          "refId": "A"
+        }
+      ],
+      "title": "Citations per Source Distribution",
+      "type": "barchart"
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["genealogy", "sources", "citations"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "Sources & Citations",
+  "uid": "sources-citations",
+  "version": 1
+}

@@ -1,0 +1,264 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "#F2495C", "value": null},
+              {"color": "#FADE2A", "value": 60},
+              {"color": "#73BF69", "value": 80}
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "queryText": "SELECT ROUND(((SELECT 100.0 * COUNT(DISTINCT OwnerID) / (SELECT COUNT(*) FROM PersonTable) FROM EventTable WHERE EventType = 1 AND Date != '' AND OwnerType = 0) + (SELECT 100.0 * COUNT(DISTINCT ChildID) / (SELECT COUNT(*) FROM PersonTable) FROM ChildTable) + (SELECT 100.0 * COUNT(DISTINCT OwnerID) / (SELECT COUNT(*) FROM PersonTable) FROM EventTable WHERE OwnerType = 0)) / 3, 1) as completeness_score",
+          "queryType": "table",
+          "rawQueryText": "SELECT ROUND(((SELECT 100.0 * COUNT(DISTINCT OwnerID) / (SELECT COUNT(*) FROM PersonTable) FROM EventTable WHERE EventType = 1 AND Date != '' AND OwnerType = 0) + (SELECT 100.0 * COUNT(DISTINCT ChildID) / (SELECT COUNT(*) FROM PersonTable) FROM ChildTable) + (SELECT 100.0 * COUNT(DISTINCT OwnerID) / (SELECT COUNT(*) FROM PersonTable) FROM EventTable WHERE OwnerType = 0)) / 3, 1) as completeness_score",
+          "refId": "A"
+        }
+      ],
+      "title": "Data Completeness Score",
+      "type": "gauge"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "#F2495C", "value": null},
+              {"color": "#FADE2A", "value": 50},
+              {"color": "#73BF69", "value": 80}
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "queryText": "SELECT ROUND(100.0 * SUM(CASE WHEN Quality != '' AND Quality IS NOT NULL AND Quality != '~~~' THEN 1 ELSE 0 END) / COUNT(*), 1) as pct_with_quality FROM CitationTable",
+          "queryType": "table",
+          "rawQueryText": "SELECT ROUND(100.0 * SUM(CASE WHEN Quality != '' AND Quality IS NOT NULL AND Quality != '~~~' THEN 1 ELSE 0 END) / COUNT(*), 1) as pct_with_quality FROM CitationTable",
+          "refId": "A"
+        }
+      ],
+      "title": "Citation Quality Coverage",
+      "type": "gauge"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "#F2495C", "value": null},
+              {"color": "#FADE2A", "value": 50},
+              {"color": "#73BF69", "value": 70}
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "targets": [
+        {
+          "queryText": "SELECT ROUND(100.0 * COUNT(DISTINCT cl.OwnerID) / (SELECT COUNT(*) FROM EventTable), 1) as pct_cited FROM CitationLinkTable cl WHERE cl.OwnerType = 2",
+          "queryType": "table",
+          "rawQueryText": "SELECT ROUND(100.0 * COUNT(DISTINCT cl.OwnerID) / (SELECT COUNT(*) FROM EventTable), 1) as pct_cited FROM CitationLinkTable cl WHERE cl.OwnerType = 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Events with Citations",
+      "type": "gauge"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "#73BF69", "value": null},
+              {"color": "#FADE2A", "value": 100},
+              {"color": "#F2495C", "value": 500}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "queryText": "SELECT COUNT(*) as missing_birth_date FROM PersonTable p WHERE NOT EXISTS (SELECT 1 FROM EventTable e WHERE e.OwnerID = p.PersonID AND e.OwnerType = 0 AND e.EventType = 1 AND e.Date != '')",
+          "queryType": "table",
+          "rawQueryText": "SELECT COUNT(*) as missing_birth_date FROM PersonTable p WHERE NOT EXISTS (SELECT 1 FROM EventTable e WHERE e.OwnerID = p.PersonID AND e.OwnerType = 0 AND e.EventType = 1 AND e.Date != '')",
+          "refId": "A"
+        }
+      ],
+      "title": "Missing Birth Dates",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"hideFrom": {"legend": false, "tooltip": false, "viz": false}},
+          "mappings": []
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "id": 5,
+      "options": {
+        "legend": {"displayMode": "table", "placement": "right", "showLegend": true},
+        "pieType": "donut",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": true}
+      },
+      "targets": [
+        {
+          "queryText": "SELECT CASE WHEN Quality = '' OR Quality IS NULL THEN 'Unspecified' WHEN Quality = '~~~' THEN 'Unknown (~~~)' ELSE Quality END as quality_code, COUNT(*) as count FROM CitationTable GROUP BY quality_code ORDER BY count DESC",
+          "queryType": "table",
+          "rawQueryText": "SELECT CASE WHEN Quality = '' OR Quality IS NULL THEN 'Unspecified' WHEN Quality = '~~~' THEN 'Unknown (~~~)' ELSE Quality END as quality_code, COUNT(*) as count FROM CitationTable GROUP BY quality_code ORDER BY count DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Citation Quality Code Distribution",
+      "type": "piechart"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {"group": "A", "mode": "none"},
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "id": 6,
+      "options": {
+        "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true}
+      },
+      "targets": [
+        {
+          "queryText": "SELECT ft.Name as event_type, COUNT(*) as missing_place FROM EventTable e JOIN FactTypeTable ft ON e.EventType = ft.FactTypeID WHERE e.PlaceID = 0 AND e.EventType IN (1, 2, 3, 4, 18, 300) GROUP BY e.EventType, ft.Name ORDER BY missing_place DESC",
+          "queryType": "table",
+          "rawQueryText": "SELECT ft.Name as event_type, COUNT(*) as missing_place FROM EventTable e JOIN FactTypeTable ft ON e.EventType = ft.FactTypeID WHERE e.PlaceID = 0 AND e.EventType IN (1, 2, 3, 4, 18, 300) GROUP BY e.EventType, ft.Name ORDER BY missing_place DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Events Missing Places",
+      "type": "barchart"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "custom": {
+            "align": "auto",
+            "cellOptions": {"type": "auto"},
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        }
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 14},
+      "id": 7,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {"countRows": false, "fields": "", "reducer": ["sum"], "show": false},
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "queryText": "SELECT n1.Surname, n1.Given, COUNT(*) as matches FROM NameTable n1 JOIN NameTable n2 ON n1.Surname = n2.Surname AND n1.Given = n2.Given AND n1.OwnerID < n2.OwnerID WHERE n1.IsPrimary = 1 AND n2.IsPrimary = 1 AND n1.Surname != '' GROUP BY n1.Surname, n1.Given HAVING COUNT(*) > 0 ORDER BY COUNT(*) DESC LIMIT 20",
+          "queryType": "table",
+          "rawQueryText": "SELECT n1.Surname, n1.Given, COUNT(*) as matches FROM NameTable n1 JOIN NameTable n2 ON n1.Surname = n2.Surname AND n1.Given = n2.Given AND n1.OwnerID < n2.OwnerID WHERE n1.IsPrimary = 1 AND n2.IsPrimary = 1 AND n1.Surname != '' GROUP BY n1.Surname, n1.Given HAVING COUNT(*) > 0 ORDER BY COUNT(*) DESC LIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "title": "Potential Duplicate Persons",
+      "type": "table"
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["genealogy", "data-quality"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "Data Quality",
+  "uid": "data-quality",
+  "version": 1
+}

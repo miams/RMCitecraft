@@ -1,0 +1,193 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {"group": "A", "mode": "none"},
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        }
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "legend": {"calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true}
+      },
+      "targets": [
+        {
+          "queryText": "SELECT CASE WHEN e.Date LIKE '179%' THEN '1790' WHEN e.Date LIKE '180%' THEN '1800' WHEN e.Date LIKE '181%' THEN '1810' WHEN e.Date LIKE '182%' THEN '1820' WHEN e.Date LIKE '183%' THEN '1830' WHEN e.Date LIKE '184%' THEN '1840' WHEN e.Date LIKE '185%' THEN '1850' WHEN e.Date LIKE '186%' THEN '1860' WHEN e.Date LIKE '187%' THEN '1870' WHEN e.Date LIKE '188%' THEN '1880' WHEN e.Date LIKE '189%' THEN '1890' WHEN e.Date LIKE '190%' THEN '1900' WHEN e.Date LIKE '191%' THEN '1910' WHEN e.Date LIKE '192%' THEN '1920' WHEN e.Date LIKE '193%' THEN '1930' WHEN e.Date LIKE '194%' THEN '1940' WHEN e.Date LIKE '195%' THEN '1950' ELSE 'Unknown' END as census_year, COUNT(*) as count FROM EventTable e WHERE e.EventType = 18 GROUP BY census_year ORDER BY census_year",
+          "queryType": "table",
+          "rawQueryText": "SELECT CASE WHEN e.Date LIKE '179%' THEN '1790' WHEN e.Date LIKE '180%' THEN '1800' WHEN e.Date LIKE '181%' THEN '1810' WHEN e.Date LIKE '182%' THEN '1820' WHEN e.Date LIKE '183%' THEN '1830' WHEN e.Date LIKE '184%' THEN '1840' WHEN e.Date LIKE '185%' THEN '1850' WHEN e.Date LIKE '186%' THEN '1860' WHEN e.Date LIKE '187%' THEN '1870' WHEN e.Date LIKE '188%' THEN '1880' WHEN e.Date LIKE '189%' THEN '1890' WHEN e.Date LIKE '190%' THEN '1900' WHEN e.Date LIKE '191%' THEN '1910' WHEN e.Date LIKE '192%' THEN '1920' WHEN e.Date LIKE '193%' THEN '1930' WHEN e.Date LIKE '194%' THEN '1940' WHEN e.Date LIKE '195%' THEN '1950' ELSE 'Unknown' END as census_year, COUNT(*) as count FROM EventTable e WHERE e.EventType = 18 GROUP BY census_year ORDER BY census_year",
+          "refId": "A"
+        }
+      ],
+      "title": "Census Records by Year",
+      "type": "barchart"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "#5794F2", "value": null}]}
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8},
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "queryText": "SELECT COUNT(*) as total_census FROM EventTable WHERE EventType = 18",
+          "queryType": "table",
+          "rawQueryText": "SELECT COUNT(*) as total_census FROM EventTable WHERE EventType = 18",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Census Events",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "#F2495C", "value": null},
+              {"color": "#FADE2A", "value": 50},
+              {"color": "#73BF69", "value": 80}
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 8},
+      "id": 3,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "queryText": "SELECT ROUND(100.0 * COUNT(DISTINCT COALESCE(e.OwnerID, w.PersonID)) / (SELECT COUNT(*) FROM PersonTable), 1) as pct_coverage FROM EventTable e LEFT JOIN WitnessTable w ON e.EventID = w.EventID WHERE e.EventType = 18 AND e.OwnerType = 0",
+          "queryType": "table",
+          "rawQueryText": "SELECT ROUND(100.0 * COUNT(DISTINCT COALESCE(e.OwnerID, w.PersonID)) / (SELECT COUNT(*) FROM PersonTable), 1) as pct_coverage FROM EventTable e LEFT JOIN WitnessTable w ON e.EventID = w.EventID WHERE e.EventType = 18 AND e.OwnerType = 0",
+          "refId": "A"
+        }
+      ],
+      "title": "Census Coverage",
+      "type": "gauge"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "#F2495C", "value": null},
+              {"color": "#FADE2A", "value": 70},
+              {"color": "#73BF69", "value": 90}
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8},
+      "id": 4,
+      "targets": [
+        {
+          "queryText": "SELECT ROUND(100.0 * COUNT(DISTINCT e.EventID) / NULLIF((SELECT COUNT(*) FROM EventTable WHERE EventType = 18), 0), 1) as pct_cited FROM EventTable e JOIN CitationLinkTable cl ON e.EventID = cl.OwnerID AND cl.OwnerType = 2 WHERE e.EventType = 18",
+          "queryType": "table",
+          "rawQueryText": "SELECT ROUND(100.0 * COUNT(DISTINCT e.EventID) / NULLIF((SELECT COUNT(*) FROM EventTable WHERE EventType = 18), 0), 1) as pct_cited FROM EventTable e JOIN CitationLinkTable cl ON e.EventID = cl.OwnerID AND cl.OwnerType = 2 WHERE e.EventType = 18",
+          "refId": "A"
+        }
+      ],
+      "title": "Census Citation Coverage",
+      "type": "gauge"
+    },
+    {
+      "datasource": {"type": "frser-sqlite-datasource", "uid": "rootsmagic"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "#5794F2", "value": null}]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 8},
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "queryText": "SELECT COUNT(DISTINCT EventID) as events_with_witnesses FROM WitnessTable",
+          "queryType": "table",
+          "rawQueryText": "SELECT COUNT(DISTINCT EventID) as events_with_witnesses FROM WitnessTable",
+          "refId": "A"
+        }
+      ],
+      "title": "Shared Census Events",
+      "type": "stat"
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["genealogy", "census"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "Census Analysis",
+  "uid": "census-analysis",
+  "version": 1
+}

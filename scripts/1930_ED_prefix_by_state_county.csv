@@ -1,0 +1,3111 @@
+state,county,prefix
+Alabama,Autauga,1
+Alabama,Baldwin,2
+Alabama,Barbour,3
+Alabama,Bibb,4
+Alabama,Blount,5
+Alabama,Bullock,6
+Alabama,Butler,7
+Alabama,Calhoun,8
+Alabama,Chambers,9
+Alabama,Cherokee,10
+Alabama,Chilton,11
+Alabama,Choctaw,12
+Alabama,Clarke,13
+Alabama,Clay,14
+Alabama,Cleburne,15
+Alabama,Coffee,16
+Alabama,Colbert (new),17
+Alabama,Conecuh,18
+Alabama,Coosa,19
+Alabama,Covington,20
+Alabama,Crenshaw,21
+Alabama,Cullman,22
+Alabama,Dale,23
+Alabama,Dallas,24
+Alabama,DeKalb,25
+Alabama,Elmore,26
+Alabama,Escambia,27
+Alabama,Etowah,28
+Alabama,Fayette,29
+Alabama,Franklin,30
+Alabama,Geneva,31
+Alabama,Greene,32
+Alabama,Hale,33
+Alabama,Henry,34
+Alabama,Houston,35
+Alabama,Jackson,36
+Alabama,Jefferson,37
+Alabama,Lamar,38
+Alabama,Lauderdale,39
+Alabama,Lawrence,40
+Alabama,Lee,41
+Alabama,Limestone,42
+Alabama,Lowndes,43
+Alabama,Macon,44
+Alabama,Madison,45
+Alabama,Marengo,46
+Alabama,Marion,47
+Alabama,Marshall,48
+Alabama,Mobile,49
+Alabama,Monroe,50
+Alabama,Montgomery,51
+Alabama,Morgan,52
+Alabama,Perry,53
+Alabama,Pickens,54
+Alabama,Pike,55
+Alabama,Randolph,56
+Alabama,Russell,57
+Alabama,Shelby,58
+Alabama,St Clair,59
+Alabama,Sumter,60
+Alabama,Talladega,61
+Alabama,Tallapoosa,62
+Alabama,Tuscaloosa,63
+Alabama,Walker,64
+Alabama,Washington,65
+Alabama,Wilcox,66
+Alabama,Winston,67
+Alaska Territory,First Judicial Dist,1
+Alaska Territory,Fourth Judicicial Dist - No Data,2
+Alaska Territory,Second Judicicial Dist - No Data,3
+Alaska Territory,Third Judicicial Dist - No Data,4
+Arizona,Apache,1
+Arizona,Cochise,2
+Arizona,Coconino,3
+Arizona,Gila,4
+Arizona,Graham,5
+Arizona,Greenlee,6
+Arizona,Maricopa,7
+Arizona,Mohave,8
+Arizona,Navajo,9
+Arizona,Pima,10
+Arizona,Pinal,11
+Arizona,Santa Cruz,12
+Arizona,Yavapai,13
+Arizona,Yuma,14
+Arkansas,Arkansas,1
+Arkansas,Ashley,2
+Arkansas,Baxter,3
+Arkansas,Benton,4
+Arkansas,Boone,5
+Arkansas,Bradley,6
+Arkansas,Calhoun,7
+Arkansas,Carroll,8
+Arkansas,Chicot,9
+Arkansas,Clark,10
+Arkansas,Clay,11
+Arkansas,Cleburne,12
+Arkansas,Cleveland,13
+Arkansas,Columbia,14
+Arkansas,Conway,15
+Arkansas,Craighead,16
+Arkansas,Crawford,17
+Arkansas,Crittenden,18
+Arkansas,Cross,19
+Arkansas,Dallas,20
+Arkansas,Desha,21
+Arkansas,Drew,22
+Arkansas,Faulkner,23
+Arkansas,Franklin,24
+Arkansas,Fulton,25
+Arkansas,Garland,26
+Arkansas,Grant,27
+Arkansas,Greene,28
+Arkansas,Hempstead,29
+Arkansas,Hot Spring,30
+Arkansas,Howard,31
+Arkansas,Independence,32
+Arkansas,Izard,33
+Arkansas,Jackson,34
+Arkansas,Jefferson,35
+Arkansas,Johnson,36
+Arkansas,Lafayette,37
+Arkansas,Lawrence,38
+Arkansas,Lee,39
+Arkansas,Lincoln,40
+Arkansas,Little River,41
+Arkansas,Logan,42
+Arkansas,Lonoke,43
+Arkansas,Madison,44
+Arkansas,Marion,45
+Arkansas,Miller,46
+Arkansas,Mississippi,47
+Arkansas,Monroe,48
+Arkansas,Montgomery,49
+Arkansas,Nevada,50
+Arkansas,Newton,51
+Arkansas,Ouachita,52
+Arkansas,Perry,53
+Arkansas,Phillips,54
+Arkansas,Pike,55
+Arkansas,Poinsett,56
+Arkansas,Polk,57
+Arkansas,Pope,58
+Arkansas,Prairie,59
+Arkansas,Pulaski,60
+Arkansas,Randolph,61
+Arkansas,Saline,62
+Arkansas,Scott,63
+Arkansas,Searcy,64
+Arkansas,Sebastian,65
+Arkansas,Sevier,66
+Arkansas,Sharp,67
+Arkansas,St Francis,68
+Arkansas,Stone,69
+Arkansas,Union,70
+Arkansas,Van Buren,71
+Arkansas,Washington,72
+Arkansas,White,73
+Arkansas,Woodruff,74
+Arkansas,Yell,75
+California,Alameda,1
+California,Alpine,2
+California,Amador,3
+California,Butte,4
+California,Calaveras,5
+California,Colusa,6
+California,Contra Costa,7
+California,Del Norte,8
+California,El Dorado,9
+California,Fresno,10
+California,Glenn,11
+California,Humboldt,12
+California,Imperial,13
+California,Inyo,14
+California,Kern,15
+California,Kings,16
+California,Lake,17
+California,Lassen,18
+California,Los Angeles,19
+California,Madera,20
+California,Marin,21
+California,Mariposa,22
+California,Mendocino,23
+California,Merced,24
+California,Modoc,25
+California,Mono,26
+California,Monterey,27
+California,Napa,28
+California,Nevada,29
+California,Orange,30
+California,Placer,31
+California,Plumas,32
+California,Riverside,33
+California,Sacramento,34
+California,San Benito,35
+California,San Bernardino,36
+California,San Diego,37
+California,San Francisco,38
+California,San Joaquin,39
+California,San Luis Obispo,40
+California,San Mateo,41
+California,Santa Barbara,42
+California,Santa Clara,43
+California,Santa Cruz,44
+California,Shasta,45
+California,Sierra,46
+California,Siskiyou,47
+California,Solano,48
+California,Sonoma,49
+California,Stanislaus,50
+California,Sutter,51
+California,Tehama,52
+California,Trinity,53
+California,Tulare,54
+California,Tuolumne,55
+California,Ventura,56
+California,Yolo,57
+California,Yuba,58
+Colorado,Adams,1
+Colorado,Alamosa,2
+Colorado,Arapahoe (South Arapahoe),3
+Colorado,Archuleta,4
+Colorado,Baca,5
+Colorado,Bent,6
+Colorado,Boulder,7
+Colorado,Chaffee,8
+Colorado,Cheyenne,9
+Colorado,Clear Creek,10
+Colorado,Conejos,11
+Colorado,Costilla,12
+Colorado,Crowley,13
+Colorado,Custer,14
+Colorado,Delta,15
+Colorado,Denver,16
+Colorado,Dolores,17
+Colorado,Douglas,18
+Colorado,Eagle,19
+Colorado,El Paso,20
+Colorado,Elbert,21
+Colorado,Fremont,22
+Colorado,Garfield,23
+Colorado,Gilpin,24
+Colorado,Grand,25
+Colorado,Gunnison,26
+Colorado,Hinsdale,27
+Colorado,Huerfano,28
+Colorado,Jackson,29
+Colorado,Jefferson,30
+Colorado,Kiowa,31
+Colorado,Kit Carson,32
+Colorado,La Plata,33
+Colorado,Lake,34
+Colorado,Larimer,35
+Colorado,Las Animas,36
+Colorado,Lincoln,37
+Colorado,Logan,38
+Colorado,Mesa,39
+Colorado,Mineral,40
+Colorado,Moffat,41
+Colorado,Montezuma,42
+Colorado,Montrose,43
+Colorado,Morgan,44
+Colorado,Otero,45
+Colorado,Ouray,46
+Colorado,Park,47
+Colorado,Phillips,48
+Colorado,Pitkin,49
+Colorado,Prowers,50
+Colorado,Pueblo,51
+Colorado,Rio Blanco,52
+Colorado,Rio Grande,53
+Colorado,Routt,54
+Colorado,Saguache,55
+Colorado,San Juan,56
+Colorado,San Miguel,57
+Colorado,Sedgwick,58
+Colorado,Summit,59
+Colorado,Teller,60
+Colorado,Washington,61
+Colorado,Weld,62
+Colorado,Yuma,63
+Connecticut,Fairfield,1
+Connecticut,Hartford,2
+Connecticut,Litchfield,3
+Connecticut,Middlesex,4
+Connecticut,New Haven,5
+Connecticut,New London,6
+Connecticut,Tolland,7
+Connecticut,Windham,8
+Delaware,Kent,1
+Delaware,New Castle,2
+Delaware,Sussex,3
+District of Columbia,District Of Columbia,1
+Florida,Alachua,1
+Florida,Baker,2
+Florida,Bay,3
+Florida,Bradford,4
+Florida,Brevard,5
+Florida,Broward,6
+Florida,Calhoun,7
+Florida,Charlotte,8
+Florida,Citrus,9
+Florida,Clay,10
+Florida,Collier,11
+Florida,Columbia,12
+Florida,Dade,13
+Florida,De Soto,14
+Florida,Dixie,15
+Florida,Duval,16
+Florida,Escambia,17
+Florida,Flagler,18
+Florida,Franklin,19
+Florida,Gadsden,20
+Florida,Gilchrist,21
+Florida,Glades,22
+Florida,Gulf,23
+Florida,Hamilton,24
+Florida,Hardee,25
+Florida,Hendry,26
+Florida,Hernando,27
+Florida,Highlands,28
+Florida,Hillsborough,29
+Florida,Holmes,30
+Florida,Indian River,31
+Florida,Jackson,32
+Florida,Jefferson,33
+Florida,Lafayette,34
+Florida,Lake,35
+Florida,Lee,36
+Florida,Leon,37
+Florida,Levy,38
+Florida,Liberty,39
+Florida,Madison,40
+Florida,Manatee,41
+Florida,Marion,42
+Florida,Martin,43
+Florida,Monroe,44
+Florida,Nassau,45
+Florida,Okaloosa,46
+Florida,Okeechobee,47
+Florida,Orange,48
+Florida,Osceola,49
+Florida,Palm Beach,50
+Florida,Pasco,51
+Florida,Pinellas,52
+Florida,Polk,53
+Florida,Putnam,54
+Florida,Santa Rosa,55
+Florida,Sarasota,56
+Florida,Seminole,57
+Florida,St Johns,58
+Florida,St Lucie,59
+Florida,Sumter,60
+Florida,Suwannee,61
+Florida,Taylor,62
+Florida,Union,63
+Florida,Volusia,64
+Florida,Wakulla,65
+Florida,Walton,66
+Florida,Washington,67
+Georgia,Appling,1
+Georgia,Atkinson,2
+Georgia,Bacon,3
+Georgia,Baker,4
+Georgia,Baldwin,5
+Georgia,Banks,6
+Georgia,Barrow,7
+Georgia,Bartow,8
+Georgia,Ben Hill,9
+Georgia,Berrien,10
+Georgia,Bibb,11
+Georgia,Bleckley,12
+Georgia,Brantley,13
+Georgia,Brooks,14
+Georgia,Bryan,15
+Georgia,Bulloch,16
+Georgia,Burke,17
+Georgia,Butts,18
+Georgia,Calhoun,19
+Georgia,Camden,20
+Georgia,Campbell,21
+Georgia,Candler,22
+Georgia,Carroll,23
+Georgia,Catoosa,24
+Georgia,Charlton,25
+Georgia,Chatham,26
+Georgia,Chattahoochee,27
+Georgia,Chattooga,28
+Georgia,Cherokee,29
+Georgia,Clarke,30
+Georgia,Clay,31
+Georgia,Clayton,32
+Georgia,Clinch,33
+Georgia,Cobb,34
+Georgia,Coffee,35
+Georgia,Colquitt,36
+Georgia,Columbia,37
+Georgia,Cook,38
+Georgia,Coweta,39
+Georgia,Crawford,40
+Georgia,Crisp,41
+Georgia,Dade,42
+Georgia,Dawson,43
+Georgia,Decatur,44
+Georgia,DeKalb,45
+Georgia,Dodge,46
+Georgia,Dooly,47
+Georgia,Dougherty,48
+Georgia,Douglas,49
+Georgia,Early,50
+Georgia,Echols,51
+Georgia,Effingham,52
+Georgia,Elbert,53
+Georgia,Emanuel,54
+Georgia,Evans,55
+Georgia,Fannin,56
+Georgia,Fayette,57
+Georgia,Floyd,58
+Georgia,Forsyth,59
+Georgia,Franklin,60
+Georgia,Fulton,61
+Georgia,Gilmer,62
+Georgia,Glascock,63
+Georgia,Glynn,64
+Georgia,Gordon,65
+Georgia,Grady,66
+Georgia,Greene,67
+Georgia,Gwinnett,68
+Georgia,Habersham,69
+Georgia,Hall,70
+Georgia,Hancock,71
+Georgia,Haralson,72
+Georgia,Harris,73
+Georgia,Hart,74
+Georgia,Heard,75
+Georgia,Henry,76
+Georgia,Houston,77
+Georgia,Irwin,78
+Georgia,Jackson,79
+Georgia,Jasper,80
+Georgia,Jeff Davis,81
+Georgia,Jefferson,82
+Georgia,Jenkins,83
+Georgia,Johnson,84
+Georgia,Jones,85
+Georgia,Lamar,86
+Georgia,Lanier,87
+Georgia,Laurens,88
+Georgia,Lee,89
+Georgia,Liberty,90
+Georgia,Lincoln,91
+Georgia,Long,92
+Georgia,Lowndes,93
+Georgia,Lumpkin,94
+Georgia,Macon,95
+Georgia,Madison,96
+Georgia,Marion,97
+Georgia,Mcduffie,98
+Georgia,Mcintosh,99
+Georgia,Meriwether,100
+Georgia,Miller,101
+Georgia,Milton,102
+Georgia,Mitchell,103
+Georgia,Monroe,104
+Georgia,Montgomery,105
+Georgia,Morgan,106
+Georgia,Murray,107
+Georgia,Muscogee,108
+Georgia,Newton,109
+Georgia,Oconee,110
+Georgia,Oglethorpe,111
+Georgia,Paulding,112
+Georgia,Peach,113
+Georgia,Pickens,114
+Georgia,Pierce,115
+Georgia,Pike,116
+Georgia,Polk,117
+Georgia,Pulaski,118
+Georgia,Putnam,119
+Georgia,Quitman,120
+Georgia,Rabun,121
+Georgia,Randolph,122
+Georgia,Richmond,123
+Georgia,Rockdale,124
+Georgia,Schley,125
+Georgia,Screven,126
+Georgia,Seminole,127
+Georgia,Spalding,128
+Georgia,Stephens,129
+Georgia,Stewart,130
+Georgia,Sumter,131
+Georgia,Talbot,132
+Georgia,Taliaferro,133
+Georgia,Tattnall,134
+Georgia,Taylor,135
+Georgia,Telfair,136
+Georgia,Terrell,137
+Georgia,Thomas,138
+Georgia,Tift,139
+Georgia,Toombs,140
+Georgia,Towns,141
+Georgia,Treutlen,142
+Georgia,Troup,143
+Georgia,Turner,144
+Georgia,Twiggs,145
+Georgia,Union,146
+Georgia,Upson,147
+Georgia,Walker,148
+Georgia,Walton,149
+Georgia,Ware,150
+Georgia,Warren,151
+Georgia,Washington,152
+Georgia,Wayne,153
+Georgia,Webster,154
+Georgia,Wheeler,155
+Georgia,White,156
+Georgia,Whitfield,157
+Georgia,Wilcox,158
+Georgia,Wilkes,159
+Georgia,Wilkinson,160
+Georgia,Worth,161
+Hawaii Territory,Hawaii,1
+Hawaii Territory,Honolulu,2
+Hawaii Territory,Kauai,3
+Hawaii Territory,Maui,4
+Idaho,Ada,1
+Idaho,Adams,2
+Idaho,Bannock,3
+Idaho,Bear Lake,4
+Idaho,Benewah,5
+Idaho,Bingham,6
+Idaho,Blaine,7
+Idaho,Boise,8
+Idaho,Bonner,9
+Idaho,Bonneville,10
+Idaho,Boundary,11
+Idaho,Butte,12
+Idaho,Camas,13
+Idaho,Canyon,14
+Idaho,Caribou,15
+Idaho,Cassia,16
+Idaho,Clark,17
+Idaho,Clearwater,18
+Idaho,Custer,19
+Idaho,Elmore,20
+Idaho,Franklin,21
+Idaho,Fremont,22
+Idaho,Gem,23
+Idaho,Gooding,24
+Idaho,Idaho,25
+Idaho,Jefferson,26
+Idaho,Jerome,27
+Idaho,Kootenai,28
+Idaho,Latah,29
+Idaho,Lemhi,30
+Idaho,Lewis,31
+Idaho,Lincoln,32
+Idaho,Madison,33
+Idaho,Minidoka,34
+Idaho,Nez Perce,35
+Idaho,Oneida,36
+Idaho,Owyhee,37
+Idaho,Payette,38
+Idaho,Power,39
+Idaho,Shoshone,40
+Idaho,Teton,41
+Idaho,Twin Falls,42
+Idaho,Valley,43
+Idaho,Washington,44
+Idaho,Yellowstone National Park in Idaho,45
+Illinois,Adams,1
+Illinois,Alexander,2
+Illinois,Bond,3
+Illinois,Boone,4
+Illinois,Brown,5
+Illinois,Bureau,6
+Illinois,Calhoun,7
+Illinois,Carroll,8
+Illinois,Cass,9
+Illinois,Champaign,10
+Illinois,Christian,11
+Illinois,Clark,12
+Illinois,Clay,13
+Illinois,Clinton,14
+Illinois,Coles,15
+Illinois,Cook,16
+Illinois,Crawford,17
+Illinois,Cumberland,18
+Illinois,De Kalb,19
+Illinois,De Witt,20
+Illinois,Douglas,21
+Illinois,Du Page,22
+Illinois,Edgar,23
+Illinois,Edwards,24
+Illinois,Effingham,25
+Illinois,Fayette,26
+Illinois,Ford,27
+Illinois,Franklin,28
+Illinois,Fulton,29
+Illinois,Gallatin,30
+Illinois,Greene,31
+Illinois,Grundy,32
+Illinois,Hamilton,33
+Illinois,Hancock,34
+Illinois,Hardin,35
+Illinois,Henderson,36
+Illinois,Henry,37
+Illinois,Iroquois,38
+Illinois,Jackson,39
+Illinois,Jasper,40
+Illinois,Jefferson,41
+Illinois,Jersey,42
+Illinois,Jo Daviess,43
+Illinois,Johnson,44
+Illinois,Kane,45
+Illinois,Kankakee,46
+Illinois,Kendall,47
+Illinois,Knox,48
+Illinois,La Salle,49
+Illinois,Lake,50
+Illinois,Lawrence,51
+Illinois,Lee,52
+Illinois,Livingston,53
+Illinois,Logan,54
+Illinois,Macon,55
+Illinois,Macoupin,56
+Illinois,Madison,57
+Illinois,Marion,58
+Illinois,Marshall,59
+Illinois,Mason,60
+Illinois,Massac,61
+Illinois,Mcdonough,62
+Illinois,Mchenry,63
+Illinois,Mclean,64
+Illinois,Menard,65
+Illinois,Mercer,66
+Illinois,Monroe,67
+Illinois,Montgomery,68
+Illinois,Morgan,69
+Illinois,Moultrie,70
+Illinois,Ogle,71
+Illinois,Peoria,72
+Illinois,Perry,73
+Illinois,Piatt,74
+Illinois,Pike,75
+Illinois,Pope,76
+Illinois,Pulaski,77
+Illinois,Putnam,78
+Illinois,Randolph,79
+Illinois,Richland,80
+Illinois,Rock Island,81
+Illinois,Saline,82
+Illinois,Sangamon,83
+Illinois,Schuyler,84
+Illinois,Scott,85
+Illinois,Shelby,86
+Illinois,St Clair,87
+Illinois,Stark,88
+Illinois,Stephenson,89
+Illinois,Tazewell,90
+Illinois,Union,91
+Illinois,Vermilion,92
+Illinois,Wabash,93
+Illinois,Warren,94
+Illinois,Washington,95
+Illinois,Wayne,96
+Illinois,White,97
+Illinois,Whiteside,98
+Illinois,Will,99
+Illinois,Williamson,100
+Illinois,Winnebago,101
+Illinois,Woodford,102
+Indiana,Adams,1
+Indiana,Allen,2
+Indiana,Bartholomew,3
+Indiana,Benton,4
+Indiana,Blackford,5
+Indiana,Boone,6
+Indiana,Brown,7
+Indiana,Carroll,8
+Indiana,Cass,9
+Indiana,Clark,10
+Indiana,Clay,11
+Indiana,Clinton,12
+Indiana,Crawford,13
+Indiana,Daviess,14
+Indiana,De Kalb,15
+Indiana,Dearborn,16
+Indiana,Decatur,17
+Indiana,Delaware,18
+Indiana,Dubois,19
+Indiana,Elkhart,20
+Indiana,Fayette,21
+Indiana,Floyd,22
+Indiana,Fountain,23
+Indiana,Franklin,24
+Indiana,Fulton,25
+Indiana,Gibson,26
+Indiana,Grant,27
+Indiana,Greene,28
+Indiana,Hamilton,29
+Indiana,Hancock,30
+Indiana,Harrison,31
+Indiana,Hendricks,32
+Indiana,Henry,33
+Indiana,Howard,34
+Indiana,Huntington,35
+Indiana,Jackson,36
+Indiana,Jasper,37
+Indiana,Jay,38
+Indiana,Jefferson,39
+Indiana,Jennings,40
+Indiana,Johnson,41
+Indiana,Knox,42
+Indiana,Kosciusko,43
+Indiana,Lagrange,44
+Indiana,Lake,45
+Indiana,Laporte,46
+Indiana,Lawrence,47
+Indiana,Madison,48
+Indiana,Marion,49
+Indiana,Marshall,50
+Indiana,Martin,51
+Indiana,Miami,52
+Indiana,Monroe,53
+Indiana,Montgomery,54
+Indiana,Morgan,55
+Indiana,Newton,56
+Indiana,Noble,57
+Indiana,Ohio,58
+Indiana,Orange,59
+Indiana,Owen,60
+Indiana,Parke,61
+Indiana,Perry,62
+Indiana,Pike,63
+Indiana,Porter,64
+Indiana,Posey,65
+Indiana,Pulaski,66
+Indiana,Putnam,67
+Indiana,Randolph,68
+Indiana,Ripley,69
+Indiana,Rush,70
+Indiana,Scott,71
+Indiana,Shelby,72
+Indiana,Spencer,73
+Indiana,St Joseph,74
+Indiana,Starke,75
+Indiana,Steuben,76
+Indiana,Sullivan,77
+Indiana,Switzerland,78
+Indiana,Tippecanoe,79
+Indiana,Tipton,80
+Indiana,Union,81
+Indiana,Vanderburgh,82
+Indiana,Vermillion,83
+Indiana,Vigo,84
+Indiana,Wabash,85
+Indiana,Warren,86
+Indiana,Warrick,87
+Indiana,Washington,88
+Indiana,Wayne,89
+Indiana,Wells,90
+Indiana,White,91
+Indiana,Whitley,92
+Iowa,Adair,1
+Iowa,Adams,2
+Iowa,Allamakee,3
+Iowa,Appanoose,4
+Iowa,Audubon,5
+Iowa,Benton,6
+Iowa,Black Hawk,7
+Iowa,Boone,8
+Iowa,Bremer,9
+Iowa,Buchanan,10
+Iowa,Buena Vista,11
+Iowa,Butler,12
+Iowa,Calhoun,13
+Iowa,Carroll,14
+Iowa,Cass,15
+Iowa,Cedar,16
+Iowa,Cerro Gordo,17
+Iowa,Cherokee,18
+Iowa,Chickasaw,19
+Iowa,Clarke,20
+Iowa,Clay,21
+Iowa,Clayton,22
+Iowa,Clinton,23
+Iowa,Crawford,24
+Iowa,Dallas,25
+Iowa,Davis,26
+Iowa,Decatur,27
+Iowa,Delaware,28
+Iowa,Des Moines,29
+Iowa,Dickinson,30
+Iowa,Dubuque,31
+Iowa,Emmet,32
+Iowa,Fayette,33
+Iowa,Floyd,34
+Iowa,Franklin,35
+Iowa,Fremont,36
+Iowa,Greene,37
+Iowa,Grundy,38
+Iowa,Guthrie,39
+Iowa,Hamilton,40
+Iowa,Hancock,41
+Iowa,Hardin,42
+Iowa,Harrison,43
+Iowa,Henry,44
+Iowa,Howard,45
+Iowa,Humboldt,46
+Iowa,Ida,47
+Iowa,Iowa,48
+Iowa,Jackson,49
+Iowa,Jasper,50
+Iowa,Jefferson,51
+Iowa,Johnson,52
+Iowa,Jones,53
+Iowa,Keokuk,54
+Iowa,Kossuth,55
+Iowa,Lee,56
+Iowa,Linn,57
+Iowa,Louisa,58
+Iowa,Lucas,59
+Iowa,Lyon,60
+Iowa,Madison,61
+Iowa,Mahaska,62
+Iowa,Marion,63
+Iowa,Marshall,64
+Iowa,Mills,65
+Iowa,Mitchell,66
+Iowa,Monona,67
+Iowa,Monroe,68
+Iowa,Montgomery,69
+Iowa,Muscatine,70
+Iowa,O Brien,71
+Iowa,Osceola,72
+Iowa,Page,73
+Iowa,Palo Alto,74
+Iowa,Plymouth,75
+Iowa,Pocahontas,76
+Iowa,Polk,77
+Iowa,Pottawattamie,78
+Iowa,Poweshiek,79
+Iowa,Ringgold,80
+Iowa,Sac,81
+Iowa,Scott,82
+Iowa,Shelby,83
+Iowa,Sioux,84
+Iowa,Story,85
+Iowa,Tama,86
+Iowa,Taylor,87
+Iowa,Union,88
+Iowa,Van Buren,89
+Iowa,Wapello,90
+Iowa,Warren,91
+Iowa,Washington,92
+Iowa,Wayne,93
+Iowa,Webster,94
+Iowa,Winnebago,95
+Iowa,Winneshiek,96
+Iowa,Woodbury,97
+Iowa,Worth,98
+Iowa,Wright,99
+Kansas,Allen,1
+Kansas,Anderson,2
+Kansas,Atchison,3
+Kansas,Barber,4
+Kansas,Barton,5
+Kansas,Bourbon,6
+Kansas,Brown,7
+Kansas,Butler,8
+Kansas,Chase,9
+Kansas,Chautauqua,10
+Kansas,Cherokee,11
+Kansas,Cheyenne,12
+Kansas,Clark,13
+Kansas,Clay,14
+Kansas,Cloud,15
+Kansas,Coffey,16
+Kansas,Comanche,17
+Kansas,Cowley,18
+Kansas,Crawford,19
+Kansas,Decatur,20
+Kansas,Dickinson,21
+Kansas,Doniphan,22
+Kansas,Douglas,23
+Kansas,Edwards,24
+Kansas,Elk,25
+Kansas,Ellis,26
+Kansas,Ellsworth,27
+Kansas,Finney,28
+Kansas,Ford,29
+Kansas,Franklin,30
+Kansas,Geary,31
+Kansas,Gove,32
+Kansas,Graham,33
+Kansas,Grant,34
+Kansas,Gray,35
+Kansas,Greeley,36
+Kansas,Greenwood,37
+Kansas,Hamilton,38
+Kansas,Harper,39
+Kansas,Harvey,40
+Kansas,Haskell,41
+Kansas,Hodgeman,42
+Kansas,Jackson,43
+Kansas,Jefferson,44
+Kansas,Jewell,45
+Kansas,Johnson,46
+Kansas,Kearny,47
+Kansas,Kingman,48
+Kansas,Kiowa,49
+Kansas,Labette,50
+Kansas,Lane,51
+Kansas,Leavenworth,52
+Kansas,Lincoln,53
+Kansas,Linn,54
+Kansas,Logan,55
+Kansas,Lyon,56
+Kansas,Marion,57
+Kansas,Marshall,58
+Kansas,Mcpherson,59
+Kansas,Meade,60
+Kansas,Miami,61
+Kansas,Mitchell,62
+Kansas,Montgomery,63
+Kansas,Morris,64
+Kansas,Morton,65
+Kansas,Nemaha,66
+Kansas,Neosho,67
+Kansas,Ness,68
+Kansas,Norton,69
+Kansas,Osage,70
+Kansas,Osborne,71
+Kansas,Ottawa,72
+Kansas,Pawnee,73
+Kansas,Phillips,74
+Kansas,Pottawatomie,75
+Kansas,Pratt,76
+Kansas,Rawlins,77
+Kansas,Reno,78
+Kansas,Republic,79
+Kansas,Rice,80
+Kansas,Riley,81
+Kansas,Rooks,82
+Kansas,Rush,83
+Kansas,Russell,84
+Kansas,Saline,85
+Kansas,Scott,86
+Kansas,Sedgwick,87
+Kansas,Seward,88
+Kansas,Shawnee,89
+Kansas,Sheridan,90
+Kansas,Sherman,91
+Kansas,Smith,92
+Kansas,Stafford,93
+Kansas,Stanton,94
+Kansas,Stevens,95
+Kansas,Sumner,96
+Kansas,Thomas,97
+Kansas,Trego,98
+Kansas,Wabaunsee,99
+Kansas,Wallace,100
+Kansas,Washington,101
+Kansas,Wichita,102
+Kansas,Wilson,103
+Kansas,Woodson,104
+Kansas,Wyandotte,105
+Kentucky,Adair,1
+Kentucky,Allen,2
+Kentucky,Anderson,3
+Kentucky,Ballard,4
+Kentucky,Barren,5
+Kentucky,Bath,6
+Kentucky,Bell,7
+Kentucky,Boone,8
+Kentucky,Bourbon,9
+Kentucky,Boyd,10
+Kentucky,Boyle,11
+Kentucky,Bracken,12
+Kentucky,Breathitt,13
+Kentucky,Breckinridge,14
+Kentucky,Bullitt,15
+Kentucky,Butler,16
+Kentucky,Caldwell,17
+Kentucky,Calloway,18
+Kentucky,Campbell,19
+Kentucky,Carlisle,20
+Kentucky,Carroll,21
+Kentucky,Carter,22
+Kentucky,Casey,23
+Kentucky,Christian,24
+Kentucky,Clark,25
+Kentucky,Clay,26
+Kentucky,Clinton,27
+Kentucky,Crittenden,28
+Kentucky,Cumberland,29
+Kentucky,Daviess,30
+Kentucky,Edmonson,31
+Kentucky,Elliott,32
+Kentucky,Estill,33
+Kentucky,Fayette,34
+Kentucky,Fleming,35
+Kentucky,Floyd,36
+Kentucky,Franklin,37
+Kentucky,Fulton,38
+Kentucky,Gallatin,39
+Kentucky,Garrard,40
+Kentucky,Grant,41
+Kentucky,Graves,42
+Kentucky,Grayson,43
+Kentucky,Green,44
+Kentucky,Greenup,45
+Kentucky,Hancock,46
+Kentucky,Hardin,47
+Kentucky,Harlan,48
+Kentucky,Harrison,49
+Kentucky,Hart,50
+Kentucky,Henderson,51
+Kentucky,Henry,52
+Kentucky,Hickman,53
+Kentucky,Hopkins,54
+Kentucky,Jackson,55
+Kentucky,Jefferson,56
+Kentucky,Jessamine,57
+Kentucky,Johnson,58
+Kentucky,Kenton,59
+Kentucky,Knott,60
+Kentucky,Knox,61
+Kentucky,Larue,62
+Kentucky,Laurel,63
+Kentucky,Lawrence,64
+Kentucky,Lee,65
+Kentucky,Leslie,66
+Kentucky,Letcher,67
+Kentucky,Lewis,68
+Kentucky,Lincoln,69
+Kentucky,Livingston,70
+Kentucky,Logan,71
+Kentucky,Lyon,72
+Kentucky,Madison,73
+Kentucky,Magoffin,74
+Kentucky,Marion,75
+Kentucky,Marshall,76
+Kentucky,Martin,77
+Kentucky,Mason,78
+Kentucky,Mccracken,79
+Kentucky,Mccreary,80
+Kentucky,Mclean,81
+Kentucky,Meade,82
+Kentucky,Menifee,83
+Kentucky,Mercer,84
+Kentucky,Metcalfe,85
+Kentucky,Monroe,86
+Kentucky,Montgomery,87
+Kentucky,Morgan,88
+Kentucky,Muhlenberg,89
+Kentucky,Nelson,90
+Kentucky,Nicholas,91
+Kentucky,Ohio,92
+Kentucky,Oldham,93
+Kentucky,Owen,94
+Kentucky,Owsley,95
+Kentucky,Pendleton,96
+Kentucky,Perry,97
+Kentucky,Pike,98
+Kentucky,Powell,99
+Kentucky,Pulaski,100
+Kentucky,Robertson,101
+Kentucky,Rockcastle,102
+Kentucky,Rowan,103
+Kentucky,Russell,104
+Kentucky,Scott,105
+Kentucky,Shelby,106
+Kentucky,Simpson,107
+Kentucky,Spencer,108
+Kentucky,Taylor,109
+Kentucky,Todd,110
+Kentucky,Trigg,111
+Kentucky,Trimble,112
+Kentucky,Union,113
+Kentucky,Warren,114
+Kentucky,Washington,115
+Kentucky,Wayne,116
+Kentucky,Webster,117
+Kentucky,Whitley,118
+Kentucky,Wolfe,119
+Kentucky,Woodford,120
+Louisiana,Acadia,1
+Louisiana,Allen,2
+Louisiana,Ascension,3
+Louisiana,Assumption,4
+Louisiana,Avoyelles,5
+Louisiana,Beauregard,6
+Louisiana,Bienville,7
+Louisiana,Bossier,8
+Louisiana,Caddo,9
+Louisiana,Calcasieu,10
+Louisiana,Caldwell,11
+Louisiana,Cameron,12
+Louisiana,Catahoula,13
+Louisiana,Claiborne,14
+Louisiana,Concordia,15
+Louisiana,De Soto,16
+Louisiana,East Baton Rouge,17
+Louisiana,East Carroll,18
+Louisiana,East Feliciana,19
+Louisiana,Evangeline,20
+Louisiana,Franklin,21
+Louisiana,Grant,22
+Louisiana,Iberia,23
+Louisiana,Iberville,24
+Louisiana,Jackson,25
+Louisiana,Jefferson,26
+Louisiana,Jefferson Davis,27
+Louisiana,La Salle,28
+Louisiana,Lafayette,29
+Louisiana,Lafourche,30
+Louisiana,Lincoln,31
+Louisiana,Livingston,32
+Louisiana,Madison,33
+Louisiana,Morehouse,34
+Louisiana,Natchitoches,35
+Louisiana,Orleans,36
+Louisiana,Ouachita,37
+Louisiana,Plaquemines,38
+Louisiana,Pointe Coupee,39
+Louisiana,Rapides,40
+Louisiana,Red River,41
+Louisiana,Richland,42
+Louisiana,Sabine,43
+Louisiana,St Bernard,44
+Louisiana,St Charles,45
+Louisiana,St Helena,46
+Louisiana,St James,47
+Louisiana,St John The Baptist,48
+Louisiana,St Landry,49
+Louisiana,St Martin,50
+Louisiana,St Mary,51
+Louisiana,St Tammany,52
+Louisiana,Tangipahoa,53
+Louisiana,Tensas,54
+Louisiana,Terrebonne,55
+Louisiana,Union,56
+Louisiana,Vermillion,57
+Louisiana,Vernon,58
+Louisiana,Washington,59
+Louisiana,Webster,60
+Louisiana,West Baton Rouge,61
+Louisiana,West Carroll,62
+Louisiana,West Feliciana,63
+Louisiana,Winn,64
+Maine,Androscoggin,1
+Maine,Aroostook,2
+Maine,Cumberland,3
+Maine,Franklin,4
+Maine,Hancock,5
+Maine,Kennebec,6
+Maine,Knox,7
+Maine,Lincoln,8
+Maine,Oxford,9
+Maine,Penobscot,10
+Maine,Piscataquis,11
+Maine,Sagadahoc,12
+Maine,Somerset,13
+Maine,Waldo,14
+Maine,Washington,15
+Maine,York,16
+Maryland,Allegany,1
+Maryland,Anne Arundel,2
+Maryland,Baltimore,3
+Maryland,Baltimore City,4
+Maryland,Calvert,5
+Maryland,Caroline,6
+Maryland,Carroll,7
+Maryland,Cecil,8
+Maryland,Charles,9
+Maryland,Dorchester,10
+Maryland,Frederick,11
+Maryland,Garrett,12
+Maryland,Harford,13
+Maryland,Howard,14
+Maryland,Kent,15
+Maryland,Montgomery,16
+Maryland,Prince Georges,17
+Maryland,Queen Annes,18
+Maryland,Somerset,19
+Maryland,St Marys,20
+Maryland,Talbot,21
+Maryland,Washington,22
+Maryland,Wicomico,23
+Maryland,Worcester,24
+Massachusetts,Barnstable,1
+Massachusetts,Berkshire,2
+Massachusetts,Bristol,3
+Massachusetts,Dukes,4
+Massachusetts,Essex,5
+Massachusetts,Franklin,6
+Massachusetts,Hampden,7
+Massachusetts,Hampshire,8
+Massachusetts,Middlesex,9
+Massachusetts,Nantucket,10
+Massachusetts,Norfolk,11
+Massachusetts,Plymouth,12
+Massachusetts,Suffolk,13
+Massachusetts,Worcester,14
+Michigan,Alcona,1
+Michigan,Alger,2
+Michigan,Allegan,3
+Michigan,Alpena,4
+Michigan,Antrim,5
+Michigan,Arenac,6
+Michigan,Baraga,7
+Michigan,Barry,8
+Michigan,Bay,9
+Michigan,Benzie,10
+Michigan,Berrien,11
+Michigan,Branch,12
+Michigan,Calhoun,13
+Michigan,Cass,14
+Michigan,Charlevoix,15
+Michigan,Cheboygan,16
+Michigan,Chippewa,17
+Michigan,Clare,18
+Michigan,Clinton,19
+Michigan,Crawford,20
+Michigan,Delta,21
+Michigan,Dickinson,22
+Michigan,Eaton,23
+Michigan,Emmet,24
+Michigan,Genesee,25
+Michigan,Gladwin,26
+Michigan,Gogebic,27
+Michigan,Grand Traverse,28
+Michigan,Gratiot,29
+Michigan,Hillsdale,30
+Michigan,Houghton,31
+Michigan,Huron,32
+Michigan,Ingham,33
+Michigan,Ionia,34
+Michigan,Iosco,35
+Michigan,Iron,36
+Michigan,Isabella,37
+Michigan,Jackson,38
+Michigan,Kalamazoo,39
+Michigan,Kalkaska,40
+Michigan,Kent,41
+Michigan,Keweenaw,42
+Michigan,Lake,43
+Michigan,Lapeer,44
+Michigan,Leelanau,45
+Michigan,Lenawee,46
+Michigan,Livingston,47
+Michigan,Luce,48
+Michigan,Mackinac,49
+Michigan,Macomb,50
+Michigan,Manistee,51
+Michigan,Marquette,52
+Michigan,Mason,53
+Michigan,Mecosta,54
+Michigan,Menominee,55
+Michigan,Midland,56
+Michigan,Missaukee,57
+Michigan,Monroe,58
+Michigan,Montcalm,59
+Michigan,Montmorency,60
+Michigan,Muskegon,61
+Michigan,Newaygo,62
+Michigan,Oakland,63
+Michigan,Oceana,64
+Michigan,Ogemaw,65
+Michigan,Ontonagon,66
+Michigan,Osceola,67
+Michigan,Oscoda,68
+Michigan,Otsego,69
+Michigan,Ottawa,70
+Michigan,Presque Isle,71
+Michigan,Roscommon,72
+Michigan,Saginaw,73
+Michigan,Sanilac,74
+Michigan,Schoolcraft,75
+Michigan,Shiawassee,76
+Michigan,St Clair,77
+Michigan,St Joseph,78
+Michigan,Tuscola,79
+Michigan,Van Buren,80
+Michigan,Washtenaw,81
+Michigan,Wayne,82
+Michigan,Wexford,83
+Minnesota,Aitkin,1
+Minnesota,Anoka,2
+Minnesota,Becker,3
+Minnesota,Beltrami,4
+Minnesota,Benton,5
+Minnesota,Big Stone,6
+Minnesota,Blue Earth,7
+Minnesota,Brown,8
+Minnesota,Carlton,9
+Minnesota,Carver,10
+Minnesota,Cass,11
+Minnesota,Chippewa,12
+Minnesota,Chisago,13
+Minnesota,Clay,14
+Minnesota,Clearwater,15
+Minnesota,Cook,16
+Minnesota,Cottonwood,17
+Minnesota,Crow Wing,18
+Minnesota,Dakota,19
+Minnesota,Dodge,20
+Minnesota,Douglas,21
+Minnesota,Faribault,22
+Minnesota,Fillmore,23
+Minnesota,Freeborn,24
+Minnesota,Goodhue,25
+Minnesota,Grant,26
+Minnesota,Hennepin,27
+Minnesota,Houston,28
+Minnesota,Hubbard,29
+Minnesota,Isanti,30
+Minnesota,Itasca,31
+Minnesota,Jackson,32
+Minnesota,Kanabec,33
+Minnesota,Kandiyohi,34
+Minnesota,Kittson,35
+Minnesota,Koochiching,36
+Minnesota,Lac Qui Parle,37
+Minnesota,Lake,38
+Minnesota,Lake Of The Woods,39
+Minnesota,Le Sueur,40
+Minnesota,Lincoln,41
+Minnesota,Lyon,42
+Minnesota,Mahnomen,43
+Minnesota,Marshall,44
+Minnesota,Martin,45
+Minnesota,Mcleod,46
+Minnesota,Meeker,47
+Minnesota,Mille Lacs,48
+Minnesota,Morrison,49
+Minnesota,Mower,50
+Minnesota,Murray,51
+Minnesota,Nicollet,52
+Minnesota,Nobles,53
+Minnesota,Norman,54
+Minnesota,Olmsted,55
+Minnesota,Otter Tail,56
+Minnesota,Pennington,57
+Minnesota,Pine,58
+Minnesota,Pipestone,59
+Minnesota,Polk,60
+Minnesota,Pope,61
+Minnesota,Ramsey,62
+Minnesota,Red Lake,63
+Minnesota,Redwood,64
+Minnesota,Renville,65
+Minnesota,Rice,66
+Minnesota,Rock,67
+Minnesota,Roseau,68
+Minnesota,Scott,69
+Minnesota,Sherburne,70
+Minnesota,Sibley,71
+Minnesota,St. Louis,72
+Minnesota,Stearns,73
+Minnesota,Steele,74
+Minnesota,Stevens,75
+Minnesota,Swift,76
+Minnesota,Todd,77
+Minnesota,Traverse,78
+Minnesota,Wabasha,79
+Minnesota,Wadena,80
+Minnesota,Waseca,81
+Minnesota,Washington,82
+Minnesota,Watonwan,83
+Minnesota,Wilkin,84
+Minnesota,Winona,85
+Minnesota,Wright,86
+Minnesota,Yellow Medicine,87
+Mississippi,Adams,1
+Mississippi,Alcorn,2
+Mississippi,Amite,3
+Mississippi,Attala,4
+Mississippi,Benton,5
+Mississippi,Bolivar,6
+Mississippi,Calhoun,7
+Mississippi,Carroll,8
+Mississippi,Chickasaw,9
+Mississippi,Choctaw,10
+Mississippi,Claiborne,11
+Mississippi,Clarke,12
+Mississippi,Clay,13
+Mississippi,Coahoma,14
+Mississippi,Copiah,15
+Mississippi,Covington,16
+Mississippi,De Soto,17
+Mississippi,Forrest,18
+Mississippi,Franklin,19
+Mississippi,George,20
+Mississippi,Greene,21
+Mississippi,Grenada,22
+Mississippi,Hancock,23
+Mississippi,Harrison,24
+Mississippi,Hinds,25
+Mississippi,Holmes,26
+Mississippi,Humphreys,27
+Mississippi,Issaquena,28
+Mississippi,Itawamba,29
+Mississippi,Jackson,30
+Mississippi,Jasper,31
+Mississippi,Jefferson,32
+Mississippi,Jefferson Davis,33
+Mississippi,Jones,34
+Mississippi,Kemper,35
+Mississippi,Lafayette,36
+Mississippi,Lamar,37
+Mississippi,Lauderdale,38
+Mississippi,Lawrence,39
+Mississippi,Leake,40
+Mississippi,Lee,41
+Mississippi,Leflore,42
+Mississippi,Lincoln,43
+Mississippi,Lowndes,44
+Mississippi,Madison,45
+Mississippi,Marion,46
+Mississippi,Marshall,47
+Mississippi,Monroe,48
+Mississippi,Montgomery,49
+Mississippi,Neshoba,50
+Mississippi,Newton,51
+Mississippi,Noxubee,52
+Mississippi,Oktibbeha,53
+Mississippi,Panola,54
+Mississippi,Pearl River,55
+Mississippi,Perry,56
+Mississippi,Pike,57
+Mississippi,Pontotoc,58
+Mississippi,Prentiss,59
+Mississippi,Quitman,60
+Mississippi,Rankin,61
+Mississippi,Scott,62
+Mississippi,Sharkey,63
+Mississippi,Simpson,64
+Mississippi,Smith,65
+Mississippi,Stone,66
+Mississippi,Sunflower,67
+Mississippi,Tallahatchie,68
+Mississippi,Tate,69
+Mississippi,Tippah,70
+Mississippi,Tishomingo,71
+Mississippi,Tunica,72
+Mississippi,Union,73
+Mississippi,Walthall,74
+Mississippi,Warren,75
+Mississippi,Washington,76
+Mississippi,Wayne,77
+Mississippi,Webster,78
+Mississippi,Wilkinson,79
+Mississippi,Winston,80
+Mississippi,Yalobusha,81
+Mississippi,Yazoo,82
+Missouri,Adair,1
+Missouri,Andrew,2
+Missouri,Atchison,3
+Missouri,Audrain,4
+Missouri,Barry,5
+Missouri,Barton,6
+Missouri,Bates,7
+Missouri,Benton,8
+Missouri,Bollinger,9
+Missouri,Boone,10
+Missouri,Buchanan,11
+Missouri,Butler,12
+Missouri,Caldwell,13
+Missouri,Callaway,14
+Missouri,Camden,15
+Missouri,Cape Girardeau,16
+Missouri,Carroll,17
+Missouri,Carter,18
+Missouri,Cass/Van Buren,19
+Missouri,Cedar,20
+Missouri,Chariton,21
+Missouri,Christian,22
+Missouri,Clark,23
+Missouri,Clay,24
+Missouri,Clinton,25
+Missouri,Cole,26
+Missouri,Cooper,27
+Missouri,Crawford,28
+Missouri,Dade,29
+Missouri,Dallas,30
+Missouri,Daviess,31
+Missouri,De Kalb,32
+Missouri,Dent,33
+Missouri,Douglas,34
+Missouri,Dunklin,35
+Missouri,Franklin,36
+Missouri,Gasconade,37
+Missouri,Gentry,38
+Missouri,Greene,39
+Missouri,Grundy,40
+Missouri,Harrison,41
+Missouri,Henry/Rives,42
+Missouri,Hickory,43
+Missouri,Holt,44
+Missouri,Howard,45
+Missouri,Howell,46
+Missouri,Iron,47
+Missouri,Jackson,48
+Missouri,Jasper,49
+Missouri,Jefferson,50
+Missouri,Johnson,51
+Missouri,Knox,52
+Missouri,Laclede,53
+Missouri,Lafayette,54
+Missouri,Lawrence,55
+Missouri,Lewis,56
+Missouri,Lincoln,57
+Missouri,Linn,58
+Missouri,Livingston,59
+Missouri,Macon,60
+Missouri,Madison,61
+Missouri,Maries,62
+Missouri,Marion,63
+Missouri,Mcdonald,64
+Missouri,Mercer,65
+Missouri,Miller,66
+Missouri,Mississippi,67
+Missouri,Moniteau,68
+Missouri,Monroe,69
+Missouri,Montgomery,70
+Missouri,Morgan,71
+Missouri,New Madrid,72
+Missouri,Newton,73
+Missouri,Nodaway,74
+Missouri,Oregon,75
+Missouri,Osage,76
+Missouri,Ozark,77
+Missouri,Pemiscot,78
+Missouri,Perry,79
+Missouri,Pettis,80
+Missouri,Phelps,81
+Missouri,Pike,82
+Missouri,Platte,83
+Missouri,Polk,84
+Missouri,Pulaski,85
+Missouri,Putnam,86
+Missouri,Ralls,87
+Missouri,Randolph,88
+Missouri,Ray,89
+Missouri,Reynolds,90
+Missouri,Ripley,91
+Missouri,Saline,92
+Missouri,Schuyler,93
+Missouri,Scotland,94
+Missouri,Scott,95
+Missouri,Shannon,96
+Missouri,Shelby,97
+Missouri,St Charles,98
+Missouri,St Clair,99
+Missouri,St Francois,100
+Missouri,St Louis,101
+Missouri,St Louis City,102
+Missouri,Ste Genevieve,103
+Missouri,Stoddard,104
+Missouri,Stone,105
+Missouri,Sullivan,106
+Missouri,Taney,107
+Missouri,Texas,108
+Missouri,Vernon,109
+Missouri,Warren,110
+Missouri,Washington,111
+Missouri,Wayne,112
+Missouri,Webster,113
+Missouri,Worth,114
+Missouri,Wright,115
+Montana,Beaverhead,1
+Montana,Big Horn,2
+Montana,Blaine,3
+Montana,Broadwater,4
+Montana,Carbon,5
+Montana,Carter,6
+Montana,Cascade,7
+Montana,Chouteau,8
+Montana,Custer,9
+Montana,Daniels,10
+Montana,Dawson,11
+Montana,Deer Lodge,12
+Montana,Fallon,13
+Montana,Fergus,14
+Montana,Flathead,15
+Montana,Gallatin,16
+Montana,Garfield,17
+Montana,Glacier,18
+Montana,Golden Valley,19
+Montana,Granite,20
+Montana,Hill,21
+Montana,Jefferson,22
+Montana,Judith Basin,23
+Montana,Lake,24
+Montana,Lewis and Clark,25
+Montana,Liberty,26
+Montana,Lincoln,27
+Montana,Madison,28
+Montana,McCone,29
+Montana,Meagher,30
+Montana,Mineral,31
+Montana,Missoula,32
+Montana,Musselshell,33
+Montana,Park,34
+Montana,Petroleum,35
+Montana,Phillips,36
+Montana,Pondera,37
+Montana,Powder River,38
+Montana,Powell,39
+Montana,Prairie,40
+Montana,Ravalli,41
+Montana,Richland,42
+Montana,Roosevelt,43
+Montana,Rosebud,44
+Montana,Sanders,45
+Montana,Sheridan,46
+Montana,Silver Bow,47
+Montana,Stillwater,48
+Montana,Sweet Grass,49
+Montana,Teton,50
+Montana,Toole,51
+Montana,Treasure,52
+Montana,Valley,53
+Montana,Wheatland,54
+Montana,Wibaux,55
+Montana,Yellowstone,56
+Montana,Yellowstone National Park,57
+Nebraska,Adams,1
+Nebraska,Antelope,2
+Nebraska,Arthur,3
+Nebraska,Banner,4
+Nebraska,Blaine,5
+Nebraska,Boone,6
+Nebraska,Box Butte,7
+Nebraska,Boyd,8
+Nebraska,Brown,9
+Nebraska,Buffalo,10
+Nebraska,Burt,11
+Nebraska,Butler,12
+Nebraska,Cass,13
+Nebraska,Cedar,14
+Nebraska,Chase,15
+Nebraska,Cherry,16
+Nebraska,Cheyenne,17
+Nebraska,Clay,18
+Nebraska,Colfax,19
+Nebraska,Cuming,20
+Nebraska,Custer,21
+Nebraska,Dakota,22
+Nebraska,Dawes,23
+Nebraska,Dawson,24
+Nebraska,Deuel,25
+Nebraska,Dixon,26
+Nebraska,Dodge,27
+Nebraska,Douglas,28
+Nebraska,Dundy,29
+Nebraska,Fillmore,30
+Nebraska,Franklin,31
+Nebraska,Frontier,32
+Nebraska,Furnas,33
+Nebraska,Gage,34
+Nebraska,Garden,35
+Nebraska,Garfield,36
+Nebraska,Gosper,37
+Nebraska,Grant,38
+Nebraska,Greeley,39
+Nebraska,Hall,40
+Nebraska,Hamilton,41
+Nebraska,Harlan,42
+Nebraska,Hayes,43
+Nebraska,Hitchcock,44
+Nebraska,Holt,45
+Nebraska,Hooker,46
+Nebraska,Howard,47
+Nebraska,Jefferson,48
+Nebraska,Johnson,49
+Nebraska,Kearney,50
+Nebraska,Keith,51
+Nebraska,Keya Paha,52
+Nebraska,Kimball,53
+Nebraska,Knox,54
+Nebraska,Lancaster,55
+Nebraska,Lincoln,56
+Nebraska,Logan,57
+Nebraska,Loup,58
+Nebraska,Madison,59
+Nebraska,Mcpherson,60
+Nebraska,Merrick,61
+Nebraska,Morrill,62
+Nebraska,Nance,63
+Nebraska,Nemaha,64
+Nebraska,Nuckolls,65
+Nebraska,Otoe,66
+Nebraska,Pawnee,67
+Nebraska,Perkins,68
+Nebraska,Phelps,69
+Nebraska,Pierce,70
+Nebraska,Platte,71
+Nebraska,Polk,72
+Nebraska,Red Willow,73
+Nebraska,Richardson,74
+Nebraska,Rock,75
+Nebraska,Saline,76
+Nebraska,Sarpy,77
+Nebraska,Saunders,78
+Nebraska,Scotts Bluff,79
+Nebraska,Seward,80
+Nebraska,Sheridan,81
+Nebraska,Sherman,82
+Nebraska,Sioux,83
+Nebraska,Stanton,84
+Nebraska,Thayer,85
+Nebraska,Thomas,86
+Nebraska,Thurston,87
+Nebraska,Valley,88
+Nebraska,Washington,89
+Nebraska,Wayne,90
+Nebraska,Webster,91
+Nebraska,Wheeler,92
+Nebraska,York,93
+Nevada,Churchill,1
+Nevada,Clark,2
+Nevada,Douglas,3
+Nevada,Elko,4
+Nevada,Esmeralda,5
+Nevada,Eureka,6
+Nevada,Humboldt,7
+Nevada,Lander,8
+Nevada,Lincoln,9
+Nevada,Lyon,10
+Nevada,Mineral,11
+Nevada,Nye,12
+Nevada,Ormsby,13
+Nevada,Pershing,14
+Nevada,Storey,15
+Nevada,Washoe,16
+Nevada,White Pine,17
+New Hampshire,Belknap,1
+New Hampshire,Carroll,2
+New Hampshire,Cheshire,3
+New Hampshire,Coos,4
+New Hampshire,Grafton,5
+New Hampshire,Hillsborough,6
+New Hampshire,Merrimack,7
+New Hampshire,Rockingham,8
+New Hampshire,Strafford,9
+New Hampshire,Sullivan,10
+New Jersey,Atlantic,1
+New Jersey,Bergen,2
+New Jersey,Burlington,3
+New Jersey,Camden,4
+New Jersey,Cape May,5
+New Jersey,Cumberland,6
+New Jersey,Essex,7
+New Jersey,Gloucester,8
+New Jersey,Hudson,9
+New Jersey,Hunterdon,10
+New Jersey,Mercer,11
+New Jersey,Middlesex,12
+New Jersey,Monmouth,13
+New Jersey,Morris,14
+New Jersey,Ocean,15
+New Jersey,Passaic,16
+New Jersey,Salem,17
+New Jersey,Somerset,18
+New Jersey,Sussex,19
+New Jersey,Union,20
+New Jersey,Warren,21
+New Mexico,Bernalillo,1
+New Mexico,Catron,2
+New Mexico,Chaves,3
+New Mexico,Colfax,4
+New Mexico,Curry,5
+New Mexico,De Baca,6
+New Mexico,Dona Ana,7
+New Mexico,Eddy,8
+New Mexico,Grant,9
+New Mexico,Guadalupe,10
+New Mexico,Harding,11
+New Mexico,Hidalgo,12
+New Mexico,Lea,13
+New Mexico,Lincoln,14
+New Mexico,Luna,15
+New Mexico,Mckinley,16
+New Mexico,Mora,17
+New Mexico,Otero,18
+New Mexico,Quay,19
+New Mexico,Rio Arriba,20
+New Mexico,Roosevelt,21
+New Mexico,San Juan,22
+New Mexico,San Miguel,23
+New Mexico,Sandoval,24
+New Mexico,Santa Fe,25
+New Mexico,Sierra,26
+New Mexico,Socorro,27
+New Mexico,Taos,28
+New Mexico,Torrance,29
+New Mexico,Union,30
+New Mexico,Valencia,31
+New York,Albany,1
+New York,Allegany,2
+New York,Bronx,3
+New York,Broome,4
+New York,Cattaraugus,5
+New York,Cayuga,6
+New York,Chautauqua,7
+New York,Chemung,8
+New York,Chenango,9
+New York,Clinton,10
+New York,Columbia,11
+New York,Cortland,12
+New York,Delaware,13
+New York,Dutchess,14
+New York,Erie,15
+New York,Essex,16
+New York,Franklin,17
+New York,Fulton,18
+New York,Genesee,19
+New York,Greene,20
+New York,Hamilton,21
+New York,Herkimer,22
+New York,Jefferson,23
+New York,Kings,24
+New York,Lewis,25
+New York,Livingston,26
+New York,Madison,27
+New York,Monroe,28
+New York,Montgomery,29
+New York,Nassau,30
+New York,New York,31
+New York,Niagara,32
+New York,Oneida,33
+New York,Onondaga,34
+New York,Ontario,35
+New York,Orange,36
+New York,Orleans,37
+New York,Oswego,38
+New York,Otsego,39
+New York,Putnam,40
+New York,Queens,41
+New York,Rensselaer,42
+New York,Richmond,43
+New York,Rockland,44
+New York,Saratoga,45
+New York,Schenectady,46
+New York,Schoharie,47
+New York,Schuyler,48
+New York,Seneca,49
+New York,St. Lawrence,50
+New York,Steuben,51
+New York,Suffolk,52
+New York,Sullivan,53
+New York,Tioga,54
+New York,Tompkins,55
+New York,Ulster,56
+New York,Warren,57
+New York,Washington,58
+New York,Wayne,59
+New York,Westchester,60
+New York,Wyoming,61
+New York,Yates,62
+North Carolina,Alamance,1
+North Carolina,Alexander,2
+North Carolina,Alleghany,3
+North Carolina,Anson,4
+North Carolina,Ashe,5
+North Carolina,Avery,6
+North Carolina,Beaufort,7
+North Carolina,Bertie,8
+North Carolina,Bladen,9
+North Carolina,Brunswick,10
+North Carolina,Buncombe,11
+North Carolina,Burke,12
+North Carolina,Cabarrus,13
+North Carolina,Caldwell,14
+North Carolina,Camden,15
+North Carolina,Carteret,16
+North Carolina,Caswell,17
+North Carolina,Catawba,18
+North Carolina,Chatham,19
+North Carolina,Cherokee,20
+North Carolina,Chowan,21
+North Carolina,Clay,22
+North Carolina,Cleveland,23
+North Carolina,Columbus,24
+North Carolina,Craven,25
+North Carolina,Cumberland,26
+North Carolina,Currituck,27
+North Carolina,Dare,28
+North Carolina,Davidson,29
+North Carolina,Davie,30
+North Carolina,Duplin,31
+North Carolina,Durham,32
+North Carolina,Edgecombe,33
+North Carolina,Forsyth,34
+North Carolina,Franklin,35
+North Carolina,Gaston,36
+North Carolina,Gates,37
+North Carolina,Graham,38
+North Carolina,Granville,39
+North Carolina,Greene,40
+North Carolina,Guilford,41
+North Carolina,Halifax,42
+North Carolina,Harnett,43
+North Carolina,Haywood,44
+North Carolina,Henderson,45
+North Carolina,Hertford,46
+North Carolina,Hoke,47
+North Carolina,Hyde,48
+North Carolina,Iredell,49
+North Carolina,Jackson,50
+North Carolina,Johnston,51
+North Carolina,Jones,52
+North Carolina,Lee,53
+North Carolina,Lenoir,54
+North Carolina,Lincoln,55
+North Carolina,Macon,56
+North Carolina,Madison,57
+North Carolina,Martin,58
+North Carolina,McDowell,59
+North Carolina,Mecklenburg,60
+North Carolina,Mitchell,61
+North Carolina,Montgomery,62
+North Carolina,Moore,63
+North Carolina,Nash,64
+North Carolina,New Hanover,65
+North Carolina,Northampton,66
+North Carolina,Onslow,67
+North Carolina,Orange,68
+North Carolina,Pamlico,69
+North Carolina,Pasquotank,70
+North Carolina,Pender,71
+North Carolina,Perquimans,72
+North Carolina,Person,73
+North Carolina,Pitt,74
+North Carolina,Polk,75
+North Carolina,Randolph,76
+North Carolina,Richmond,77
+North Carolina,Robeson,78
+North Carolina,Rockingham,79
+North Carolina,Rowan,80
+North Carolina,Rutherford,81
+North Carolina,Sampson,82
+North Carolina,Scotland,83
+North Carolina,Stanly,84
+North Carolina,Stokes,85
+North Carolina,Surry,86
+North Carolina,Swain,87
+North Carolina,Transylvania,88
+North Carolina,Tyrrell,89
+North Carolina,Union,90
+North Carolina,Vance,91
+North Carolina,Wake,92
+North Carolina,Warren,93
+North Carolina,Washington,94
+North Carolina,Watauga,95
+North Carolina,Wayne,96
+North Carolina,Wilkes,97
+North Carolina,Wilson,98
+North Carolina,Yadkin,99
+North Carolina,Yancey,100
+North Dakota,Adams,1
+North Dakota,Barnes,2
+North Dakota,Benson,3
+North Dakota,Billings,4
+North Dakota,Bottineau,5
+North Dakota,Bowman,6
+North Dakota,Burke,7
+North Dakota,Burleigh,8
+North Dakota,Cass,9
+North Dakota,Cavalier,10
+North Dakota,Dickey,11
+North Dakota,Divide,12
+North Dakota,Dunn,13
+North Dakota,Eddy,14
+North Dakota,Emmons,15
+North Dakota,Foster,16
+North Dakota,Golden Valley,17
+North Dakota,Grand Forks,18
+North Dakota,Grant,19
+North Dakota,Griggs,20
+North Dakota,Hettinger,21
+North Dakota,Kidder,22
+North Dakota,La Moure,23
+North Dakota,Logan,24
+North Dakota,Mchenry,25
+North Dakota,Mcintosh,26
+North Dakota,Mckenzie,27
+North Dakota,Mclean,28
+North Dakota,Mercer,29
+North Dakota,Morton,30
+North Dakota,Mountrail,31
+North Dakota,Nelson,32
+North Dakota,Oliver,33
+North Dakota,Pembina,34
+North Dakota,Pierce,35
+North Dakota,Ramsey,36
+North Dakota,Ransom,37
+North Dakota,Renville,38
+North Dakota,Richland,39
+North Dakota,Rolette,40
+North Dakota,Sargent,41
+North Dakota,Sheridan,42
+North Dakota,Sioux,43
+North Dakota,Slope,44
+North Dakota,Stark,45
+North Dakota,Steele,46
+North Dakota,Stutsman,47
+North Dakota,Towner,48
+North Dakota,Traill,49
+North Dakota,Walsh,50
+North Dakota,Ward,51
+North Dakota,Wells,52
+North Dakota,Williams,53
+Ohio,Adams,1
+Ohio,Allen,2
+Ohio,Ashland,3
+Ohio,Ashtabula,4
+Ohio,Athens,5
+Ohio,Auglaize,6
+Ohio,Belmont,7
+Ohio,Brown,8
+Ohio,Butler,9
+Ohio,Carroll,10
+Ohio,Champaign,11
+Ohio,Clark,12
+Ohio,Clermont,13
+Ohio,Clinton,14
+Ohio,Columbiana,15
+Ohio,Coshocton,16
+Ohio,Crawford,17
+Ohio,Cuyahoga,18
+Ohio,Darke,19
+Ohio,Defiance,20
+Ohio,Delaware,21
+Ohio,Erie,22
+Ohio,Fairfield,23
+Ohio,Fayette,24
+Ohio,Franklin,25
+Ohio,Fulton,26
+Ohio,Gallia,27
+Ohio,Geauga,28
+Ohio,Greene,29
+Ohio,Guernsey,30
+Ohio,Hamilton,31
+Ohio,Hancock,32
+Ohio,Hardin,33
+Ohio,Harrison,34
+Ohio,Henry,35
+Ohio,Highland,36
+Ohio,Hocking,37
+Ohio,Holmes,38
+Ohio,Huron,39
+Ohio,Jackson,40
+Ohio,Jefferson,41
+Ohio,Knox,42
+Ohio,Lake,43
+Ohio,Lawrence,44
+Ohio,Licking,45
+Ohio,Logan,46
+Ohio,Lorain,47
+Ohio,Lucas,48
+Ohio,Madison,49
+Ohio,Mahoning,50
+Ohio,Marion,51
+Ohio,Medina,52
+Ohio,Meigs,53
+Ohio,Mercer,54
+Ohio,Miami,55
+Ohio,Monroe,56
+Ohio,Montgomery,57
+Ohio,Morgan,58
+Ohio,Morrow,59
+Ohio,Muskingum,60
+Ohio,Noble,61
+Ohio,Ottawa,62
+Ohio,Paulding,63
+Ohio,Perry,64
+Ohio,Pickaway,65
+Ohio,Pike,66
+Ohio,Portage,67
+Ohio,Preble,68
+Ohio,Putnam,69
+Ohio,Richland,70
+Ohio,Ross,71
+Ohio,Sandusky,72
+Ohio,Scioto,73
+Ohio,Seneca,74
+Ohio,Shelby,75
+Ohio,Stark,76
+Ohio,Summit,77
+Ohio,Trumbull,78
+Ohio,Tuscarawas,79
+Ohio,Union,80
+Ohio,Van Wert,81
+Ohio,Vinton,82
+Ohio,Warren,83
+Ohio,Washington,84
+Ohio,Wayne,85
+Ohio,Williams,86
+Ohio,Wood,87
+Ohio,Wyandot,88
+Oklahoma,Adair,1
+Oklahoma,Alfalfa,2
+Oklahoma,Atoka,3
+Oklahoma,Beaver,4
+Oklahoma,Beckham,5
+Oklahoma,Blaine,6
+Oklahoma,Bryan,7
+Oklahoma,Caddo,8
+Oklahoma,Canadian,9
+Oklahoma,Carter,10
+Oklahoma,Cherokee,11
+Oklahoma,Choctaw,12
+Oklahoma,Cimarron,13
+Oklahoma,Cleveland,14
+Oklahoma,Coal,15
+Oklahoma,Comanche,16
+Oklahoma,Cotton,17
+Oklahoma,Craig,18
+Oklahoma,Creek,19
+Oklahoma,Custer,20
+Oklahoma,Delaware,21
+Oklahoma,Dewey,22
+Oklahoma,Ellis,23
+Oklahoma,Garfield,24
+Oklahoma,Garvin,25
+Oklahoma,Grady,26
+Oklahoma,Grant,27
+Oklahoma,Greer,28
+Oklahoma,Harmon,29
+Oklahoma,Harper,30
+Oklahoma,Haskell,31
+Oklahoma,Hughes,32
+Oklahoma,Jackson,33
+Oklahoma,Jefferson,34
+Oklahoma,Johnston,35
+Oklahoma,Kay,36
+Oklahoma,Kingfisher,37
+Oklahoma,Kiowa,38
+Oklahoma,Latimer,39
+Oklahoma,Le Flore,40
+Oklahoma,Lincoln,41
+Oklahoma,Logan,42
+Oklahoma,Love,43
+Oklahoma,Major,44
+Oklahoma,Marshall,45
+Oklahoma,Mayes,46
+Oklahoma,Mcclain,47
+Oklahoma,Mccurtain,48
+Oklahoma,Mcintosh,49
+Oklahoma,Murray,50
+Oklahoma,Muskogee,51
+Oklahoma,Noble,52
+Oklahoma,Nowata,53
+Oklahoma,Okfuskee,54
+Oklahoma,Oklahoma,55
+Oklahoma,Okmulgee,56
+Oklahoma,Osage,57
+Oklahoma,Ottawa,58
+Oklahoma,Pawnee,59
+Oklahoma,Payne,60
+Oklahoma,Pittsburg,61
+Oklahoma,Pontotoc,62
+Oklahoma,Pottowatomie,63
+Oklahoma,Pushmataha,64
+Oklahoma,Roger Mills,65
+Oklahoma,Rogers,66
+Oklahoma,Seminole,67
+Oklahoma,Sequoyah,68
+Oklahoma,Stephens,69
+Oklahoma,Texas,70
+Oklahoma,Tillman,71
+Oklahoma,Tulsa,72
+Oklahoma,Wagoner,73
+Oklahoma,Washington,74
+Oklahoma,Washita,75
+Oklahoma,Woods,76
+Oklahoma,Woodward,77
+Oregon,Baker,1
+Oregon,Benton,2
+Oregon,Clackamas,3
+Oregon,Clatsop,4
+Oregon,Columbia,5
+Oregon,Coos,6
+Oregon,Crook,7
+Oregon,Curry,8
+Oregon,Deschutes,9
+Oregon,Douglas,10
+Oregon,Gilliam,11
+Oregon,Grant,12
+Oregon,Harney,13
+Oregon,Hood River,14
+Oregon,Jackson,15
+Oregon,Jefferson,16
+Oregon,Josephine,17
+Oregon,Klamath,18
+Oregon,Lake,19
+Oregon,Lane,20
+Oregon,Lincoln,21
+Oregon,Linn,22
+Oregon,Malheur,23
+Oregon,Marion,24
+Oregon,Morrow,25
+Oregon,Multnomah,26
+Oregon,Polk,27
+Oregon,Sherman,28
+Oregon,Tillamook,29
+Oregon,Umatilla,30
+Oregon,Union,31
+Oregon,Wallowa,32
+Oregon,Wasco,33
+Oregon,Washington,34
+Oregon,Wheeler,35
+Oregon,Yamhill,36
+Pennsylvania,Adams,1
+Pennsylvania,Allegheny,2
+Pennsylvania,Armstrong,3
+Pennsylvania,Beaver,4
+Pennsylvania,Bedford,5
+Pennsylvania,Berks,6
+Pennsylvania,Blair,7
+Pennsylvania,Bradford,8
+Pennsylvania,Bucks,9
+Pennsylvania,Butler,10
+Pennsylvania,Cambria,11
+Pennsylvania,Cameron,12
+Pennsylvania,Carbon,13
+Pennsylvania,Centre,14
+Pennsylvania,Chester,15
+Pennsylvania,Clarion,16
+Pennsylvania,Clearfield,17
+Pennsylvania,Clinton,18
+Pennsylvania,Columbia,19
+Pennsylvania,Crawford,20
+Pennsylvania,Cumberland,21
+Pennsylvania,Dauphin,22
+Pennsylvania,Delaware,23
+Pennsylvania,Elk,24
+Pennsylvania,Erie,25
+Pennsylvania,Fayette,26
+Pennsylvania,Forest,27
+Pennsylvania,Franklin,28
+Pennsylvania,Fulton,29
+Pennsylvania,Greene,30
+Pennsylvania,Huntingdon,31
+Pennsylvania,Indiana,32
+Pennsylvania,Jefferson,33
+Pennsylvania,Juniata,34
+Pennsylvania,Lackawanna,35
+Pennsylvania,Lancaster,36
+Pennsylvania,Lawrence,37
+Pennsylvania,Lebanon,38
+Pennsylvania,Lehigh,39
+Pennsylvania,Luzerne,40
+Pennsylvania,Lycoming,41
+Pennsylvania,Mckean,42
+Pennsylvania,Mercer,43
+Pennsylvania,Mifflin,44
+Pennsylvania,Monroe,45
+Pennsylvania,Montgomery,46
+Pennsylvania,Montour,47
+Pennsylvania,Northampton,48
+Pennsylvania,Northumberland,49
+Pennsylvania,Perry,50
+Pennsylvania,Philadelphia,51
+Pennsylvania,Pike,52
+Pennsylvania,Potter,53
+Pennsylvania,Schuylkill,54
+Pennsylvania,Snyder,55
+Pennsylvania,Somerset,56
+Pennsylvania,Sullivan,57
+Pennsylvania,Susquehanna,58
+Pennsylvania,Tioga,59
+Pennsylvania,Union,60
+Pennsylvania,Venango,61
+Pennsylvania,Warren,62
+Pennsylvania,Washington,63
+Pennsylvania,Wayne,64
+Pennsylvania,Westmoreland,65
+Pennsylvania,Wyoming,66
+Pennsylvania,York,67
+Rhode Island,Bristol,1
+Rhode Island,Kent,2
+Rhode Island,Newport,3
+Rhode Island,Providence,4
+Rhode Island,Washington,5
+South Carolina,Abbeville,1
+South Carolina,Aiken,2
+South Carolina,Allendale,3
+South Carolina,Anderson,4
+South Carolina,Bamberg,5
+South Carolina,Barnwell,6
+South Carolina,Beaufort,7
+South Carolina,Berkeley,8
+South Carolina,Calhoun,9
+South Carolina,Charleston,10
+South Carolina,Cherokee,11
+South Carolina,Chester,12
+South Carolina,Chesterfield,13
+South Carolina,Clarendon,14
+South Carolina,Colleton,15
+South Carolina,Darlington,16
+South Carolina,Dillon,17
+South Carolina,Dorchester,18
+South Carolina,Edgefield,19
+South Carolina,Fairfield,20
+South Carolina,Florence,21
+South Carolina,Georgetown,22
+South Carolina,Greenville,23
+South Carolina,Greenwood,24
+South Carolina,Hampton,25
+South Carolina,Horry,26
+South Carolina,Jasper,27
+South Carolina,Kershaw,28
+South Carolina,Lancaster,29
+South Carolina,Laurens,30
+South Carolina,Lee,31
+South Carolina,Lexington,32
+South Carolina,Marion,33
+South Carolina,Marlboro,34
+South Carolina,Mccormick,35
+South Carolina,Newberry,36
+South Carolina,Oconee,37
+South Carolina,Orangeburg,38
+South Carolina,Pickens,39
+South Carolina,Richland,40
+South Carolina,Saluda,41
+South Carolina,Spartanburg,42
+South Carolina,Sumter,43
+South Carolina,Union,44
+South Carolina,Williamsburg,45
+South Carolina,York,46
+South Dakota,Armstrong,1
+South Dakota,Aurora,2
+South Dakota,Beadle,3
+South Dakota,Bennett,4
+South Dakota,Bon Homme,5
+South Dakota,Brookings,6
+South Dakota,Brown,7
+South Dakota,Brule,8
+South Dakota,Buffalo,9
+South Dakota,Butte,10
+South Dakota,Campbell,11
+South Dakota,Charles Mix,12
+South Dakota,Clark,13
+South Dakota,Clay,14
+South Dakota,Codington,15
+South Dakota,Corson,16
+South Dakota,Custer,17
+South Dakota,Davison,18
+South Dakota,Day,19
+South Dakota,Deuel,20
+South Dakota,Dewey,21
+South Dakota,Douglas,22
+South Dakota,Edmunds,23
+South Dakota,Fall River,24
+South Dakota,Faulk,25
+South Dakota,Grant,26
+South Dakota,Gregory,27
+South Dakota,Haakon,28
+South Dakota,Hamlin,29
+South Dakota,Hand,30
+South Dakota,Hanson,31
+South Dakota,Harding,32
+South Dakota,Hughes,33
+South Dakota,Hutchinson,34
+South Dakota,Hyde,35
+South Dakota,Jackson,36
+South Dakota,Jerauld,37
+South Dakota,Jones,38
+South Dakota,Kingsbury,39
+South Dakota,Lake,40
+South Dakota,Lawrence,41
+South Dakota,Lincoln,42
+South Dakota,Lyman,43
+South Dakota,Marshall,44
+South Dakota,Mccook,45
+South Dakota,Mcpherson,46
+South Dakota,Meade,47
+South Dakota,Mellette,48
+South Dakota,Miner,49
+South Dakota,Minnehaha,50
+South Dakota,Moody,51
+South Dakota,Pennington,52
+South Dakota,Perkins,53
+South Dakota,Potter,54
+South Dakota,Roberts,55
+South Dakota,Sanborn,56
+South Dakota,Shannon,57
+South Dakota,Spink,58
+South Dakota,Stanley,59
+South Dakota,Sully,60
+South Dakota,Todd,61
+South Dakota,Tripp,62
+South Dakota,Turner,63
+South Dakota,Union,64
+South Dakota,Walworth,65
+South Dakota,Washabaugh,66
+South Dakota,Washington,67
+South Dakota,Yankton,68
+South Dakota,Ziebach,69
+Tennessee,Anderson,1
+Tennessee,Bedford,2
+Tennessee,Benton,3
+Tennessee,Bledsoe,4
+Tennessee,Blount,5
+Tennessee,Bradley,6
+Tennessee,Campbell,7
+Tennessee,Cannon,8
+Tennessee,Carroll,9
+Tennessee,Carter,10
+Tennessee,Cheatham,11
+Tennessee,Chester,12
+Tennessee,Claiborne,13
+Tennessee,Clay,14
+Tennessee,Cocke,15
+Tennessee,Coffee,16
+Tennessee,Crockett,17
+Tennessee,Cumberland,18
+Tennessee,Davidson,19
+Tennessee,De Kalb,20
+Tennessee,Decatur,21
+Tennessee,Dickson,22
+Tennessee,Dyer,23
+Tennessee,Fayette,24
+Tennessee,Fentress,25
+Tennessee,Franklin,26
+Tennessee,Gibson,27
+Tennessee,Giles,28
+Tennessee,Grainger,29
+Tennessee,Greene,30
+Tennessee,Grundy,31
+Tennessee,Hamblen,32
+Tennessee,Hamilton,33
+Tennessee,Hancock,34
+Tennessee,Hardeman,35
+Tennessee,Hardin,36
+Tennessee,Hawkins,37
+Tennessee,Haywood,38
+Tennessee,Henderson,39
+Tennessee,Henry,40
+Tennessee,Hickman,41
+Tennessee,Houston,42
+Tennessee,Humphreys,43
+Tennessee,Jackson,44
+Tennessee,Jefferson,45
+Tennessee,Johnson,46
+Tennessee,Knox,47
+Tennessee,Lake,48
+Tennessee,Lauderdale,49
+Tennessee,Lawrence,50
+Tennessee,Lewis,51
+Tennessee,Lincoln,52
+Tennessee,Loudon,53
+Tennessee,Macon,54
+Tennessee,Madison,55
+Tennessee,Marion,56
+Tennessee,Marshall,57
+Tennessee,Maury,58
+Tennessee,McMinn,59
+Tennessee,McNairy,60
+Tennessee,Meigs,61
+Tennessee,Monroe,62
+Tennessee,Montgomery,63
+Tennessee,Moore,64
+Tennessee,Morgan,65
+Tennessee,Obion,66
+Tennessee,Overton,67
+Tennessee,Perry,68
+Tennessee,Pickett,69
+Tennessee,Polk,70
+Tennessee,Putnam,71
+Tennessee,Rhea,72
+Tennessee,Roane,73
+Tennessee,Robertson,74
+Tennessee,Rutherford,75
+Tennessee,Scott,76
+Tennessee,Sequatchie,77
+Tennessee,Sevier,78
+Tennessee,Shelby,79
+Tennessee,Smith,80
+Tennessee,Stewart,81
+Tennessee,Sullivan,82
+Tennessee,Sumner,83
+Tennessee,Tipton,84
+Tennessee,Trousdale,85
+Tennessee,Unicoi,86
+Tennessee,Union,87
+Tennessee,Van Buren,88
+Tennessee,Warren,89
+Tennessee,Washington,90
+Tennessee,Wayne,91
+Tennessee,Weakley,92
+Tennessee,White,93
+Tennessee,Williamson,94
+Tennessee,Wilson,95
+Texas,Anderson,1
+Texas,Andrews,2
+Texas,Angelina,3
+Texas,Aransas,4
+Texas,Archer,5
+Texas,Armstrong,6
+Texas,Atascosa,7
+Texas,Austin,8
+Texas,Bailey,9
+Texas,Bandera,10
+Texas,Bastrop,11
+Texas,Baylor,12
+Texas,Bee,13
+Texas,Bell,14
+Texas,Bexar,15
+Texas,Blanco,16
+Texas,Borden,17
+Texas,Bosque,18
+Texas,Bowie,19
+Texas,Brazoria,20
+Texas,Brazos,21
+Texas,Brewster,22
+Texas,Briscoe,23
+Texas,Brooks,24
+Texas,Brown,25
+Texas,Burleson,26
+Texas,Burnet,27
+Texas,Caldwell,28
+Texas,Calhoun,29
+Texas,Callahan,30
+Texas,Cameron,31
+Texas,Camp,32
+Texas,Carson,33
+Texas,Cass,34
+Texas,Castro,35
+Texas,Chambers,36
+Texas,Cherokee,37
+Texas,Childress,38
+Texas,Clay,39
+Texas,Cochran,40
+Texas,Coke,41
+Texas,Coleman,42
+Texas,Collin,43
+Texas,Collingsworth,44
+Texas,Colorado,45
+Texas,Comal,46
+Texas,Comanche,47
+Texas,Concho,48
+Texas,Cooke,49
+Texas,Coryell,50
+Texas,Cottle,51
+Texas,Crane,52
+Texas,Crockett,53
+Texas,Crosby,54
+Texas,Culberson,55
+Texas,Dallam,56
+Texas,Dallas,57
+Texas,Dawson,58
+Texas,De Witt,59
+Texas,Deaf Smith,60
+Texas,Delta,61
+Texas,Denton,62
+Texas,Dickens,63
+Texas,Dimmit,64
+Texas,Donley,65
+Texas,Duval,66
+Texas,Eastland,67
+Texas,Ector,68
+Texas,Edwards,69
+Texas,El Paso,70
+Texas,Ellis,71
+Texas,Erath,72
+Texas,Falls,73
+Texas,Fannin,74
+Texas,Fayette,75
+Texas,Fisher,76
+Texas,Floyd,77
+Texas,Foard,78
+Texas,Fort Bend,79
+Texas,Franklin,80
+Texas,Freestone,81
+Texas,Frio,82
+Texas,Gaines,83
+Texas,Galveston,84
+Texas,Garza,85
+Texas,Gillespie,86
+Texas,Glasscock,87
+Texas,Goliad,88
+Texas,Gonzales,89
+Texas,Gray,90
+Texas,Grayson,91
+Texas,Gregg,92
+Texas,Grimes,93
+Texas,Guadalupe,94
+Texas,Hale,95
+Texas,Hall,96
+Texas,Hamilton,97
+Texas,Hansford,98
+Texas,Hardeman,99
+Texas,Hardin,100
+Texas,Harris,101
+Texas,Harrison,102
+Texas,Hartley,103
+Texas,Haskell,104
+Texas,Hays,105
+Texas,Hemphill,106
+Texas,Henderson,107
+Texas,Hidalgo,108
+Texas,Hill,109
+Texas,Hockley,110
+Texas,Hood,111
+Texas,Hopkins,112
+Texas,Houston,113
+Texas,Howard,114
+Texas,Hudspeth,115
+Texas,Hunt,116
+Texas,Hutchinson,117
+Texas,Irion,118
+Texas,Jack,119
+Texas,Jackson,120
+Texas,Jasper,121
+Texas,Jeff Davis,122
+Texas,Jefferson,123
+Texas,Jim Hogg,124
+Texas,Jim Wells,125
+Texas,Johnson,126
+Texas,Jones,127
+Texas,Karnes,128
+Texas,Kaufman,129
+Texas,Kendall,130
+Texas,Kenedy,131
+Texas,Kent,132
+Texas,Kerr,133
+Texas,Kimble,134
+Texas,King,135
+Texas,Kinney,136
+Texas,Kleberg,137
+Texas,Knox,138
+Texas,La Salle,139
+Texas,Lamar,140
+Texas,Lamb,141
+Texas,Lampasas,142
+Texas,Lavaca,143
+Texas,Lee,144
+Texas,Leon,145
+Texas,Liberty,146
+Texas,Limestone,147
+Texas,Lipscomb,148
+Texas,Live Oak,149
+Texas,Llano,150
+Texas,Loving,151
+Texas,Lubbock,152
+Texas,Lynn,153
+Texas,Madison,154
+Texas,Marion,155
+Texas,Martin,156
+Texas,Mason,157
+Texas,Matagorda,158
+Texas,Maverick,159
+Texas,Mcculloch,160
+Texas,Mclennan,161
+Texas,Mcmullen,162
+Texas,Medina,163
+Texas,Menard,164
+Texas,Midland,165
+Texas,Milam,166
+Texas,Mills,167
+Texas,Mitchell,168
+Texas,Montague,169
+Texas,Montgomery,170
+Texas,Moore,171
+Texas,Morris,172
+Texas,Motley,173
+Texas,Nacogdoches,174
+Texas,Navarro,175
+Texas,Newton,176
+Texas,Nolan,177
+Texas,Nueces,178
+Texas,Ochiltree,179
+Texas,Oldham,180
+Texas,Orange,181
+Texas,Palo Pinto,182
+Texas,Panola,183
+Texas,Parker,184
+Texas,Parmer,185
+Texas,Pecos,186
+Texas,Polk,187
+Texas,Potter,188
+Texas,Presidio,189
+Texas,Rains,190
+Texas,Randall,191
+Texas,Reagan,192
+Texas,Real,193
+Texas,Red River,194
+Texas,Reeves,195
+Texas,Refugio,196
+Texas,Roberts,197
+Texas,Robertson,198
+Texas,Rockwall,199
+Texas,Runnels,200
+Texas,Rusk,201
+Texas,Sabine,202
+Texas,San Augustine,203
+Texas,San Jacinto,204
+Texas,San Patricio,205
+Texas,San Saba,206
+Texas,Schleicher,207
+Texas,Scurry,208
+Texas,Shackelford,209
+Texas,Shelby,210
+Texas,Sherman,211
+Texas,Smith,212
+Texas,Somervell,213
+Texas,Starr,214
+Texas,Stephens,215
+Texas,Sterling,216
+Texas,Stonewall,217
+Texas,Sutton,218
+Texas,Swisher,219
+Texas,Tarrant,220
+Texas,Taylor,221
+Texas,Terrell,222
+Texas,Terry,223
+Texas,Throckmorton,224
+Texas,Titus,225
+Texas,Tom Green,226
+Texas,Travis,227
+Texas,Trinity,228
+Texas,Tyler,229
+Texas,Upshur,230
+Texas,Upton,231
+Texas,Uvalde,232
+Texas,Val Verde,233
+Texas,Van Zandt,234
+Texas,Victoria,235
+Texas,Walker,236
+Texas,Waller,237
+Texas,Ward,238
+Texas,Washington,239
+Texas,Webb,240
+Texas,Wharton,241
+Texas,Wheeler,242
+Texas,Wichita,243
+Texas,Wilbarger,244
+Texas,Willacy,245
+Texas,Williamson,246
+Texas,Wilson,247
+Texas,Winkler,248
+Texas,Wise,249
+Texas,Wood,250
+Texas,Yoakum,251
+Texas,Young,252
+Texas,Zapata,253
+Texas,Zavala,254
+Utah,Beaver,1
+Utah,Box Elder,2
+Utah,Cache,3
+Utah,Carbon,4
+Utah,Daggett,5
+Utah,Davis,6
+Utah,Duchesne,7
+Utah,Emery,8
+Utah,Garfield,9
+Utah,Grand,10
+Utah,Iron,11
+Utah,Juab,12
+Utah,Kane,13
+Utah,Millard,14
+Utah,Morgan,15
+Utah,Piute,16
+Utah,Rich,17
+Utah,Salt Lake,18
+Utah,San Juan,19
+Utah,Sanpete,20
+Utah,Sevier,21
+Utah,Summit,22
+Utah,Tooele,23
+Utah,Uintah,24
+Utah,Utah,25
+Utah,Wasatch,26
+Utah,Washington,27
+Utah,Wayne,28
+Utah,Weber,29
+Vermont,Addison,1
+Vermont,Bennington,2
+Vermont,Caledonia,3
+Vermont,Chittenden,4
+Vermont,Essex,5
+Vermont,Franklin,6
+Vermont,Grand Isle,7
+Vermont,Lamoille,8
+Vermont,Orange,9
+Vermont,Orleans,10
+Vermont,Rutland,11
+Vermont,Washington,12
+Vermont,Windham,13
+Vermont,Windsor,14
+Virginia,Accomack,1
+Virginia,Albemarle,2
+Virginia,Alexandria City,3
+Virginia,Alleghany,4
+Virginia,Amelia,5
+Virginia,Amherst,6
+Virginia,Appomattox,7
+Virginia,Arlington,8
+Virginia,Augusta,9
+Virginia,Bath,10
+Virginia,Bedford,11
+Virginia,Bland,12
+Virginia,Botetourt,13
+Virginia,Bristol City,14
+Virginia,Brunswick,15
+Virginia,Buchanan,16
+Virginia,Buckingham,17
+Virginia,Buena Vista City,18
+Virginia,Campbell,19
+Virginia,Caroline,20
+Virginia,Carroll,21
+Virginia,Charles City,22
+Virginia,Charlotte,23
+Virginia,Charlottesville City,24
+Virginia,Chesterfield,25
+Virginia,Clarke,26
+Virginia,Clifton Forge City,27
+Virginia,Craig,28
+Virginia,Culpeper,29
+Virginia,Cumberland,30
+Virginia,Danville City,31
+Virginia,Dickenson,32
+Virginia,Dinwiddie,33
+Virginia,Elizabeth City,34
+Virginia,Essex,35
+Virginia,Fairfax,36
+Virginia,Fauquier,37
+Virginia,Floyd,38
+Virginia,Fluvanna,39
+Virginia,Franklin,40
+Virginia,Frederick,41
+Virginia,Fredericksburg City,42
+Virginia,Giles,43
+Virginia,Gloucester,44
+Virginia,Goochland,45
+Virginia,Grayson,46
+Virginia,Greene,47
+Virginia,Greensville,48
+Virginia,Halifax,49
+Virginia,Hampton City,50
+Virginia,Hanover,51
+Virginia,Harrisonburg City,52
+Virginia,Henrico,53
+Virginia,Henry,54
+Virginia,Highland,55
+Virginia,Hopewell City,56
+Virginia,Isle Of Wight,57
+Virginia,James City,58
+Virginia,King And Queen,59
+Virginia,King George,60
+Virginia,King William,61
+Virginia,Lancaster,62
+Virginia,Lee,63
+Virginia,Loudoun,64
+Virginia,Louisa,65
+Virginia,Lunenburg,66
+Virginia,Lynchburg City,67
+Virginia,Madison,68
+Virginia,Martinsville City,69
+Virginia,Matthews,70
+Virginia,Mecklenburg,71
+Virginia,Middlesex,72
+Virginia,Montgomery,73
+Virginia,Nansemond,74
+Virginia,Nelson,75
+Virginia,New Kent,76
+Virginia,Newport News City,77
+Virginia,Norfolk,78
+Virginia,Norfolk City,79
+Virginia,Northampton,80
+Virginia,Northumberland,81
+Virginia,Nottoway,82
+Virginia,Orange,83
+Virginia,Page,84
+Virginia,Patrick,85
+Virginia,Petersburg City,86
+Virginia,Pittsylvania,87
+Virginia,Portsmouth City,88
+Virginia,Powhatan,89
+Virginia,Prince Edward,90
+Virginia,Prince George,91
+Virginia,Prince William,92
+Virginia,Princess Anne,93
+Virginia,Pulaski,94
+Virginia,Radford City,95
+Virginia,Rappahannock,96
+Virginia,Richmond,97
+Virginia,Richmond City,98
+Virginia,Roanoke,99
+Virginia,Roanoke City,100
+Virginia,Rockbridge,101
+Virginia,Rockingham,102
+Virginia,Russell,103
+Virginia,Scott,104
+Virginia,Shenandoah,105
+Virginia,Smyth,106
+Virginia,South Norfolk City,107
+Virginia,Southampton,108
+Virginia,Spotsylvania,109
+Virginia,Stafford,110
+Virginia,Staunton City,111
+Virginia,Suffolk City,112
+Virginia,Surry,113
+Virginia,Sussex,114
+Virginia,Tazewell,115
+Virginia,Warren,116
+Virginia,Warwick,117
+Virginia,Washington,118
+Virginia,Westmoreland,119
+Virginia,Williamsburg City,120
+Virginia,Winchester City,121
+Virginia,Wise,122
+Virginia,Wythe,123
+Virginia,York,124
+Washington,Adams,1
+Washington,Asotin,2
+Washington,Benton,3
+Washington,Chelan,4
+Washington,Clallam,5
+Washington,Clark,6
+Washington,Columbia,7
+Washington,Cowlitz,8
+Washington,Douglas,9
+Washington,Ferry,10
+Washington,Franklin,11
+Washington,Garfield,12
+Washington,Grant,13
+Washington,Grays Harbor,14
+Washington,Island,15
+Washington,Jefferson,16
+Washington,King,17
+Washington,Kitsap,18
+Washington,Kittitas,19
+Washington,Klikatat,20
+Washington,Lewis,21
+Washington,Lincoln,22
+Washington,Mason,23
+Washington,Okanogan,24
+Washington,Pacific,25
+Washington,Pend Oreille,26
+Washington,Pierce,27
+Washington,San Juan,28
+Washington,Skagit,29
+Washington,Skamania,30
+Washington,Snohomish,31
+Washington,Spokane,32
+Washington,Stevens,33
+Washington,Thurston,34
+Washington,Wahkiakum,35
+Washington,Walla Walla,36
+Washington,Whatcom,37
+Washington,Whitman,38
+Washington,Yakima,39
+West Virginia,Barbour,1
+West Virginia,Berkeley,2
+West Virginia,Boone,3
+West Virginia,Braxton,4
+West Virginia,Brooke,5
+West Virginia,Cabell,6
+West Virginia,Calhoun,7
+West Virginia,Clay,8
+West Virginia,Doddridge,9
+West Virginia,Fayette,10
+West Virginia,Gilmer,11
+West Virginia,Grant,12
+West Virginia,Greenbrier,13
+West Virginia,Hampshire,14
+West Virginia,Hancock,15
+West Virginia,Hardy,16
+West Virginia,Harrison,17
+West Virginia,Jackson,18
+West Virginia,Jefferson,19
+West Virginia,Kanawha,20
+West Virginia,Lewis,21
+West Virginia,Lincoln,22
+West Virginia,Logan,23
+West Virginia,Marion,24
+West Virginia,Marshall,25
+West Virginia,Mason,26
+West Virginia,McDowell,27
+West Virginia,Mercer,28
+West Virginia,Mineral,29
+West Virginia,Mingo,30
+West Virginia,Monongalia,31
+West Virginia,Monroe,32
+West Virginia,Morgan,33
+West Virginia,Nicholas,34
+West Virginia,Ohio,35
+West Virginia,Pendelton,36
+West Virginia,Pleasants,37
+West Virginia,Pocahontas,38
+West Virginia,Preston,39
+West Virginia,Putnam,40
+West Virginia,Raleigh,41
+West Virginia,Randolph,42
+West Virginia,Ritchie,43
+West Virginia,Roane,44
+West Virginia,Summers,45
+West Virginia,Taylor,46
+West Virginia,Tucker,47
+West Virginia,Tyler,48
+West Virginia,Upshur,49
+West Virginia,Wayne,50
+West Virginia,Webster,51
+West Virginia,Wetzel,52
+West Virginia,Wirt,53
+West Virginia,Wood,54
+West Virginia,Wyoming,55
+Wisconsin,Adams,1
+Wisconsin,Ashland,2
+Wisconsin,Barron,3
+Wisconsin,Bayfield,4
+Wisconsin,Brown,5
+Wisconsin,Buffalo,6
+Wisconsin,Burnett,7
+Wisconsin,Calumet,8
+Wisconsin,Chippewa,9
+Wisconsin,Clark,10
+Wisconsin,Columbia,11
+Wisconsin,Crawford,12
+Wisconsin,Dane,13
+Wisconsin,Dodge,14
+Wisconsin,Door,15
+Wisconsin,Douglas,16
+Wisconsin,Dunn,17
+Wisconsin,Eau Claire,18
+Wisconsin,Florence,19
+Wisconsin,Fond Du Lac,20
+Wisconsin,Forest,21
+Wisconsin,Grant,22
+Wisconsin,Green,23
+Wisconsin,Green Lake,24
+Wisconsin,Iowa,25
+Wisconsin,Iron,26
+Wisconsin,Jackson,27
+Wisconsin,Jefferson,28
+Wisconsin,Juneau,29
+Wisconsin,Kenosha,30
+Wisconsin,Kewaunee,31
+Wisconsin,La Crosse,32
+Wisconsin,Lafayette,33
+Wisconsin,Langlade,34
+Wisconsin,Lincoln,35
+Wisconsin,Manitowoc,36
+Wisconsin,Marathon,37
+Wisconsin,Marinette,38
+Wisconsin,Marquette,39
+Wisconsin,Milwaukee,40
+Wisconsin,Monroe,41
+Wisconsin,Oconto,42
+Wisconsin,Oneida,43
+Wisconsin,Outagamie,44
+Wisconsin,Ozaukee,45
+Wisconsin,Pepin,46
+Wisconsin,Pierce,47
+Wisconsin,Polk,48
+Wisconsin,Portage,49
+Wisconsin,Price,50
+Wisconsin,Racine,51
+Wisconsin,Richland,52
+Wisconsin,Rock,53
+Wisconsin,Rusk,54
+Wisconsin,Sauk,55
+Wisconsin,Sawyer,56
+Wisconsin,Shawano,57
+Wisconsin,Sheboygan,58
+Wisconsin,St Croix,59
+Wisconsin,Taylor,60
+Wisconsin,Trempealeau,61
+Wisconsin,Vernon,62
+Wisconsin,Vilas,63
+Wisconsin,Walworth,64
+Wisconsin,Washburn,65
+Wisconsin,Washington,66
+Wisconsin,Waukesha,67
+Wisconsin,Waupaca,68
+Wisconsin,Waushara,69
+Wisconsin,Winnebago,70
+Wisconsin,Wood,71
+Wyoming,Albany,1
+Wyoming,Big Horn,2
+Wyoming,Campbell,3
+Wyoming,Carbon,4
+Wyoming,Converse,5
+Wyoming,Crook,6
+Wyoming,Fremont,7
+Wyoming,Goshen,8
+Wyoming,Hot Springs,9
+Wyoming,Johnson,10
+Wyoming,Laramie,11
+Wyoming,Lincoln,12
+Wyoming,Natrona,13
+Wyoming,Niobrara,14
+Wyoming,Park,15
+Wyoming,Platte,16
+Wyoming,Sheridan,17
+Wyoming,Sublette,18
+Wyoming,Sweetwater,19
+Wyoming,Teton,20
+Wyoming,Uinta,21
+Wyoming,Washakie,22
+Wyoming,Weston,23
+Wyoming,Yellowstone National Park in Wyoming,24

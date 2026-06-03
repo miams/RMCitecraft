@@ -91,4 +91,10 @@ htmlcov/
 
 # Database backups
 *.rmtree.backup
+*.rmtree.backup-*
+backup/*.rmtree.backup-*
 *.db.backup
+.todos/
+
+# Large metrics databases (do not commit — exceed GitHub 100MB limit)
+metrics/data/*.db

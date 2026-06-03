@@ -1,0 +1,19 @@
+services:
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: rmcitecraft-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_INSTALL_PLUGINS=frser-sqlite-datasource,netsage-sankey-panel,esnet-chord-panel,esnet-arcdiagram-panel,marcusolsson-treemap-panel,esnet-networkmap-panel,equansdatahub-tree-panel
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_LOG_LEVEL=debug
+    volumes:
+      # Provisioning configuration
+      - ./provisioning:/etc/grafana/provisioning
+      # Dashboard JSON files
+      - ./dashboards:/var/lib/grafana/dashboards
+      # Map the ENTIRE data directory so SQLite can create journal files
+      - ./data:/var/lib/grafana/data

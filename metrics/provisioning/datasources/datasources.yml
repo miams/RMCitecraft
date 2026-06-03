@@ -1,0 +1,26 @@
+apiVersion: 1
+
+datasources:
+  - name: RootsMagic
+    type: frser-sqlite-datasource
+    uid: rootsmagic
+    access: proxy
+    url: /var/lib/grafana/data/rootsmagic_clean.db
+    jsonData:
+      path: /var/lib/grafana/data/rootsmagic_clean.db
+
+  - name: CensusDB
+    type: frser-sqlite-datasource
+    uid: censusdb
+    access: proxy
+    url: /var/lib/grafana/data/census.db
+    jsonData:
+      path: /var/lib/grafana/data/census.db
+
+  - name: BatchStateDB
+    type: frser-sqlite-datasource
+    uid: batchstatedb
+    access: proxy
+    url: /var/lib/grafana/data/batch_state.db
+    jsonData:
+      path: /var/lib/grafana/data/batch_state.db

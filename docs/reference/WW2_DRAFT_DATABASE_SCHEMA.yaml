@@ -1,0 +1,534 @@
+# WW2 Draft Registration Database Schema
+# Database: ~/.rmcitecraft/ww2-draft.db
+# Schema Version: 3
+# Purpose: Store structured metadata scraped from FamilySearch and AncestryLibrary draft registration records
+
+database_name: "ww2-draft"
+database_path: "~/.rmcitecraft/ww2-draft.db"
+schema_version: 3
+created_date: "2026-02-06"
+
+description: |
+  Sidecar database for WWII draft registration records scraped from FamilySearch and AncestryLibrary.
+  Stores detailed metadata, physical descriptions, and links to downloaded images.
+  Designed for 1-person-per-card records (simpler than census multi-person-per-page).
+
+tables:
+  # ==================== Extraction Batch Table ====================
+  - name: extraction_batch
+    description: "Tracks batches of draft registration extractions"
+    primary_key: batch_id
+
+    columns:
+      - name: batch_id
+        data_type: integer
+        description: "Auto-increment primary key"
+        required: true
+        auto_increment: true
+
+      - name: started_at
+        data_type: text
+        description: "ISO 8601 timestamp when batch started"
+        required: true
+        example: "2026-02-09T14:30:00Z"
+
+      - name: completed_at
+        data_type: text
+        description: "ISO 8601 timestamp when batch completed"
+        required: false
+        example: "2026-02-09T15:45:00Z"
+
+      - name: source
+        data_type: text
+        description: "Source of records"
+        required: true
+        valid_values: ["familysearch", "ancestrylibrary"]
+
+      - name: url_type
+        data_type: text
+        description: "Type of URL being processed"
+        required: true
+        valid_values: ["fs_1_1_person", "fs_3_1_image", "ancestry"]
+
+      - name: records_processed
+        data_type: integer
+        description: "Count of records processed in this batch"
+        required: true
+        default: 0
+
+      - name: notes
+        data_type: text
+        description: "Optional notes about this batch"
+        required: false
+
+  # ==================== Draft Registration Table ====================
+  - name: draft_registration
+    description: "Main table storing draft registration metadata and physical descriptions"
+    primary_key: registration_id
+
+    indexes:
+      - name: idx_draft_source_url
+        columns: [source_url]
+      - name: idx_draft_ark
+        columns: [ark_id]
+      - name: idx_draft_ancestry
+        columns: [collection_id, record_id]
+      - name: idx_draft_name
+        columns: [surname, given_name]
+      - name: idx_draft_batch
+        columns: [batch_id]
+
+    foreign_keys:
+      - column: batch_id
+        references: extraction_batch(batch_id)
+
+    columns:
+      # ========== Primary Key ==========
+      - name: registration_id
+        data_type: integer
+        description: "Auto-increment primary key"
+        required: true
+        auto_increment: true
+
+      # ========== Batch Tracking ==========
+      - name: batch_id
+        data_type: integer
+        description: "Foreign key to extraction_batch"
+        required: false
+
+      # ========== Source Information ==========
+      - name: source_url
+        data_type: text
+        description: "Full URL to the source record (FamilySearch ARK or Ancestry URL)"
+        required: true
+        example: "https://familysearch.org/ark:/61903/1:1:V8S9-ABC"
+
+      - name: source_type
+        data_type: text
+        description: "Source system"
+        required: true
+        valid_values: ["familysearch", "ancestrylibrary"]
+
+      - name: url_type
+        data_type: text
+        description: "Type of source URL"
+        required: true
+        valid_values: ["fs_1_1_person", "fs_3_1_image", "ancestry"]
+
+      - name: ark_id
+        data_type: text
+        description: "FamilySearch ARK identifier (if from FamilySearch)"
+        required: false
+        example: "61903/1:1:V8S9-ABC"
+
+      - name: collection_id
+        data_type: text
+        description: "Ancestry collection ID (if from Ancestry)"
+        required: false
+        example: "2238"
+
+      - name: record_id
+        data_type: text
+        description: "Ancestry record ID (if from Ancestry)"
+        required: false
+        example: "200350484"
+
+      # ========== Personal Identification ==========
+      - name: full_name
+        data_type: text
+        description: "Full name as it appears on the registration card"
+        required: true
+        example: "John Allan Smith"
+
+      - name: given_name
+        data_type: text
+        description: "Given (first/middle) name(s)"
+        required: false
+        example: "John Allan"
+
+      - name: surname
+        data_type: text
+        description: "Surname (last name)"
+        required: false
+        example: "Smith"
+
+      # ========== Birth Information ==========
+      - name: birth_date
+        data_type: text
+        description: "Birth date (format varies by source)"
+        required: false
+        example: "16 Jun 1922"
+
+      - name: birth_place
+        data_type: text
+        description: "Place of birth"
+        required: false
+        example: "Miami, Florida"
+
+      # ========== Residence Information ==========
+      - name: residence_street
+        data_type: text
+        description: "Street address at time of registration"
+        required: false
+        example: "2350 3rd St"
+
+      - name: residence_city
+        data_type: text
+        description: "City of residence"
+        required: false
+        example: "Los Angeles"
+
+      - name: residence_county
+        data_type: text
+        description: "County of residence"
+        required: false
+        example: "Los Angeles County"
+
+      - name: residence_state
+        data_type: text
+        description: "State of residence"
+        required: false
+        example: "California"
+
+      # ========== Emergency Contact ==========
+      - name: contact_person_name
+        data_type: text
+        description: "Name of person who will always know registrant's address"
+        required: false
+        example: "Mrs. Ernest James"
+
+      - name: contact_person_address
+        data_type: text
+        description: "Address of contact person"
+        required: false
+        example: "2050 L. St. NW"
+
+      - name: contact_person_relationship
+        data_type: text
+        description: "Relationship of contact person to registrant"
+        required: false
+        example: "Wife"
+
+      # ========== Employment ==========
+      - name: employer_name
+        data_type: text
+        description: "Name of employer"
+        required: false
+        example: "Angus Enoch. 850 3rd St. Law Orea."
+
+      - name: employer_place
+        data_type: text
+        description: "Place of employment"
+        required: false
+        example: "Figueroa smith Printing Co."
+
+      # ========== Physical Description ==========
+      - name: race
+        data_type: text
+        description: "Race as recorded on card"
+        required: false
+        valid_values: ["White", "Negro", "Oriental", "Indian", "Filipino"]
+        example: "White"
+
+      - name: height
+        data_type: text
+        description: "Height (format varies)"
+        required: false
+        example: "6 ft 2 in"
+
+      - name: weight
+        data_type: text
+        description: "Weight in pounds"
+        required: false
+        example: "180"
+
+      - name: complexion
+        data_type: text
+        description: "Skin complexion"
+        required: false
+        valid_values: ["Sallow", "Light", "Ruddy", "Dark", "Light brown", "Dark brown", "Black"]
+        example: "Sallow"
+
+      - name: eye_color
+        data_type: text
+        description: "Eye color"
+        required: false
+        valid_values: ["Blue", "Gray", "Hazel", "Brown", "Black"]
+        example: "Blue"
+
+      - name: hair_color
+        data_type: text
+        description: "Hair color"
+        required: false
+        valid_values: ["Blondo", "Red", "Brown", "Black", "Bald", "Light brown", "Dark brown", "Ruddy", "Dark", "Freckled"]
+        example: "Brown"
+
+      # ========== Registration Details ==========
+      - name: registration_date
+        data_type: text
+        description: "Date of registration"
+        required: false
+        example: "June 20, 1942"
+
+      - name: registration_place
+        data_type: text
+        description: "Place where registration occurred"
+        required: false
+        example: "Los Angeles, California"
+
+      - name: gender
+        data_type: text
+        description: "Gender (if recorded)"
+        required: false
+        valid_values: ["M", "F"]
+
+      - name: age
+        data_type: text
+        description: "Age at registration"
+        required: false
+        example: "20"
+
+      - name: serial_number
+        data_type: text
+        description: "Serial number assigned by Selective Service"
+        required: false
+        example: "U 103 6"
+
+      - name: order_number
+        data_type: text
+        description: "Order number on card"
+        required: false
+        example: "13481"
+
+      - name: local_board
+        data_type: text
+        description: "Local board number"
+        required: false
+        example: "Local Board 163"
+
+      # ========== Archival Information ==========
+      - name: nara_location
+        data_type: text
+        description: "NARA (National Archives) location"
+        required: false
+        example: "National Archives at St. Louis, Missouri"
+
+      - name: record_group
+        data_type: text
+        description: "NARA Record Group number"
+        required: false
+        example: "147"
+
+      - name: box_number
+        data_type: text
+        description: "Box number in NARA records"
+        required: false
+        example: "3"
+
+      # ========== Collection Metadata ==========
+      - name: collection_name
+        data_type: text
+        description: "Full name of the collection"
+        required: false
+        example: "United States World War II Draft Registration Cards, 1942"
+
+      - name: affiliate_publication_number
+        data_type: text
+        description: "Affiliate publication number (FamilySearch)"
+        required: false
+        example: "M1936"
+
+      - name: digital_folder_number
+        data_type: text
+        description: "Digital folder number"
+        required: false
+
+      - name: image_number
+        data_type: text
+        description: "Image number within collection"
+        required: false
+
+      # ========== Image Information ==========
+      - name: image_downloaded
+        data_type: integer
+        description: "Flag indicating if image was downloaded (0=no, 1=yes)"
+        required: true
+        default: 0
+        valid_values: [0, 1]
+
+      - name: image_file_path
+        data_type: text
+        description: "Full path to downloaded and processed image file"
+        required: false
+        example: "/Users/username/Genealogy/RootsMagic/Files/Records - Military/WW II - Draft Registration/Smith, John Allan (1922-1985).jpg"
+
+      # ========== Timestamps ==========
+      - name: extracted_at
+        data_type: text
+        description: "ISO 8601 timestamp when metadata was extracted"
+        required: true
+        example: "2026-02-09T17:05:33Z"
+
+      - name: created_date
+        data_type: text
+        description: "Local date when record was created (YYYY-MM-DD)"
+        required: false
+        example: "2026-02-09"
+
+      - name: created_time
+        data_type: text
+        description: "Local time when record was created (HH:MM:SS)"
+        required: false
+        example: "17:05:33"
+
+  # ==================== RMTree Link Table ====================
+  - name: rmtree_link
+    description: "Links draft registration records to RootsMagic database entities"
+    primary_key: link_id
+
+    indexes:
+      - name: idx_rmtree_registration
+        columns: [registration_id]
+      - name: idx_rmtree_person
+        columns: [rmtree_person_id]
+
+    foreign_keys:
+      - column: registration_id
+        references: draft_registration(registration_id)
+
+    columns:
+      - name: link_id
+        data_type: integer
+        description: "Auto-increment primary key"
+        required: true
+        auto_increment: true
+
+      - name: registration_id
+        data_type: integer
+        description: "Foreign key to draft_registration"
+        required: true
+
+      - name: rmtree_person_id
+        data_type: integer
+        description: "PersonID (RIN) in RootsMagic database"
+        required: false
+
+      - name: rmtree_citation_id
+        data_type: integer
+        description: "CitationID in RootsMagic database"
+        required: false
+
+      - name: rmtree_source_id
+        data_type: integer
+        description: "SourceID in RootsMagic database"
+        required: false
+
+      - name: rmtree_media_id
+        data_type: integer
+        description: "MediaID in RootsMagic database (for linked image)"
+        required: false
+
+      - name: rmtree_database
+        data_type: text
+        description: "Path or identifier of the RootsMagic database"
+        required: false
+        example: "/Users/username/Genealogy/Iiams.rmtree"
+
+      - name: match_method
+        data_type: text
+        description: "How the link was created"
+        required: true
+        valid_values: ["url_match", "rin_match", "manual"]
+
+      - name: linked_at
+        data_type: text
+        description: "ISO 8601 timestamp when link was created"
+        required: true
+        example: "2026-02-09T17:05:33Z"
+
+  # ==================== Schema Version Table ====================
+  - name: schema_version
+    description: "Tracks database schema migrations"
+    primary_key: version
+
+    columns:
+      - name: version
+        data_type: integer
+        description: "Schema version number"
+        required: true
+
+      - name: applied_at
+        data_type: text
+        description: "ISO 8601 timestamp when migration was applied"
+        required: true
+        example: "2026-02-09T12:00:00Z"
+
+# ==================== Usage Examples ====================
+usage_examples:
+  - description: "Query all registrations from California"
+    sql: |
+      SELECT full_name, birth_date, registration_date, serial_number
+      FROM draft_registration
+      WHERE residence_state = 'California'
+      ORDER BY surname, given_name;
+
+  - description: "Find registrations with downloaded images"
+    sql: |
+      SELECT full_name, image_file_path
+      FROM draft_registration
+      WHERE image_downloaded = 1;
+
+  - description: "Get batch statistics"
+    sql: |
+      SELECT
+        b.batch_id,
+        b.source,
+        b.url_type,
+        b.records_processed,
+        b.started_at,
+        b.completed_at,
+        COUNT(d.registration_id) as actual_records
+      FROM extraction_batch b
+      LEFT JOIN draft_registration d ON d.batch_id = b.batch_id
+      GROUP BY b.batch_id
+      ORDER BY b.started_at DESC;
+
+  - description: "Find records linked to RootsMagic"
+    sql: |
+      SELECT
+        d.full_name,
+        d.registration_date,
+        l.rmtree_person_id as RIN,
+        l.rmtree_citation_id,
+        l.match_method
+      FROM draft_registration d
+      JOIN rmtree_link l ON l.registration_id = d.registration_id
+      ORDER BY d.surname, d.given_name;
+
+# ==================== Migration History ====================
+migrations:
+  - version: 1
+    date: "2026-02-06"
+    description: "Initial schema creation with basic tables"
+
+  - version: 2
+    date: "2026-02-06"
+    description: "Added created_date and created_time fields"
+
+  - version: 3
+    date: "2026-02-09"
+    description: "Ensured created_date and created_time exist in all databases"
+
+# ==================== Related Documentation ====================
+related_docs:
+  - file: "docs/projects/DRAFT_REGISTRATION_FEATURE_REQUIREMENTS.md"
+    description: "Feature requirements and user stories"
+
+  - file: "docs/projects/DRAFT_CARD_IMAGE_TYPES.md"
+    description: "Image format reference with examples"
+
+  - file: "src/rmcitecraft/database/draft_registration_db.py"
+    description: "Python repository implementation"
+
+  - file: "src/rmcitecraft/services/draft_citation_builder.py"
+    description: "Evidence Explained citation formatter"

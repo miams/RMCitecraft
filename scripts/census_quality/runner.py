@@ -132,17 +132,28 @@ def run_quality_check(
     # Add media check issues if enabled
     media_file_check = None
     if media_check_result:
+        incomplete_links = media_check_result.incomplete_media_links or []
         media_file_check = {
             "sources_without_media": len(media_check_result.sources_without_media),
             "missing_files": len(media_check_result.missing_files),
             "orphaned_files": len(media_check_result.orphaned_files),
             "case_mismatches": len(media_check_result.case_mismatches),
+            "incomplete_links": len(incomplete_links),
             "total_linked_files": media_check_result.total_linked_files,
             "total_files_on_disk": media_check_result.total_files_on_disk,
             "sources_without_media_list": media_check_result.sources_without_media,
             "missing_files_list": media_check_result.missing_files,
             "orphaned_files_list": media_check_result.orphaned_files,
             "case_mismatches_list": media_check_result.case_mismatches,
+            "incomplete_links_list": [
+                {
+                    "source_id": s.source_id,
+                    "source_name": s.source_name,
+                    "media_file": s.media_file,
+                    "missing": s.missing_links,
+                }
+                for s in incomplete_links
+            ],
         }
 
         # Add issues for missing files
@@ -183,6 +194,21 @@ def run_quality_check(
                     message=f"Filename case mismatch: DB='{db_filename}' vs Disk='{disk_filename}'",
                     field="media",
                     current_value=f"{db_filename} -> {disk_filename}",
+                    category="media",
+                )
+            )
+
+        # Add issues for incomplete media links (not linked to source, citation, AND event)
+        for status in incomplete_links:
+            missing = ", ".join(status.missing_links)
+            all_issues.append(
+                Issue(
+                    source_id=status.source_id,
+                    issue_type="incomplete_media_links",
+                    severity="warning",
+                    message=f"Media not linked to: {missing}",
+                    field="media",
+                    current_value=status.media_file,
                     category="media",
                 )
             )

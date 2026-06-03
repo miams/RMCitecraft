@@ -34,6 +34,10 @@ class Config(BaseSettings):
         default="data/Iiams.rmtree",
         description="Path to RootsMagic .rmtree file",
     )
+    draft_metadata_db_path: str = Field(
+        default="~/.rmcitecraft/ww2-draft.db",
+        description="Path to draft registration metadata database",
+    )
     sqlite_icu_extension: str = Field(
         default="./sqlite-extension/icu.dylib",
         description="Path to ICU extension for RMNOCASE collation",
@@ -53,6 +57,10 @@ class Config(BaseSettings):
         description="Folder to monitor for census image downloads",
     )
     download_timeout_minutes: int = Field(default=15, ge=1, le=60)
+    draft_download_dir: str = Field(
+        default="~/.rmcitecraft/draft_downloads",
+        description="Temporary directory for draft registration downloads",
+    )
 
     # Logging
     log_level: str = Field(default="INFO", description="Logging level")
@@ -158,6 +166,46 @@ class Config(BaseSettings):
         description="Enable automatic page crash detection and recovery",
     )
 
+    # Draft Registration Image Processing Settings
+    draft_image_storage_dir: str = Field(
+        default="/Users/miams/Genealogy/RootsMagic/Files/Records - Military/WW II - Draft Registration",
+        description="Storage directory for processed draft registration images",
+    )
+    draft_image_keep_originals: bool = Field(
+        default=True,
+        description="Keep original downloaded images (set False after testing)",
+    )
+    draft_image_deskew_threshold: int = Field(
+        default=40,
+        ge=10,
+        le=90,
+        description="ImageMagick deskew threshold percentage",
+    )
+    draft_image_trim_fuzz: int = Field(
+        default=10,
+        ge=0,
+        le=50,
+        description="ImageMagick trim fuzz percentage for border detection",
+    )
+    draft_image_skew_tolerance: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=10.0,
+        description="Skew angle tolerance in degrees (skip deskew if below this)",
+    )
+    draft_image_combined_threshold: float = Field(
+        default=1.60,
+        ge=1.0,
+        le=2.0,
+        description="Aspect ratio threshold for detecting combined images",
+    )
+    draft_image_single_card_min: float = Field(
+        default=1.30,
+        ge=1.0,
+        le=2.0,
+        description="Minimum aspect ratio for single front card detection",
+    )
+
     @field_validator("rm_database_path", "sqlite_icu_extension")
     @classmethod
     def validate_path_exists(cls, v: str) -> str:
@@ -181,8 +229,13 @@ class Config(BaseSettings):
         return str(path)
 
     @field_validator(
-        "download_folder", "rm_media_root_directory",
-        "findagrave_state_db_path", "census_state_db_path"
+        "download_folder",
+        "rm_media_root_directory",
+        "findagrave_state_db_path",
+        "census_state_db_path",
+        "draft_metadata_db_path",
+        "draft_download_dir",
+        "draft_image_storage_dir",
     )
     @classmethod
     def expand_user_path(cls, v: str) -> str:

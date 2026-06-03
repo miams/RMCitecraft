@@ -170,9 +170,12 @@ class DraftRegistrationService:
             record_result.skip_reason = "FamilySearch processing and discovery both disabled"
             return record_result
 
-        if has_ancestry and not options.process_ancestry:
+        # Only skip Ancestry-only records when process_ancestry is disabled.
+        # Records that also have a FamilySearch URL should still be processed
+        # (their Ancestry URL is used for metadata; FS for images in standard mode).
+        if has_ancestry and not has_familysearch and not options.process_ancestry:
             record_result.skipped = True
-            record_result.skip_reason = "Ancestry processing disabled"
+            record_result.skip_reason = "Ancestry-only record but Ancestry processing disabled"
             return record_result
 
         # Run discovery if enabled and we don't already have an Ancestry URL
@@ -246,6 +249,13 @@ class DraftRegistrationService:
             registration.ancestry_url = record_result.discovered_ancestry_url
             logger.info(f"Added discovered Ancestry URL: {registration.ancestry_url}")
 
+        # Persist RIN from the source spreadsheet record
+        if rin:
+            registration.rin = rin
+            registration.rin_link_status = "linked"
+            registration.rin_link_method = "auto"
+            registration.rin_linked_at = datetime.now(timezone.utc).isoformat()
+
         registration.batch_id = self._get_batch_id()
         registration.extracted_at = datetime.now(timezone.utc).isoformat()
         if image_path:
@@ -285,6 +295,19 @@ class DraftRegistrationService:
         if not registration:
             record_result.message = "Ancestry scraping returned no data"
             return record_result
+
+        # Persist RIN from the source spreadsheet record
+        if rin:
+            registration.rin = rin
+            registration.rin_link_status = "linked"
+            registration.rin_link_method = "auto"
+            registration.rin_linked_at = datetime.now(timezone.utc).isoformat()
+
+        # Carry the FamilySearch URL from the citation field if not already set
+        if not registration.familysearch_url and record_result.record.familysearch_citation:
+            fs_url = self._extract_familysearch_url(record_result.record.familysearch_citation)
+            if fs_url:
+                registration.familysearch_url = fs_url
 
         registration.batch_id = self._get_batch_id()
         registration.extracted_at = datetime.now(timezone.utc).isoformat()

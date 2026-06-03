@@ -11,7 +11,20 @@ Project guidance for Claude Code. For machine-readable instructions, see [AGENTS
 
 ```bash
 # Start application
-uv run python src/rmcitecraft/main.py
+uv run python -m rmcitecraft start          # Start in foreground (recommended)
+uv run python src/rmcitecraft/main.py       # Alternative: direct script execution
+
+# CLI commands (requires uv run or installed package)
+uv run python -m rmcitecraft start          # Start in foreground
+uv run python -m rmcitecraft start -d       # Start as daemon (background)
+uv run python -m rmcitecraft stop           # Stop daemon
+uv run python -m rmcitecraft status         # Check status
+
+# If installed via pip/uv
+rmcitecraft start                           # Start in foreground
+rmcitecraft start -d                        # Start as daemon
+rmcitecraft stop                            # Stop daemon
+rmcitecraft status                          # Check status
 
 # Run tests
 uv run pytest                              # All tests
@@ -25,12 +38,20 @@ uv run ruff check . && uv run ruff format . && uv run mypy src/
 # Verify database connection
 uv run python sqlite-extension/python_example.py
 
-# CLI commands
-rmcitecraft start      # Start in foreground
-rmcitecraft start -d   # Start as daemon
-rmcitecraft stop       # Stop application
-rmcitecraft status     # Check status
 ```
+# For AI Agent Task Management
+Run `td usage --new-session` at conversation start (or after /clear).
+
+# Agents: Mandatory: use td usage --new-session to see open work.
+
+# Agents: Before context ends, ALWAYS run:
+td handoff <issue-id> --done "..." --remaining "..." --decision "..." --uncertain "..."
+
+**Note on Daemon Mode**: The `-d` flag runs RMCitecraft as a background daemon. Logs are written to:
+- `~/.rmcitecraft/stdout.log` - Standard output
+- `~/.rmcitecraft/stderr.log` - Standard error
+- `~/.rmcitecraft/rmcitecraft.log` - Application log
+- PID file: `~/.rmcitecraft/rmcitecraft.pid`
 
 ## Project Overview
 
@@ -48,10 +69,66 @@ rmcitecraft status     # Check status
 
 - **Census Batch Transcription**: Browser automation extracts FamilySearch data with household member matching
 - **Census Form Rendering**: 30-line census forms with persons at correct line positions (Jinja2 templates)
+- **Draft Registration Processing**: Automated WW2 draft card metadata extraction and image downloads
 - **Find a Grave Processing**: Automated memorial data extraction with image downloads
 - **Citation Validation**: `FormattedCitationValidator` validates against Evidence Explained standards
-- **State Persistence**: SQLite-based crash recovery at `~/.rmcitecraft/batch_state.db` and `~/.rmcitecraft/census.db`
+- **State Persistence**: SQLite-based crash recovery at `~/.rmcitecraft/batch_state.db`, `~/.rmcitecraft/census.db`, and `~/.rmcitecraft/ww2-draft.db`
 - **Dashboard**: Real-time analytics, session management, error analysis
+
+### Draft Registration Workflow (CRITICAL)
+
+**Source Hierarchy:**
+- **Metadata:** ALWAYS scraped from Ancestry (never FamilySearch) - superior data quality
+- **Images:** FamilySearch preferred (better quality), Ancestry fallback
+- **Citations:** FamilySearch preferred, Ancestry fallback
+
+**Processing Rules:**
+1. Records with FamilySearch citations:
+   - Discover Ancestry URL via search
+   - Scrape metadata from Ancestry Detail tab
+   - Download images from FamilySearch
+   - Save Ancestry URL to `ww2-draft.db`
+2. Records with Ancestry-only citations:
+   - Scrape metadata from Ancestry Detail tab
+   - Download images from Ancestry
+   - Save Ancestry URL to `ww2-draft.db`
+
+**Never scrape metadata from FamilySearch** - it lacks critical fields (gender, age, next of kin) that Ancestry provides.
+
+### ww2_draft_updated.xlsx — Field Semantics (CRITICAL)
+
+The file at `ww2_draft_updated.xlsx` is the master tracking spreadsheet for WW2 draft registration research.
+Columns: `rin, given_name, surname, birth_year, death_year, state, familysearch_citation, ancestry_url`
+
+**`familysearch_citation` field** is multi-purpose — its content determines workflow status:
+
+| Content | Meaning |
+|---------|---------|
+| FamilySearch URL / ARK citation | FS record found; Ancestry URL not yet discovered |
+| Ancestry URL (`ancestrylibrary.com`) | FS search failed; Ancestry record used as fallback |
+| Plain text explanation (e.g. "not found", "already serving in Navy") | FS search conducted and failed; no URL available |
+| Empty | FamilySearch has NOT been searched yet |
+
+**`ancestry_url` field:**
+- Populated → Ancestry record known; if not in `ww2-draft.db`, needs to be scraped
+- Empty + `familysearch_citation` has FS URL → have FS citation but Ancestry URL not yet discovered
+- `"record found, but no image"` (or similar text) → special note, not a real URL; treat as empty
+- Empty + `familysearch_citation` empty → nothing researched yet
+
+**Key rule:** Always verify `ancestry_url` is an actual URL before using it programmatically — users sometimes store explanatory notes in that field.
+
+## UI Modules
+
+RMCitecraft provides six main UI modules accessible through the NiceGUI interface:
+
+| Module | Description |
+|--------|-------------|
+| **Census Batch** | Batch process FamilySearch census records with AI extraction |
+| **Census Batch Transcriptions** | Import census data from FamilySearch for multiple sources |
+| **Find a Grave** | Extract memorial data, photos, and create burial events |
+| **Census Extractions** | View, verify, and edit extracted FamilySearch census data |
+| **Citation Manager** | View and manage Evidence Explained citations in RootsMagic |
+| **WW II Draft Registration** | Import WW II draft registration records from CSV/XLSX files |
 
 ## Before Modifying Code
 
@@ -129,6 +206,8 @@ Until refactored, changes to year-specific extraction logic require updating:
 ### RMNOCASE Collation (Required)
 
 **Always load ICU extension before querying.** Many fields (Surname, Given, Name) require RMNOCASE collation.
+
+**NEVER use the `sqlite3` command line tool** for database operations. It cannot load the ICU extension and will fail on any query or update involving RMNOCASE-collated columns. Always use Python with `connect_rmtree()`.
 
 ```python
 from rmcitecraft.database.connection import connect_rmtree

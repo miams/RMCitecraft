@@ -13,6 +13,38 @@ from .constants import CENSUS_DIRECTORIES, MEDIA_ROOT
 
 
 @dataclass
+class MediaLinkStatus:
+    """Status of media links for a single source."""
+
+    source_id: int
+    source_name: str
+    media_id: int
+    media_file: str
+    linked_to_source: bool
+    linked_to_citation: bool
+    linked_to_event: bool
+    citation_ids: list[int]
+    event_ids: list[int]
+
+    @property
+    def is_complete(self) -> bool:
+        """True if media is linked to source, citation, and event."""
+        return self.linked_to_source and self.linked_to_citation and self.linked_to_event
+
+    @property
+    def missing_links(self) -> list[str]:
+        """List of missing link types."""
+        missing = []
+        if not self.linked_to_source:
+            missing.append("source")
+        if not self.linked_to_citation:
+            missing.append("citation")
+        if not self.linked_to_event:
+            missing.append("event")
+        return missing
+
+
+@dataclass
 class MediaCheckResult:
     """Result of media file validation."""
 
@@ -24,6 +56,7 @@ class MediaCheckResult:
     ]  # (db_filename, disk_filename) where case differs
     total_linked_files: int
     total_files_on_disk: int
+    incomplete_media_links: list[MediaLinkStatus] | None = None  # Sources with incomplete triple-links
 
 
 def normalize_media_path(media_path: str, media_file: str) -> Path:
@@ -133,6 +166,127 @@ def get_all_media_in_directory(
     return files
 
 
+def check_media_triple_links(
+    conn: sqlite3.Connection, year_key: int | str, source_names: dict[int, str]
+) -> list[MediaLinkStatus]:
+    """Check that each census media is linked to source, citation, and event.
+
+    Census images should be linked in 3 places:
+    1. To the Source (OwnerType=3) - the census source record
+    2. To the Citation (OwnerType=4) - the citation linking person to source
+    3. To the Event (OwnerType=2) - the census event for the person
+
+    Args:
+        conn: Database connection
+        year_key: Census year or year-key like "1860-slave"
+        source_names: Dict mapping source_id to source name
+
+    Returns:
+        List of MediaLinkStatus for sources with incomplete links
+    """
+    cursor = conn.cursor()
+
+    # Determine source name prefix
+    if isinstance(year_key, str) and year_key.endswith("-slave"):
+        year = int(year_key.replace("-slave", ""))
+        name_prefix = f"Fed Census Slave Schedule: {year},%"
+    elif isinstance(year_key, str) and year_key.endswith("-mortality"):
+        year = int(year_key.replace("-mortality", ""))
+        name_prefix = f"Fed Census Mortality Schedule: {year},%"
+    else:
+        name_prefix = f"Fed Census: {year_key},%"
+
+    incomplete_links: list[MediaLinkStatus] = []
+
+    # For each source with media attached
+    cursor.execute(
+        """
+        SELECT s.SourceID, s.Name, m.MediaID, m.MediaFile
+        FROM SourceTable s
+        JOIN MediaLinkTable ml ON ml.OwnerID = s.SourceID AND ml.OwnerType = 3
+        JOIN MultimediaTable m ON m.MediaID = ml.MediaID
+        WHERE s.Name LIKE ?
+        ORDER BY s.SourceID
+    """,
+        (name_prefix,),
+    )
+
+    for row in cursor.fetchall():
+        source_id, source_name, media_id, media_file = row
+
+        # Check source link (OwnerType=3) - is this media linked to THIS source?
+        cursor.execute(
+            "SELECT 1 FROM MediaLinkTable WHERE MediaID = ? AND OwnerType = 3 AND OwnerID = ? LIMIT 1",
+            (media_id, source_id),
+        )
+        linked_to_source = cursor.fetchone() is not None
+
+        # Get citations for this source
+        cursor.execute(
+            "SELECT CitationID FROM CitationTable WHERE SourceID = ?", (source_id,)
+        )
+        citation_ids = [r[0] for r in cursor.fetchall()]
+
+        # Check citation link (OwnerType=4) - is this media linked to ANY citation for this source?
+        linked_to_citation = False
+        if citation_ids:
+            placeholders = ",".join("?" * len(citation_ids))
+            cursor.execute(
+                f"""
+                SELECT 1 FROM MediaLinkTable
+                WHERE MediaID = ? AND OwnerType = 4 AND OwnerID IN ({placeholders})
+                LIMIT 1
+            """,
+                [media_id] + citation_ids,
+            )
+            linked_to_citation = cursor.fetchone() is not None
+
+        # Get events linked to those citations (census events have OwnerType=2 in CitationLinkTable)
+        event_ids = []
+        if citation_ids:
+            placeholders = ",".join("?" * len(citation_ids))
+            cursor.execute(
+                f"""
+                SELECT DISTINCT OwnerID FROM CitationLinkTable
+                WHERE CitationID IN ({placeholders}) AND OwnerType = 2
+            """,
+                citation_ids,
+            )
+            event_ids = [r[0] for r in cursor.fetchall()]
+
+        # Check event link (OwnerType=2) - is this media linked to ANY event for this source's citations?
+        linked_to_event = False
+        if event_ids:
+            placeholders = ",".join("?" * len(event_ids))
+            cursor.execute(
+                f"""
+                SELECT 1 FROM MediaLinkTable
+                WHERE MediaID = ? AND OwnerType = 2 AND OwnerID IN ({placeholders})
+                LIMIT 1
+            """,
+                [media_id] + event_ids,
+            )
+            linked_to_event = cursor.fetchone() is not None
+
+        # Record if incomplete
+        status = MediaLinkStatus(
+            source_id=source_id,
+            source_name=source_name,
+            media_id=media_id,
+            media_file=media_file,
+            linked_to_source=linked_to_source,
+            linked_to_citation=linked_to_citation,
+            linked_to_event=linked_to_event,
+            citation_ids=citation_ids,
+            event_ids=event_ids,
+        )
+
+        if not status.is_complete:
+            incomplete_links.append(status)
+
+    return incomplete_links
+
+
 def run_media_check(conn: sqlite3.Connection, year_key: int | str) -> MediaCheckResult:
     """Run comprehensive media file validation for a census year.
 
@@ -226,6 +380,9 @@ def run_media_check(conn: sqlite3.Connection, year_key: int | str) -> MediaCheck
                         disk_filename = file_path.name
                         case_mismatches.append((db_filename, disk_filename))
 
+    # Check 5: Triple-link validation (source, citation, event)
+    incomplete_media_links = check_media_triple_links(conn, year_key, source_names)
+
     return MediaCheckResult(
         sources_without_media=sources_without_media,
         missing_files=missing_files,
@@ -233,4 +390,5 @@ def run_media_check(conn: sqlite3.Connection, year_key: int | str) -> MediaCheck
         case_mismatches=case_mismatches,
         total_linked_files=len(linked_media_paths),
         total_files_on_disk=total_files_on_disk,
+        incomplete_media_links=incomplete_media_links,
     )

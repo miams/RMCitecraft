@@ -1,0 +1,591 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 3,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 20,
+      "panels": [
+        {
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "rootsmagic"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "#5794F2",
+                    "value": 0
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 0,
+            "y": 1
+          },
+          "id": 1,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "queryText": "SELECT COUNT(DISTINCT p.PersonID) as total_persons FROM PersonTable p JOIN NameTable n ON p.PersonID = n.OwnerID WHERE n.IsPrimary = 1 AND ('$surname' = 'All' OR n.Surname = '$surname')",
+              "queryType": "table",
+              "rawQueryText": "SELECT COUNT(DISTINCT p.PersonID) as total_persons FROM PersonTable p JOIN NameTable n ON p.PersonID = n.OwnerID WHERE n.IsPrimary = 1 AND ('$surname' = 'All' OR n.Surname = '$surname')",
+              "refId": "A"
+            }
+          ],
+          "title": "Total Persons",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "rootsmagic"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "#5794F2",
+                    "value": 0
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 4,
+            "y": 1
+          },
+          "id": 2,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "queryText": "SELECT COUNT(*) as total_events FROM EventTable e JOIN NameTable n ON e.OwnerID = n.OwnerID WHERE n.IsPrimary = 1 AND ('$surname' = 'All' OR n.Surname = '$surname')",
+              "queryType": "table",
+              "rawQueryText": "SELECT COUNT(*) as total_events FROM EventTable e JOIN NameTable n ON e.OwnerID = n.OwnerID WHERE n.IsPrimary = 1 AND ('$surname' = 'All' OR n.Surname = '$surname')",
+              "refId": "A"
+            }
+          ],
+          "title": "Total Events",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "rootsmagic"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "#73BF69",
+                    "value": 0
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 8,
+            "y": 1
+          },
+          "id": 10,
+          "options": {
+            "minVizHeight": 75,
+            "minVizWidth": 75,
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true,
+            "sizing": "auto"
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "queryText": "SELECT ROUND(100.0 * COUNT(DISTINCT e.OwnerID) / (SELECT COUNT(DISTINCT p.PersonID) FROM PersonTable p JOIN NameTable n ON p.PersonID = n.OwnerID WHERE n.IsPrimary=1 AND ('$surname' = 'All' OR n.Surname = '$surname')), 1) as pct_coverage FROM EventTable e JOIN NameTable n ON e.OwnerID = n.OwnerID WHERE e.EventType = 1 AND e.OwnerType = 0 AND n.IsPrimary = 1 AND ('$surname' = 'All' OR n.Surname = '$surname')",
+              "queryType": "table",
+              "rawQueryText": "SELECT ROUND(100.0 * COUNT(DISTINCT e.OwnerID) / (SELECT COUNT(DISTINCT p.PersonID) FROM PersonTable p JOIN NameTable n ON p.PersonID = n.OwnerID WHERE n.IsPrimary=1 AND ('$surname' = 'All' OR n.Surname = '$surname')), 1) as pct_coverage FROM EventTable e JOIN NameTable n ON e.OwnerID = n.OwnerID WHERE e.EventType = 1 AND e.OwnerType = 0 AND n.IsPrimary = 1 AND ('$surname' = 'All' OR n.Surname = '$surname')",
+              "refId": "A"
+            }
+          ],
+          "title": "Birth Event Coverage",
+          "type": "gauge"
+        }
+      ],
+      "title": "Summary Metrics",
+      "type": "row"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 21,
+      "panels": [],
+      "title": "Geographic Insights",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "rootsmagic"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 14,
+        "x": 0,
+        "y": 2
+      },
+      "id": 11,
+      "options": {
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showDebug": true,
+          "showMeasure": true,
+          "showScale": true,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "fixed": "dark-green"
+                },
+                "opacity": 0.4,
+                "rotation": {
+                  "fixed": 0,
+                  "max": 360,
+                  "min": -360,
+                  "mode": "mod"
+                },
+                "size": {
+                  "fixed": 5,
+                  "max": 15,
+                  "min": 2
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                },
+                "symbolAlign": {
+                  "horizontal": "center",
+                  "vertical": "center"
+                },
+                "textConfig": {
+                  "fontSize": 12,
+                  "offsetX": 0,
+                  "offsetY": 0,
+                  "textAlign": "center",
+                  "textBaseline": "middle"
+                }
+              }
+            },
+            "location": {
+              "latitude": "latitude",
+              "longitude": "longitude",
+              "mode": "coords"
+            },
+            "name": "Layer 1",
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "allLayers": true,
+          "id": "coords",
+          "lat": 40,
+          "lon": -100,
+          "noRepeat": false,
+          "zoom": 4
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "queryText": "SELECT pl.Name as place_name, CAST(pl.Latitude AS REAL) / 10000000.0 as latitude, CAST(pl.Longitude AS REAL) / 10000000.0 as longitude, COUNT(*) as event_count FROM EventTable e JOIN PlaceTable pl ON e.PlaceID = pl.PlaceID JOIN NameTable n ON e.OwnerID = n.OwnerID WHERE e.EventType = 1 AND pl.Latitude != 0 AND n.IsPrimary = 1 AND ('$surname' = 'All' OR n.Surname = '$surname') GROUP BY pl.PlaceID",
+          "queryType": "table",
+          "rawQueryText": "SELECT pl.Name as place_name, CAST(pl.Latitude AS REAL) / 10000000.0 as latitude, CAST(pl.Longitude AS REAL) / 10000000.0 as longitude, COUNT(*) as event_count FROM EventTable e JOIN PlaceTable pl ON e.PlaceID = pl.PlaceID JOIN NameTable n ON e.OwnerID = n.OwnerID WHERE e.EventType = 1 AND pl.Latitude != 0 AND n.IsPrimary = 1 AND ('$surname' = 'All' OR n.Surname = '$surname') GROUP BY pl.PlaceID",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "Birthplace Heatmap",
+      "transformations": [
+        {
+          "id": "convertFieldType",
+          "options": {
+            "fields": {
+              "event_count": "number",
+              "latitude": "number",
+              "longitude": "number"
+            }
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "geomap"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "rootsmagic"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 10,
+        "x": 14,
+        "y": 2
+      },
+      "id": 12,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "queryText": "SELECT pl.Name as place_name, COUNT(*) as count FROM EventTable e JOIN PlaceTable pl ON e.PlaceID = pl.PlaceID JOIN NameTable n ON e.OwnerID = n.OwnerID WHERE e.EventType = 1 AND pl.Name != '' AND n.IsPrimary = 1 AND ('$surname' = 'All' OR n.Surname = '$surname') GROUP BY pl.Name ORDER BY count DESC LIMIT 20",
+          "queryType": "table",
+          "rawQueryText": "SELECT pl.Name as place_name, COUNT(*) as count FROM EventTable e JOIN PlaceTable pl ON e.PlaceID = pl.PlaceID JOIN NameTable n ON e.OwnerID = n.OwnerID WHERE e.EventType = 1 AND pl.Name != '' AND n.IsPrimary = 1 AND ('$surname' = 'All' OR n.Surname = '$surname') GROUP BY pl.Name ORDER BY count DESC LIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "title": "Top Birth Places",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "id": 22,
+      "panels": [],
+      "title": "Demographics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "rootsmagic"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "queryText": "SELECT CAST(SUBSTR(e.Date, 1, 4) AS INTEGER) as birth_year, COUNT(*) as count FROM EventTable e JOIN NameTable n ON e.OwnerID = n.OwnerID WHERE e.EventType = 1 AND e.Date != '' AND CAST(SUBSTR(e.Date, 1, 4) AS INTEGER) BETWEEN 1700 AND 2024 AND n.IsPrimary = 1 AND ('$surname' = 'All' OR n.Surname = '$surname') GROUP BY birth_year ORDER BY birth_year",
+          "queryType": "table",
+          "rawQueryText": "SELECT CAST(SUBSTR(e.Date, 1, 4) AS INTEGER) as birth_year, COUNT(*) as count FROM EventTable e JOIN NameTable n ON e.OwnerID = n.OwnerID WHERE e.EventType = 1 AND e.Date != '' AND CAST(SUBSTR(e.Date, 1, 4) AS INTEGER) BETWEEN 1700 AND 2024 AND n.IsPrimary = 1 AND ('$surname' = 'All' OR n.Surname = '$surname') GROUP BY birth_year ORDER BY birth_year",
+          "refId": "A"
+        }
+      ],
+      "title": "Birth Year Distribution",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 42,
+  "tags": [
+    "genealogy",
+    "rootsmagic"
+  ],
+  "templating": {
+    "list": [
+      {
+        "allValue": "All",
+        "current": {
+          "text": "All",
+          "value": "All"
+        },
+        "datasource": {
+          "type": "frser-sqlite-datasource",
+          "uid": "rootsmagic"
+        },
+        "definition": "SELECT DISTINCT Surname FROM NameTable WHERE Surname != '' ORDER BY COUNT(*) DESC LIMIT 100",
+        "includeAll": true,
+        "label": "Surname",
+        "name": "surname",
+        "options": [],
+        "query": "SELECT DISTINCT Surname FROM NameTable WHERE Surname != '' GROUP BY Surname ORDER BY COUNT(*) DESC LIMIT 100",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Genealogy Overview",
+  "uid": "genealogy-overview",
+  "version": 1
+}

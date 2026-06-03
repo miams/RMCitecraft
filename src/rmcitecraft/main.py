@@ -16,6 +16,7 @@ from rmcitecraft.ui.tabs.batch_processing import BatchProcessingTab
 from rmcitecraft.ui.tabs.census_batch_transcription import CensusBatchTranscriptionTab
 from rmcitecraft.ui.tabs.census_extraction_viewer import CensusExtractionViewerTab
 from rmcitecraft.ui.tabs.citation_manager import CitationManagerTab
+from rmcitecraft.ui.tabs.draft_processing import DraftProcessingTab
 from rmcitecraft.ui.tabs.findagrave_batch import FindAGraveBatchTab
 
 
@@ -148,6 +149,10 @@ def setup_app() -> None:
                             "Census Extractions",
                             on_click=lambda: (show_census_extraction_viewer(), update_view("Census Extractions", "census_extractions")),
                         ).props("icon=folder_open")
+                        ui.menu_item(
+                            "WW II Draft Registration Processing",
+                            on_click=lambda: (show_draft_processing(), update_view("WW II Draft Processing", "draft_processing")),
+                        ).props("icon=military_tech")
 
                 # App title (clickable to go home)
                 ui.button(
@@ -442,8 +447,18 @@ def setup_app() -> None:
                             ui.badge("Edit", color="teal").props("outline").classes("text-xs")
                             ui.badge("Quality", color="teal").props("outline").classes("text-xs")
 
-                    # Spacer to balance the row
-                    ui.element("div").classes("flex-1")
+                    # Card 6: WW II Draft Registration Processing
+                    with ui.card().classes(
+                        "flex-1 p-4 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-blue-500"
+                    ).on("click", lambda: (show_draft_processing(), update_view("WW II Draft Processing", "draft_processing"))):
+                        with ui.row().classes("items-center gap-2 mb-2"):
+                            ui.icon("military_tech", size="md").classes("text-blue-600")
+                            ui.label("WW II Draft Registration").classes("font-bold text-blue-800")
+                        ui.label("Import WW II draft registration records from CSV/XLSX files").classes("text-xs text-gray-600")
+                        with ui.row().classes("mt-2 gap-1 flex-wrap"):
+                            ui.badge("WW2", color="blue").props("outline").classes("text-xs")
+                            ui.badge("Citations", color="blue").props("outline").classes("text-xs")
+                            ui.badge("Batch", color="blue").props("outline").classes("text-xs")
 
                 # Quick Stats Row
                 with ui.card().classes("w-full max-w-6xl p-3 bg-gray-50"):
@@ -535,6 +550,13 @@ def setup_app() -> None:
             with view_container:
                 census_viewer = CensusExtractionViewerTab()
                 census_viewer.render()
+
+        def show_draft_processing() -> None:
+            """Show draft registration processing view."""
+            view_container.clear()
+            with view_container:
+                draft_processing = DraftProcessingTab()
+                draft_processing.render()
 
         # Show home by default
         show_home()

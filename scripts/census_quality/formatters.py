@@ -168,7 +168,9 @@ def format_text_output(result: dict, detailed: bool = False) -> str:
 
         lines.append(f"  Directory files:       {on_disk} on disk, {linked} linked in database")
 
-        if missing == 0 and orphaned == 0:
+        incomplete = mfc.get("incomplete_links", 0)
+
+        if missing == 0 and orphaned == 0 and incomplete == 0:
             lines.append(f"  Validation:            {status_icon(True)} All files verified")
         else:
             issues = []
@@ -176,6 +178,8 @@ def format_text_output(result: dict, detailed: bool = False) -> str:
                 issues.append(f"{missing} missing")
             if orphaned:
                 issues.append(f"{orphaned} orphaned")
+            if incomplete:
+                issues.append(f"{incomplete} incomplete links")
             lines.append(f"  Validation:            {status_icon(False)} {', '.join(issues)}")
 
     # Issue breakdown section (only if there are issues)

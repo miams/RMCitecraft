@@ -1718,7 +1718,7 @@ class FamilySearchCensusExtractor:
         # Step 2: Navigate to detail view if we're on a person ARK page
         if on_person_page:
             logger.info("Now navigating to detail view for additional fields...")
-            navigated = await self._navigate_to_detail_view(page)
+            navigated = await self._navigate_to_detail_view(page, census_year)
             if navigated:
                 logger.info("Successfully navigated to detail view")
             else:
@@ -2646,7 +2646,7 @@ class FamilySearchCensusExtractor:
             logger.warning(f"Family member ARK extraction failed: {e}")
             return family_members
 
-    async def _navigate_to_detail_view(self, page: Page) -> bool:
+    async def _navigate_to_detail_view(self, page: Page, census_year: int | None = None) -> bool:
         """Navigate to the detail view page by clicking 'View Original Document' button.
 
         FamilySearch displays census data on two pages:
@@ -2687,8 +2687,9 @@ class FamilySearchCensusExtractor:
                     # Verify we're on the detail page (URL contains view=index or 3:1:)
                     if "view=index" in page.url or "3:1:" in page.url:
                         logger.info(f"Successfully navigated to detail view: {page.url}")
-                        # Click NAMES tab to reveal index panel (required for 1840 census)
-                        await self._click_names_tab(page)
+                        # Click NAMES tab to reveal index panel (required for 1820-1840 census)
+                        # For 1790-1810 census, skip NAMES click (metadata in person panel)
+                        await self._click_names_tab(page, census_year)
                         return True
                     else:
                         logger.debug(f"URL after click: {page.url}")
@@ -2700,16 +2701,26 @@ class FamilySearchCensusExtractor:
             logger.warning(f"Failed to navigate to detail view: {e}")
             return False
 
-    async def _click_names_tab(self, page: Page) -> None:
+    async def _click_names_tab(self, page: Page, census_year: int | None = None) -> None:
         """Click NAMES tab to reveal the index panel with census data.
 
         On FamilySearch detail pages (3:1 ARK), the census data may be hidden
-        until the NAMES tab is clicked. This is especially important for
-        pre-1850 censuses (1790-1840) where the person page data is unreliable.
+        until the NAMES tab is clicked. This is required for 1820-1840 censuses.
+
+        For 1790-1810 censuses, the metadata is in the person panel which is
+        already open when navigating with personArk parameter - clicking NAMES
+        tab would hide this panel, so we skip it for those years.
 
         Args:
             page: Playwright Page object
+            census_year: Census year for year-specific behavior
         """
+        # For 1790-1810 census, DO NOT click NAMES tab
+        # The metadata is in the person panel which is already visible
+        if census_year is not None and census_year < 1820:
+            logger.info(f"{census_year} census: SKIPPING NAMES tab click (metadata in person panel)")
+            return
+
         try:
             names_tab = page.locator('text=NAMES').first
             if await names_tab.count() > 0:

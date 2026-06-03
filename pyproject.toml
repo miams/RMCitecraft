@@ -34,6 +34,10 @@ dependencies = [
     "watchdog>=3.0.0",
     # Logging
     "loguru>=0.7.0",
+    # Terminal UI
+    "rich>=13.0.0",
+    # File Processing
+    "openpyxl>=3.0.0",
     # macOS Integration
     "pywebview>=4.0.0",
     "pyobjc-core>=10.0",
@@ -44,6 +48,8 @@ dependencies = [
 
 [project.scripts]
 rmcitecraft = "rmcitecraft.__main__:main"
+analyze-drafts = "rmcitecraft.cli.analyze_draft_registrations:main"
+analyze-draft-spreadsheet = "rmcitecraft.cli.analyze_draft_spreadsheet:main"
 
 [project.optional-dependencies]
 dev = [
