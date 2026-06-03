@@ -24,7 +24,7 @@ SKILL_FILES = [
     "scripts/fix_1930_missing_line.py",
     "scripts/fix_1930_bibliography_comma.py",
 ]
-SKILL_MD = "scripts/skills/census-quality-check/SKILL.md"
+SKILL_MD = "docs/misc/SKILL.md"
 
 
 def get_project_root() -> Path:
